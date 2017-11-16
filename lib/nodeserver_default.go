@@ -1,0 +1,67 @@
+/*
+Copyright 2017 The Kubernetes Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package lib
+
+import (
+	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/golang/glog"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+type NodeServerDefaults struct {
+	Driver *CSIDriver
+}
+
+func (ns *NodeServerDefaults) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
+}
+
+func (ns *NodeServerDefaults) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
+}
+
+func (ns *NodeServerDefaults) GetNodeID(ctx context.Context, req *csi.GetNodeIDRequest) (*csi.GetNodeIDResponse, error) {
+	glog.V(5).Infof("Using default GetNodeID")
+
+	if err := ns.Driver.ValidateRequest(req.GetVersion(), csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
+		return nil, err
+	}
+
+	return &csi.GetNodeIDResponse{
+		NodeId: ns.Driver.nodeID,
+	}, nil
+}
+
+func (ns *NodeServerDefaults) NodeProbe(ctx context.Context, req *csi.NodeProbeRequest) (*csi.NodeProbeResponse, error) {
+	glog.V(5).Infof("Using default NodeProbe")
+
+	if err := ns.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
+		return nil, err
+	}
+	return &csi.NodeProbeResponse{}, nil
+}
+
+func (ns *NodeServerDefaults) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+	glog.V(5).Infof("Using default NodeGetCapabilities")
+
+	if err := ns.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
+		return nil, err
+	}
+	return &csi.NodeGetCapabilitiesResponse{}, nil
+}
