@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package flexadapter
 
 import (
 	"github.com/kubernetes-csi/drivers/lib"
 )
 
 type identityServer struct {
-	lib.IdentityServerDefaults
+	*lib.IdentityServerDefaults
 }

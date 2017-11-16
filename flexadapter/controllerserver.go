@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package flexadapter
 
 import (
 	"fmt"
@@ -29,12 +29,10 @@ import (
 
 const (
 	deviceID = "deviceID"
-	fsType   = "fsType"
 )
 
 type controllerServer struct {
-	lib.ControllerServerDefaults
-	driver *lib.CSIDriver
+	*lib.ControllerServerDefaults
 }
 
 func GetVersionString(ver *csi.Version) string {
@@ -42,11 +40,12 @@ func GetVersionString(ver *csi.Version) string {
 }
 
 func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	if err := cs.driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME); err != nil {
+	if err := cs.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME); err != nil {
 		return nil, err
 	}
 
-	call := adapter.flexDriver.NewDriverCall(attachCmd)
+	call := GetFlexAdapter().flexDriver.NewDriverCall(attachCmd)
+
 	fsType := req.GetVolumeCapability().GetMount().FsType
 	call.AppendSpec(req.GetVolumeId(), fsType, req.GetReadonly(), req.GetVolumeAttributes())
 	call.Append(req.GetNodeId())
@@ -72,7 +71,7 @@ func (cs *controllerServer) ControllerUnpublishVolume(ctx context.Context, req *
 		return nil, err
 	}
 
-	call := adapter.flexDriver.NewDriverCall(detachCmd)
+	call := GetFlexAdapter().flexDriver.NewDriverCall(detachCmd)
 	call.Append(req.GetVolumeId())
 	call.Append(req.GetNodeId())
 

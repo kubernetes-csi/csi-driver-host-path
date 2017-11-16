@@ -24,7 +24,7 @@ $ csc identity supportedversions --endpoint tcp://127.0.0.1:10000
 
 #### NodePublish a volume
 ```
-$ csc node publishvolume --endpoint tcp://127.0.0.1:10000 --target-path /mnt/nfs --attrib server=a.b.c.d --attrib share=/nfs_share nfstestvol
+$ csc node publishvolume --endpoint tcp://127.0.0.1:10000 --target-path /mnt/nfs --attrib server=a.b.c.d --attrib share=nfs_share nfstestvol
 nfstestvol
 ```
 

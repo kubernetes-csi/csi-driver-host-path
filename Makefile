@@ -18,8 +18,8 @@ all: flexadapter
 
 flexadapter:
 	if [ ! -d ./vendor ]; then dep ensure; fi
-	go build -o _output/flexadapter ./flexadapter/
+	go build -o _output/flexadapter ./flexadapter/app
 
 clean:
-	go clean -v
+	go clean -r -x
 	-rm -rf _output

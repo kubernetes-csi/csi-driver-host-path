@@ -20,36 +20,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 
-	"github.com/kubernetes-csi/drivers/lib"
+	"github.com/kubernetes-csi/drivers/flexadapter"
 )
 
-type flexAdapter struct {
-	driver *lib.CSIDriver
-
-	flexDriver *flexVolumeDriver
-
-	cap   []*csi.VolumeCapability_AccessMode
-	cscap []*csi.ControllerServiceCapability
-}
-
 var (
-	adapter    flexAdapter
 	endpoint   string
 	driverName string
 	driverPath string
 	nodeID     string
-	version    = csi.Version{
-		Minor: 1,
-	}
 )
-
-func GetSupportedVersions() []*csi.Version {
-	return []*csi.Version{&version}
-}
 
 func main() {
 	cmd := &cobra.Command{
@@ -81,35 +62,6 @@ func main() {
 }
 
 func handle() {
-
-	var err error
-
-	adapter.flexDriver, err = NewFlexVolumeDriver(driverPath)
-	if err != nil {
-		glog.Fatalf("Failed to initialize flex volume driver, error: %v", err.Error())
-	}
-
-	glog.Infof("Driver: %v version: %v", driverName, GetVersionString(&version))
-
-	adapter.driver = lib.NewCSIDriver(driverName, &version, GetSupportedVersions(), nodeID)
-	ids := &identityServer{
-		IdentityServerDefaults: lib.IdentityServerDefaults{
-			Driver: adapter.driver,
-		}}
-	ns := &nodeServer{
-		NodeServerDefaults: lib.NodeServerDefaults{
-			Driver: adapter.driver,
-		},
-	}
-	cs := &controllerServer{
-		ControllerServerDefaults: lib.ControllerServerDefaults{
-			Driver: adapter.driver,
-		}}
-
-	if adapter.flexDriver.capabilities.Attach {
-		adapter.driver.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME})
-	}
-	adapter.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER})
-
-	lib.Serve(endpoint, ids, cs, ns)
+	adapter := flexadapter.GetFlexAdapter()
+	adapter.Run(driverName, driverPath, nodeID, endpoint)
 }

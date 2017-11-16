@@ -85,16 +85,6 @@ func (cs *ControllerServerDefaults) ControllerProbe(ctx context.Context, req *cs
 	return &csi.ControllerProbeResponse{}, nil
 }
 
-func NewControllerServiceCapability(cap csi.ControllerServiceCapability_RPC_Type) *csi.ControllerServiceCapability {
-	return &csi.ControllerServiceCapability{
-		&csi.ControllerServiceCapability_Rpc{
-			&csi.ControllerServiceCapability_RPC{
-				cap,
-			},
-		},
-	}
-}
-
 // ControllerGetCapabilities implements the default GRPC callout.
 // Default supports all capabilities
 func (cs *ControllerServerDefaults) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package flexadapter
 
 import (
 	"os"
@@ -30,8 +30,7 @@ import (
 )
 
 type nodeServer struct {
-	driver *lib.CSIDriver
-	lib.NodeServerDefaults
+	*lib.NodeServerDefaults
 }
 
 func mountDevice(devicePath, targetPath, fsType string, readOnly bool, mountOptions []string) error {
@@ -70,7 +69,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
-	call := adapter.flexDriver.NewDriverCall(mountCmd)
+	call := GetFlexAdapter().flexDriver.NewDriverCall(mountCmd)
 	call.Append(req.GetTargetPath())
 
 	if req.GetPublishVolumeInfo() != nil {
@@ -98,7 +97,7 @@ func unmountDevice(path string) error {
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 
-	call := adapter.flexDriver.NewDriverCall(unmountCmd)
+	call := GetFlexAdapter().flexDriver.NewDriverCall(unmountCmd)
 	call.Append(req.GetTargetPath())
 
 	_, err := call.Run()

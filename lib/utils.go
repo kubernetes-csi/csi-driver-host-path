@@ -56,3 +56,31 @@ func GetVersionFromString(v string) (*csi.Version, error) {
 func NewVolumeCapabilityAccessMode(mode csi.VolumeCapability_AccessMode_Mode) *csi.VolumeCapability_AccessMode {
 	return &csi.VolumeCapability_AccessMode{mode}
 }
+
+func NewDefaultNodeServer(d *CSIDriver) *NodeServerDefaults {
+	return &NodeServerDefaults{
+		Driver: d,
+	}
+}
+
+func NewDefaultIdentityServer(d *CSIDriver) *IdentityServerDefaults {
+	return &IdentityServerDefaults{
+		Driver: d,
+	}
+}
+
+func NewDefaultControllerServer(d *CSIDriver) *ControllerServerDefaults {
+	return &ControllerServerDefaults{
+		Driver: d,
+	}
+}
+
+func NewControllerServiceCapability(cap csi.ControllerServiceCapability_RPC_Type) *csi.ControllerServiceCapability {
+	return &csi.ControllerServiceCapability{
+		&csi.ControllerServiceCapability_Rpc{
+			&csi.ControllerServiceCapability_RPC{
+				cap,
+			},
+		},
+	}
+}

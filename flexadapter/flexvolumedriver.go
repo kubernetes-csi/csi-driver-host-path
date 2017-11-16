@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package flexadapter
 
 import (
 	"sync"
@@ -51,15 +51,11 @@ func (d *flexVolumeDriver) unsupported(commands ...string) {
 	d.unsupportedCommands = append(d.unsupportedCommands, commands...)
 }
 
-//func UnescapePluginName(in string) string {
-//	return strings.Replace(in, "~", "/", -1)
-//}
-
-func NewFlexVolumeDriver(pluginPath string) (*flexVolumeDriver, error) {
+func NewFlexVolumeDriver(driverName, driverPath string) (*flexVolumeDriver, error) {
 
 	flexDriver := &flexVolumeDriver{
 		driverName: driverName,
-		execPath:   pluginPath,
+		execPath:   driverPath,
 	}
 
 	adapter.flexDriver = flexDriver
