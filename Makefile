@@ -14,15 +14,16 @@
 
 .PHONY: all flexadapter nfs clean
 
-all: flexadapter nfs
+all: flexadapter nfs hostpath
 
 flexadapter:
 	if [ ! -d ./vendor ]; then dep ensure; fi
 	go build -o _output/flexadapter ./flexadapter/app
-
 nfs:
 	if [ ! -d ./vendor ]; then dep ensure; fi
 	go build -o _output/nfsdriver ./nfs/app
+hostpath:
+	go build -i -o _output/hostpath ./hostpath/app
 
 clean:
 	go clean -r -x
