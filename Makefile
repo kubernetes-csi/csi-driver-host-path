@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: all flexadapter clean
+.PHONY: all flexadapter nfs clean
 
-all: flexadapter
+all: flexadapter nfs
 
 flexadapter:
 	if [ ! -d ./vendor ]; then dep ensure; fi
 	go build -o _output/flexadapter ./flexadapter/app
+
+nfs:
+	if [ ! -d ./vendor ]; then dep ensure; fi
+	go build -o _output/nfsdriver ./nfs/app
 
 clean:
 	go clean -r -x
