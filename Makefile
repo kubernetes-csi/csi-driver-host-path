@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: all flexadapter nfs clean
+.PHONY: all flexadapter nfs hostpath clean
 
 all: flexadapter nfs hostpath
 
@@ -23,6 +23,7 @@ nfs:
 	if [ ! -d ./vendor ]; then dep ensure; fi
 	go build -o _output/nfsdriver ./nfs/app
 hostpath:
+	if [ ! -d ./vendor ]; then dep ensure; fi
 	go build -i -o _output/hostpath ./hostpath/app
 
 clean:
