@@ -18,6 +18,7 @@ package hostpath
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/golang/glog"
 	"github.com/pborman/uuid"
@@ -28,7 +29,8 @@ import (
 )
 
 const (
-	deviceID = "deviceID"
+	deviceID      = "deviceID"
+	provisionRoot = "/tmp/"
 )
 
 type controllerServer struct {
@@ -45,7 +47,13 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, err
 	}
 	volumeId := uuid.NewUUID().String()
-	glog.V(4).Infof("create volume")
+	path := provisionRoot + volumeId
+	err := os.MkdirAll(path, 0777)
+	if err != nil {
+		glog.V(3).Infof("failed to create volume: %v", err)
+		return nil, err
+	}
+	glog.V(4).Infof("create volume %s", path)
 	return &csi.CreateVolumeResponse{
 		VolumeInfo: &csi.VolumeInfo{
 			Id: volumeId,
@@ -58,6 +66,10 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		glog.V(3).Infof("invalid delete volume req: %v", req)
 		return nil, err
 	}
+	volumeId := req.VolumeId
+	glog.V(4).Infof("deleting volume %s", volumeId)
+	path := provisionRoot + volumeId
+	os.RemoveAll(path)
 
 	return &csi.DeleteVolumeResponse{}, nil
 }
