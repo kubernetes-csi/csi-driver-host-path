@@ -22,11 +22,11 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/glog"
 
-	"github.com/kubernetes-csi/drivers/lib"
+	"github.com/kubernetes-csi/drivers/csi-common"
 )
 
 type nfsDriver struct {
-	csiDriver *lib.CSIDriver
+	csiDriver *csi_common.CSIDriver
 
 	ids *identityServer
 	ns  *nodeServer
@@ -59,30 +59,30 @@ func GetNFSDriver() *nfsDriver {
 	return driver
 }
 
-func NewIdentityServer(d *lib.CSIDriver) *identityServer {
+func NewIdentityServer(d *csi_common.CSIDriver) *identityServer {
 	return &identityServer{
-		IdentityServerDefaults: lib.NewDefaultIdentityServer(d),
+		DefaultIdentityServer: csi_common.NewDefaultIdentityServer(d),
 	}
 }
 
-func NewControllerServer(d *lib.CSIDriver) *controllerServer {
+func NewControllerServer(d *csi_common.CSIDriver) *controllerServer {
 	return &controllerServer{
-		ControllerServerDefaults: lib.NewDefaultControllerServer(d),
+		DefaultControllerServer: csi_common.NewDefaultControllerServer(d),
 	}
 }
 
-func NewNodeServer(d *lib.CSIDriver) *nodeServer {
+func NewNodeServer(d *csi_common.CSIDriver) *nodeServer {
 	return &nodeServer{
-		NodeServerDefaults: lib.NewDefaultNodeServer(d),
+		DefaultNodeServer: csi_common.NewDefaultNodeServer(d),
 	}
 }
 
 func (f *nfsDriver) Run(driverPath, nodeID, endpoint string) {
 
-	glog.Infof("Driver: %v version: %v", driverName, lib.GetVersionString(&version))
+	glog.Infof("Driver: %v version: %v", driverName, csi_common.GetVersionString(&version))
 
 	// Initialize default library driver
-	driver.csiDriver = lib.NewCSIDriver(driverName, &version, GetSupportedVersions(), nodeID)
+	driver.csiDriver = csi_common.NewCSIDriver(driverName, &version, GetSupportedVersions(), nodeID)
 	driver.csiDriver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER})
 
 	// Create GRPC servers
@@ -90,5 +90,5 @@ func (f *nfsDriver) Run(driverPath, nodeID, endpoint string) {
 	f.ns = NewNodeServer(driver.csiDriver)
 	f.cs = NewControllerServer(driver.csiDriver)
 
-	lib.Serve(endpoint, f.ids, f.cs, f.ns)
+	csi_common.Serve(endpoint, f.ids, f.cs, f.ns)
 }

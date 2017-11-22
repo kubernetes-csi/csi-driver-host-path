@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lib
+package csi_common
 
 import (
 	"fmt"
@@ -57,20 +57,20 @@ func NewVolumeCapabilityAccessMode(mode csi.VolumeCapability_AccessMode_Mode) *c
 	return &csi.VolumeCapability_AccessMode{mode}
 }
 
-func NewDefaultNodeServer(d *CSIDriver) *NodeServerDefaults {
-	return &NodeServerDefaults{
+func NewDefaultNodeServer(d *CSIDriver) *DefaultNodeServer {
+	return &DefaultNodeServer{
 		Driver: d,
 	}
 }
 
-func NewDefaultIdentityServer(d *CSIDriver) *IdentityServerDefaults {
-	return &IdentityServerDefaults{
+func NewDefaultIdentityServer(d *CSIDriver) *DefaultIdentityServer {
+	return &DefaultIdentityServer{
 		Driver: d,
 	}
 }
 
-func NewDefaultControllerServer(d *CSIDriver) *ControllerServerDefaults {
-	return &ControllerServerDefaults{
+func NewDefaultControllerServer(d *CSIDriver) *DefaultControllerServer {
+	return &DefaultControllerServer{
 		Driver: d,
 	}
 }

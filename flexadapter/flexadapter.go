@@ -23,11 +23,11 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/glog"
 
-	"github.com/kubernetes-csi/drivers/lib"
+	"github.com/kubernetes-csi/drivers/csi-common"
 )
 
 type flexAdapter struct {
-	driver *lib.CSIDriver
+	driver *csi_common.CSIDriver
 
 	flexDriver *flexVolumeDriver
 
@@ -58,21 +58,21 @@ func GetFlexAdapter() *flexAdapter {
 	return adapter
 }
 
-func NewIdentityServer(d *lib.CSIDriver) *identityServer {
+func NewIdentityServer(d *csi_common.CSIDriver) *identityServer {
 	return &identityServer{
-		IdentityServerDefaults: lib.NewDefaultIdentityServer(d),
+		DefaultIdentityServer: csi_common.NewDefaultIdentityServer(d),
 	}
 }
 
-func NewControllerServer(d *lib.CSIDriver) *controllerServer {
+func NewControllerServer(d *csi_common.CSIDriver) *controllerServer {
 	return &controllerServer{
-		ControllerServerDefaults: lib.NewDefaultControllerServer(d),
+		DefaultControllerServer: csi_common.NewDefaultControllerServer(d),
 	}
 }
 
-func NewNodeServer(d *lib.CSIDriver) *nodeServer {
+func NewNodeServer(d *csi_common.CSIDriver) *nodeServer {
 	return &nodeServer{
-		NodeServerDefaults: lib.NewDefaultNodeServer(d),
+		DefaultNodeServer: csi_common.NewDefaultNodeServer(d),
 	}
 }
 
@@ -89,7 +89,7 @@ func (f *flexAdapter) Run(driverName, driverPath, nodeID, endpoint string) {
 	}
 
 	// Initialize default library driver
-	adapter.driver = lib.NewCSIDriver(driverName, &version, GetSupportedVersions(), nodeID)
+	adapter.driver = csi_common.NewCSIDriver(driverName, &version, GetSupportedVersions(), nodeID)
 	if adapter.flexDriver.capabilities.Attach {
 		adapter.driver.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME})
 	}
@@ -100,5 +100,5 @@ func (f *flexAdapter) Run(driverName, driverPath, nodeID, endpoint string) {
 	f.ns = NewNodeServer(adapter.driver)
 	f.cs = NewControllerServer(adapter.driver)
 
-	lib.Serve(endpoint, f.ids, f.cs, f.ns)
+	csi_common.Serve(endpoint, f.ids, f.cs, f.ns)
 }

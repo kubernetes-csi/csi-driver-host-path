@@ -17,9 +17,9 @@ limitations under the License.
 package nfs
 
 import (
-	"github.com/kubernetes-csi/drivers/lib"
+	"github.com/kubernetes-csi/drivers/csi-common"
 )
 
 type identityServer struct {
-	*lib.IdentityServerDefaults
+	*csi_common.DefaultIdentityServer
 }

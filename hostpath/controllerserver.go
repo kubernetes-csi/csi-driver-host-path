@@ -25,7 +25,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/kubernetes-csi/drivers/lib"
+	"github.com/kubernetes-csi/drivers/csi-common"
 )
 
 const (
@@ -34,7 +34,7 @@ const (
 )
 
 type controllerServer struct {
-	*lib.ControllerServerDefaults
+	*csi_common.DefaultControllerServer
 }
 
 func GetVersionString(ver *csi.Version) string {

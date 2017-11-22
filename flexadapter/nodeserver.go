@@ -26,11 +26,11 @@ import (
 	"k8s.io/kubernetes/pkg/util/mount"
 	"k8s.io/kubernetes/pkg/volume/util"
 
-	"github.com/kubernetes-csi/drivers/lib"
+	"github.com/kubernetes-csi/drivers/csi-common"
 )
 
 type nodeServer struct {
-	*lib.NodeServerDefaults
+	*csi_common.DefaultNodeServer
 }
 
 func mountDevice(devicePath, targetPath, fsType string, readOnly bool, mountOptions []string) error {

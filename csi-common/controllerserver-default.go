@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lib
+package csi_common
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -24,27 +24,27 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type ControllerServerDefaults struct {
+type DefaultControllerServer struct {
 	Driver *CSIDriver
 }
 
-func (cs *ControllerServerDefaults) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+func (cs *DefaultControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (cs *ControllerServerDefaults) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+func (cs *DefaultControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (cs *ControllerServerDefaults) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+func (cs *DefaultControllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (cs *ControllerServerDefaults) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+func (cs *DefaultControllerServer) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (cs *ControllerServerDefaults) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+func (cs *DefaultControllerServer) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	glog.V(5).Infof("Using default ValidateVolumeCapabilities")
 
 	for _, c := range req.GetVolumeCapabilities() {
@@ -68,15 +68,15 @@ func (cs *ControllerServerDefaults) ValidateVolumeCapabilities(ctx context.Conte
 	}, nil
 }
 
-func (cs *ControllerServerDefaults) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+func (cs *DefaultControllerServer) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (cs *ControllerServerDefaults) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+func (cs *DefaultControllerServer) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (cs *ControllerServerDefaults) ControllerProbe(ctx context.Context, req *csi.ControllerProbeRequest) (*csi.ControllerProbeResponse, error) {
+func (cs *DefaultControllerServer) ControllerProbe(ctx context.Context, req *csi.ControllerProbeRequest) (*csi.ControllerProbeResponse, error) {
 	glog.V(5).Infof("Using default ControllerProbe")
 
 	if err := cs.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
@@ -87,7 +87,7 @@ func (cs *ControllerServerDefaults) ControllerProbe(ctx context.Context, req *cs
 
 // ControllerGetCapabilities implements the default GRPC callout.
 // Default supports all capabilities
-func (cs *ControllerServerDefaults) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
+func (cs *DefaultControllerServer) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
 	glog.V(5).Infof("Using default ControllerGetCapabilities")
 
 	return &csi.ControllerGetCapabilitiesResponse{

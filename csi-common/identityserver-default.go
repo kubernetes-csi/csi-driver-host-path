@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lib
+package csi_common
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -24,20 +24,20 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type IdentityServerDefaults struct {
+type DefaultIdentityServer struct {
 	Driver *CSIDriver
 }
 
 //GetSupportedVersions(context.Context, *GetSupportedVersionsRequest) (*GetSupportedVersionsResponse, error)
 //GetPluginInfo(context.Context, *GetPluginInfoRequest) (*GetPluginInfoResponse, error)
-func (ids *IdentityServerDefaults) GetSupportedVersions(ctx context.Context, req *csi.GetSupportedVersionsRequest) (*csi.GetSupportedVersionsResponse, error) {
+func (ids *DefaultIdentityServer) GetSupportedVersions(ctx context.Context, req *csi.GetSupportedVersionsRequest) (*csi.GetSupportedVersionsResponse, error) {
 	glog.V(5).Infof("Using default GetSupportedVersions")
 	return &csi.GetSupportedVersionsResponse{
 		SupportedVersions: ids.Driver.supVers,
 	}, nil
 }
 
-func (ids *IdentityServerDefaults) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
+func (ids *DefaultIdentityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
 	glog.V(5).Infof("Using default GetPluginInnfo")
 	if ids.Driver.name == "" {
 		return nil, status.Error(codes.Unavailable, "Driver name not configured")

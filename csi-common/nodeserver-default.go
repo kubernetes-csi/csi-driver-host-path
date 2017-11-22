@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lib
+package csi_common
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -24,19 +24,19 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type NodeServerDefaults struct {
+type DefaultNodeServer struct {
 	Driver *CSIDriver
 }
 
-func (ns *NodeServerDefaults) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (ns *DefaultNodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (ns *NodeServerDefaults) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (ns *DefaultNodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (ns *NodeServerDefaults) GetNodeID(ctx context.Context, req *csi.GetNodeIDRequest) (*csi.GetNodeIDResponse, error) {
+func (ns *DefaultNodeServer) GetNodeID(ctx context.Context, req *csi.GetNodeIDRequest) (*csi.GetNodeIDResponse, error) {
 	glog.V(5).Infof("Using default GetNodeID")
 
 	if err := ns.Driver.ValidateRequest(req.GetVersion(), csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
@@ -48,7 +48,7 @@ func (ns *NodeServerDefaults) GetNodeID(ctx context.Context, req *csi.GetNodeIDR
 	}, nil
 }
 
-func (ns *NodeServerDefaults) NodeProbe(ctx context.Context, req *csi.NodeProbeRequest) (*csi.NodeProbeResponse, error) {
+func (ns *DefaultNodeServer) NodeProbe(ctx context.Context, req *csi.NodeProbeRequest) (*csi.NodeProbeResponse, error) {
 	glog.V(5).Infof("Using default NodeProbe")
 
 	if err := ns.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
@@ -57,7 +57,7 @@ func (ns *NodeServerDefaults) NodeProbe(ctx context.Context, req *csi.NodeProbeR
 	return &csi.NodeProbeResponse{}, nil
 }
 
-func (ns *NodeServerDefaults) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+func (ns *DefaultNodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 	glog.V(5).Infof("Using default NodeGetCapabilities")
 
 	if err := ns.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
