@@ -30,7 +30,7 @@ import (
 )
 
 type nodeServer struct {
-	*csi_common.DefaultNodeServer
+	*csicommon.DefaultNodeServer
 }
 
 func mountDevice(devicePath, targetPath, fsType string, readOnly bool, mountOptions []string) error {

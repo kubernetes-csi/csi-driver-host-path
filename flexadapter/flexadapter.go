@@ -27,7 +27,7 @@ import (
 )
 
 type flexAdapter struct {
-	driver *csi_common.CSIDriver
+	driver *csicommon.CSIDriver
 
 	flexDriver *flexVolumeDriver
 
@@ -58,21 +58,21 @@ func GetFlexAdapter() *flexAdapter {
 	return adapter
 }
 
-func NewIdentityServer(d *csi_common.CSIDriver) *identityServer {
+func NewIdentityServer(d *csicommon.CSIDriver) *identityServer {
 	return &identityServer{
-		DefaultIdentityServer: csi_common.NewDefaultIdentityServer(d),
+		DefaultIdentityServer: csicommon.NewDefaultIdentityServer(d),
 	}
 }
 
-func NewControllerServer(d *csi_common.CSIDriver) *controllerServer {
+func NewControllerServer(d *csicommon.CSIDriver) *controllerServer {
 	return &controllerServer{
-		DefaultControllerServer: csi_common.NewDefaultControllerServer(d),
+		DefaultControllerServer: csicommon.NewDefaultControllerServer(d),
 	}
 }
 
-func NewNodeServer(d *csi_common.CSIDriver) *nodeServer {
+func NewNodeServer(d *csicommon.CSIDriver) *nodeServer {
 	return &nodeServer{
-		DefaultNodeServer: csi_common.NewDefaultNodeServer(d),
+		DefaultNodeServer: csicommon.NewDefaultNodeServer(d),
 	}
 }
 
@@ -89,7 +89,7 @@ func (f *flexAdapter) Run(driverName, driverPath, nodeID, endpoint string) {
 	}
 
 	// Initialize default library driver
-	adapter.driver = csi_common.NewCSIDriver(driverName, &version, GetSupportedVersions(), nodeID)
+	adapter.driver = csicommon.NewCSIDriver(driverName, &version, GetSupportedVersions(), nodeID)
 	if adapter.flexDriver.capabilities.Attach {
 		adapter.driver.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME})
 	}
@@ -100,5 +100,5 @@ func (f *flexAdapter) Run(driverName, driverPath, nodeID, endpoint string) {
 	f.ns = NewNodeServer(adapter.driver)
 	f.cs = NewControllerServer(adapter.driver)
 
-	csi_common.Serve(endpoint, f.ids, f.cs, f.ns)
+	csicommon.Serve(endpoint, f.ids, f.cs, f.ns)
 }

@@ -21,5 +21,5 @@ import (
 )
 
 type identityServer struct {
-	*csi_common.DefaultIdentityServer
+	*csicommon.DefaultIdentityServer
 }

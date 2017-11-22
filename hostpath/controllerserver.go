@@ -34,7 +34,7 @@ const (
 )
 
 type controllerServer struct {
-	*csi_common.DefaultControllerServer
+	*csicommon.DefaultControllerServer
 }
 
 func GetVersionString(ver *csi.Version) string {

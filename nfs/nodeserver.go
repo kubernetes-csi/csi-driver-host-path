@@ -32,7 +32,7 @@ import (
 )
 
 type nodeServer struct {
-	*csi_common.DefaultNodeServer
+	*csicommon.DefaultNodeServer
 }
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {

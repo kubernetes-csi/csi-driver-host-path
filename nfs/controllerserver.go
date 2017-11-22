@@ -21,5 +21,5 @@ import (
 )
 
 type controllerServer struct {
-	*csi_common.DefaultControllerServer
+	*csicommon.DefaultControllerServer
 }

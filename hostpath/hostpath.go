@@ -24,7 +24,7 @@ import (
 )
 
 type hostPath struct {
-	driver *csi_common.CSIDriver
+	driver *csicommon.CSIDriver
 
 	ids *identityServer
 	ns  *nodeServer
@@ -49,21 +49,21 @@ func GetHostPathDriver() *hostPath {
 	return &hostPath{}
 }
 
-func NewIdentityServer(d *csi_common.CSIDriver) *identityServer {
+func NewIdentityServer(d *csicommon.CSIDriver) *identityServer {
 	return &identityServer{
-		DefaultIdentityServer: csi_common.NewDefaultIdentityServer(d),
+		DefaultIdentityServer: csicommon.NewDefaultIdentityServer(d),
 	}
 }
 
-func NewControllerServer(d *csi_common.CSIDriver) *controllerServer {
+func NewControllerServer(d *csicommon.CSIDriver) *controllerServer {
 	return &controllerServer{
-		DefaultControllerServer: csi_common.NewDefaultControllerServer(d),
+		DefaultControllerServer: csicommon.NewDefaultControllerServer(d),
 	}
 }
 
-func NewNodeServer(d *csi_common.CSIDriver) *nodeServer {
+func NewNodeServer(d *csicommon.CSIDriver) *nodeServer {
 	return &nodeServer{
-		DefaultNodeServer: csi_common.NewDefaultNodeServer(d),
+		DefaultNodeServer: csicommon.NewDefaultNodeServer(d),
 	}
 }
 
@@ -71,7 +71,7 @@ func (hp *hostPath) Run(driverName, nodeID, endpoint string) {
 	glog.Infof("Driver: %v version: %v", driverName, GetVersionString(&version))
 
 	// Initialize default library driver
-	hp.driver = csi_common.NewCSIDriver(driverName, &version, GetSupportedVersions(), nodeID)
+	hp.driver = csicommon.NewCSIDriver(driverName, &version, GetSupportedVersions(), nodeID)
 	hp.driver.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME})
 	hp.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER})
 
@@ -80,5 +80,5 @@ func (hp *hostPath) Run(driverName, nodeID, endpoint string) {
 	hp.ns = NewNodeServer(hp.driver)
 	hp.cs = NewControllerServer(hp.driver)
 
-	csi_common.Serve(endpoint, hp.ids, hp.cs, hp.ns)
+	csicommon.Serve(endpoint, hp.ids, hp.cs, hp.ns)
 }
