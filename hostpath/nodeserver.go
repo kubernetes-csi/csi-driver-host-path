@@ -26,28 +26,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/kubernetes/pkg/util/mount"
-	"k8s.io/kubernetes/pkg/volume/util"
 
 	"github.com/kubernetes-csi/drivers/csi-common"
 )
 
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
-}
-
-func mountDevice(devicePath, targetPath, fsType string, readOnly bool, mountOptions []string) error {
-	var options []string
-
-	if readOnly {
-		options = append(options, "ro")
-	} else {
-		options = append(options, "rw")
-	}
-	options = append(options, mountOptions...)
-
-	diskMounter := &mount.SafeFormatAndMount{Interface: mount.New(""), Exec: mount.NewOsExec()}
-
-	return diskMounter.FormatAndMount(deviceID, targetPath, fsType, options)
 }
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
@@ -82,11 +66,18 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	glog.V(4).Infof("target %v\nfstype %v\ndevice %v\nreadonly %v\nattributes %v\n mountflags %v\n",
 		targetPath, fsType, deviceId, readOnly, volumeId, attrib, mountFlags)
-	return &csi.NodePublishVolumeResponse{}, nil
-}
 
-func unmountDevice(path string) error {
-	return util.UnmountPath(path, mount.New(""))
+	options := []string{"bind"}
+	if readOnly {
+		options = append(options, "ro")
+	}
+	mounter := mount.New("")
+	path := provisionRoot + volumeId
+	if err := mounter.Mount(path, targetPath, "", options); err != nil {
+		return nil, err
+	}
+
+	return &csi.NodePublishVolumeResponse{}, nil
 }
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
