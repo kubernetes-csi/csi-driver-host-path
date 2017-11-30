@@ -146,6 +146,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/pborman/uuid"
+  packages = ["."]
+  revision = "e790cca94e6cc75c7064b1332e63811d4aae1a53"
+  version = "v1.1"
+
+[[projects]]
   branch = "master"
   name = "github.com/petar/GoLLRB"
   packages = ["llrb"]
@@ -274,6 +280,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "28196cb034caa902fd3cf7f88fbe4b654fee78cd9bef7c1bcb57ee41e0d6f189"
+  inputs-digest = "5331f4a1c98d1fdef2ea89bc2f25b1c9b8dcf51268aed44281cf0700c526a131"
   solver-name = "gps-cdcl"
   solver-version = 1

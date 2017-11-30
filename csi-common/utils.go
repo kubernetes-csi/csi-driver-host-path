@@ -84,3 +84,15 @@ func NewControllerServiceCapability(cap csi.ControllerServiceCapability_RPC_Type
 		},
 	}
 }
+
+func RunNodePublishServer(endpoint string, d *CSIDriver, ns csi.NodeServer) {
+	ids := NewDefaultIdentityServer(d)
+
+	Serve(endpoint, ids, nil, ns)
+}
+
+func RunControllerPublishServer(endpoint string, d *CSIDriver, cs csi.ControllerServer) {
+	ids := NewDefaultIdentityServer(d)
+
+	Serve(endpoint, ids, cs, nil)
+}
