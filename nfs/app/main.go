@@ -26,9 +26,8 @@ import (
 )
 
 var (
-	endpoint   string
-	driverPath string
-	nodeID     string
+	endpoint string
+	nodeID   string
 )
 
 func main() {
@@ -55,6 +54,6 @@ func main() {
 }
 
 func handle() {
-	d := nfs.GetNFSDriver()
-	d.Run(driverPath, nodeID, endpoint)
+	d := nfs.NewDriver(nodeID, endpoint)
+	d.Run()
 }
