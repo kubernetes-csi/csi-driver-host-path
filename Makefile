@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: all flexadapter nfs hostpath clean
+.PHONY: all flexadapter nfs hostpath iscsi clean
 
-all: flexadapter nfs hostpath
+all: flexadapter nfs hostpath iscsi
 
 flexadapter:
 	if [ ! -d ./vendor ]; then dep ensure; fi
@@ -25,6 +25,9 @@ nfs:
 hostpath:
 	if [ ! -d ./vendor ]; then dep ensure; fi
 	go build -i -o _output/hostpath ./hostpath/app
+iscsi:
+	if [ ! -d ./vendor ]; then dep ensure; fi
+	go build -o _output/iscsidriver ./iscsi/app
 
 clean:
 	go clean -r -x
