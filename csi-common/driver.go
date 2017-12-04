@@ -95,5 +95,10 @@ func (d *CSIDriver) AddVolumeCapabilityAccessModes(vc []csi.VolumeCapability_Acc
 		glog.Infof("Enabling volume access mode: %v", c.String())
 		vca = append(vca, NewVolumeCapabilityAccessMode(c))
 	}
+	d.vc = vca
 	return vca
+}
+
+func (d *CSIDriver) GetVolumeCapabilityAccessModes() []*csi.VolumeCapability_AccessMode {
+	return d.vc
 }
