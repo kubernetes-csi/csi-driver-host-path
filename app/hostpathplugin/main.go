@@ -20,7 +20,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/kubernetes-csi/drivers/hostpath"
+	"github.com/kubernetes-csi/drivers/pkg/hostpath"
 )
 
 var (

@@ -18,16 +18,16 @@ all: flexadapter nfs hostpath iscsi
 
 flexadapter:
 	if [ ! -d ./vendor ]; then dep ensure; fi
-	go build -o _output/flexadapter ./flexadapter/app
+	go build -o _output/flexadapter ./app/flexadapter
 nfs:
 	if [ ! -d ./vendor ]; then dep ensure; fi
-	go build -o _output/nfsdriver ./nfs/app
+	go build -o _output/nfsplugin ./app/nfsplugin
 hostpath:
 	if [ ! -d ./vendor ]; then dep ensure; fi
-	go build -i -o _output/hostpath ./hostpath/app
+	go build -i -o _output/hostpathplugin ./app/hostpathplugin
 iscsi:
 	if [ ! -d ./vendor ]; then dep ensure; fi
-	go build -o _output/iscsidriver ./iscsi/app
+	go build -o _output/iscsiplugin ./app/iscsiplugin
 
 clean:
 	go clean -r -x

@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/kubernetes-csi/drivers/csi-common"
+	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 )
 
 const (

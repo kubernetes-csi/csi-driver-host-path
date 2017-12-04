@@ -14,12 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package nfs
+package flexadapter
 
 import (
-	"fmt"
 	"os"
-	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/net/context"
@@ -28,15 +26,33 @@ import (
 	"k8s.io/kubernetes/pkg/util/mount"
 	"k8s.io/kubernetes/pkg/volume/util"
 
-	"github.com/kubernetes-csi/drivers/csi-common"
+	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 )
 
 type nodeServer struct {
 	*csicommon.DefaultNodeServer
 }
 
+func mountDevice(devicePath, targetPath, fsType string, readOnly bool, mountOptions []string) error {
+	var options []string
+
+	if readOnly {
+		options = append(options, "ro")
+	} else {
+		options = append(options, "rw")
+	}
+	options = append(options, mountOptions...)
+
+	diskMounter := &mount.SafeFormatAndMount{Interface: mount.New(""), Exec: mount.NewOsExec()}
+
+	return diskMounter.FormatAndMount(deviceID, targetPath, fsType, options)
+}
+
 func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+
 	targetPath := req.GetTargetPath()
+	fsType := req.GetVolumeCapability().GetMount().GetFsType()
+
 	notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -53,47 +69,42 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
-	mo := req.GetVolumeCapability().GetMount().GetMountFlags()
-	if req.GetReadonly() {
-		mo = append(mo, "ro")
+	call := GetFlexAdapter().flexDriver.NewDriverCall(mountCmd)
+	call.Append(req.GetTargetPath())
+
+	if req.GetPublishVolumeInfo() != nil {
+		call.Append(req.GetPublishVolumeInfo()[deviceID])
 	}
 
-	s := req.GetVolumeAttributes()["server"]
-	ep := req.GetVolumeAttributes()["exportPath"]
-	source := fmt.Sprintf("%s:%s", s, ep)
-
-	mounter := mount.New("")
-	err = mounter.Mount(source, targetPath, "nfs", mo)
-	if err != nil {
-		if os.IsPermission(err) {
-			return nil, status.Error(codes.PermissionDenied, err.Error())
+	call.AppendSpec(req.GetVolumeId(), fsType, req.GetReadonly(), req.GetVolumeAttributes())
+	_, err = call.Run()
+	if isCmdNotSupportedErr(err) {
+		mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
+		err := mountDevice(req.VolumeAttributes[deviceID], targetPath, fsType, req.GetReadonly(), mountFlags)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
 		}
-		if strings.Contains(err.Error(), "invalid argument") {
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		}
+	} else if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
+func unmountDevice(path string) error {
+	return util.UnmountPath(path, mount.New(""))
+}
+
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-	targetPath := req.GetTargetPath()
-	notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
 
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, status.Error(codes.NotFound, "Targetpath not found")
-		} else {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-	}
-	if notMnt {
-		return nil, status.Error(codes.NotFound, "Volume not mounted")
-	}
+	call := GetFlexAdapter().flexDriver.NewDriverCall(unmountCmd)
+	call.Append(req.GetTargetPath())
 
-	err = util.UnmountPath(req.GetTargetPath(), mount.New(""))
-	if err != nil {
+	_, err := call.Run()
+	if isCmdNotSupportedErr(err) {
+		err := unmountDevice(req.GetTargetPath())
+		return nil, status.Error(codes.Internal, err.Error())
+	} else if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
