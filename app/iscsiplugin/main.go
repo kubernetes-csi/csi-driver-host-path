@@ -22,18 +22,19 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kubernetes-csi/drivers/nfs"
+	"github.com/kubernetes-csi/drivers/pkg/iscsi"
 )
 
 var (
-	endpoint string
-	nodeID   string
+	endpoint   string
+	driverPath string
+	nodeID     string
 )
 
 func main() {
 	cmd := &cobra.Command{
-		Use:   "NFS",
-		Short: "CSI based NFS driver",
+		Use:   "ISCSI",
+		Short: "CSI based ISCSI driver",
 		Run: func(cmd *cobra.Command, args []string) {
 			handle()
 		},
@@ -54,6 +55,6 @@ func main() {
 }
 
 func handle() {
-	d := nfs.NewDriver(nodeID, endpoint)
+	d := iscsi.NewDriver(nodeID, endpoint)
 	d.Run()
 }

@@ -23,7 +23,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/glog"
 
-	"github.com/kubernetes-csi/drivers/csi-common"
+	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 )
 
 type flexAdapter struct {

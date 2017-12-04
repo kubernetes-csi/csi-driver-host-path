@@ -25,7 +25,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/kubernetes-csi/drivers/csi-common"
+	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 )
 
 const (
