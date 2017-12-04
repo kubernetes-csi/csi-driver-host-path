@@ -5,7 +5,7 @@ metadata:
   labels:
     name: data
   annotations:
-    csi.kubernetes.io/volume-attributes: '{"server": "10.10.10.10", "share": "my_export"}'
+    csi.volume.kubernetes.io/volume-attributes: '{"server": "10.10.10.10", "share": "my_export"}'
 spec:
   accessModes:
   - ReadWriteOnce
