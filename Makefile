@@ -27,14 +27,10 @@ hostpath:
 	go build -i -o _output/hostpathplugin ./app/hostpathplugin
 iscsi:
 	if [ ! -d ./vendor ]; then dep ensure; fi
-<<<<<<< 332baae92b2ee875cecfe3925b4666cbceef2e25
 	go build -o _output/iscsiplugin ./app/iscsiplugin
-=======
-	go build -o _output/iscsidriver ./iscsi/app
 cinder:
 	if [ ! -d ./vendor ]; then dep ensure; fi
-	go build -o _output/cinderdriver ./cinder/app
->>>>>>> add csi cinder driver
+	go build -o _output/cinderplugin ./app/cinderplugin
 
 clean:
 	go clean -r -x
