@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: all flexadapter nfs hostpath iscsi clean
+.PHONY: all flexadapter nfs hostpath iscsi cinder clean
 
-all: flexadapter nfs hostpath iscsi
+all: flexadapter nfs hostpath iscsi cinder
 
 flexadapter:
 	if [ ! -d ./vendor ]; then dep ensure; fi
@@ -28,6 +28,9 @@ hostpath:
 iscsi:
 	if [ ! -d ./vendor ]; then dep ensure; fi
 	go build -o _output/iscsiplugin ./app/iscsiplugin
+cinder:
+	if [ ! -d ./vendor ]; then dep ensure; fi
+	go build -o _output/cinderplugin ./app/cinderplugin
 
 clean:
 	go clean -r -x
