@@ -96,3 +96,9 @@ func RunControllerPublishServer(endpoint string, d *CSIDriver, cs csi.Controller
 
 	Serve(endpoint, ids, cs, nil)
 }
+
+func RunControllerandNodePublishServer(endpoint string, d *CSIDriver, cs csi.ControllerServer, ns csi.NodeServer) {
+	ids := NewDefaultIdentityServer(d)
+
+	Serve(endpoint, ids, cs, ns)
+}
