@@ -79,7 +79,7 @@ func (cs *DefaultControllerServer) GetCapacity(ctx context.Context, req *csi.Get
 func (cs *DefaultControllerServer) ControllerProbe(ctx context.Context, req *csi.ControllerProbeRequest) (*csi.ControllerProbeResponse, error) {
 	glog.V(5).Infof("Using default ControllerProbe")
 
-	if err := cs.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
+	if err := cs.Driver.ValidateControllerServiceRequest(req.Version, csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
 		return nil, err
 	}
 	return &csi.ControllerProbeResponse{}, nil

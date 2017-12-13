@@ -29,17 +29,26 @@ type DefaultNodeServer struct {
 }
 
 func (ns *DefaultNodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+	err := ns.Driver.CheckVersion(req.GetVersion())
+	if err != nil {
+		return nil, err
+	}
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 func (ns *DefaultNodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+	err := ns.Driver.CheckVersion(req.GetVersion())
+	if err != nil {
+		return nil, err
+	}
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 func (ns *DefaultNodeServer) GetNodeID(ctx context.Context, req *csi.GetNodeIDRequest) (*csi.GetNodeIDResponse, error) {
 	glog.V(5).Infof("Using default GetNodeID")
 
-	if err := ns.Driver.ValidateRequest(req.GetVersion(), csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
+	err := ns.Driver.CheckVersion(req.GetVersion())
+	if err != nil {
 		return nil, err
 	}
 
@@ -51,17 +60,21 @@ func (ns *DefaultNodeServer) GetNodeID(ctx context.Context, req *csi.GetNodeIDRe
 func (ns *DefaultNodeServer) NodeProbe(ctx context.Context, req *csi.NodeProbeRequest) (*csi.NodeProbeResponse, error) {
 	glog.V(5).Infof("Using default NodeProbe")
 
-	if err := ns.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
+	err := ns.Driver.CheckVersion(req.GetVersion())
+	if err != nil {
 		return nil, err
 	}
+
 	return &csi.NodeProbeResponse{}, nil
 }
 
 func (ns *DefaultNodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 	glog.V(5).Infof("Using default NodeGetCapabilities")
 
-	if err := ns.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_UNKNOWN); err != nil {
+	err := ns.Driver.CheckVersion(req.GetVersion())
+	if err != nil {
 		return nil, err
 	}
+
 	return &csi.NodeGetCapabilitiesResponse{}, nil
 }

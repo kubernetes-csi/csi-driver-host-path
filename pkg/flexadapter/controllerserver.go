@@ -40,7 +40,7 @@ func GetVersionString(ver *csi.Version) string {
 }
 
 func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	if err := cs.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME); err != nil {
+	if err := cs.Driver.ValidateControllerServiceRequest(req.Version, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME); err != nil {
 		return nil, err
 	}
 
@@ -67,7 +67,7 @@ func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *cs
 }
 
 func (cs *controllerServer) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	if err := cs.Driver.ValidateRequest(req.Version, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME); err != nil {
+	if err := cs.Driver.ValidateControllerServiceRequest(req.Version, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME); err != nil {
 		return nil, err
 	}
 
@@ -88,8 +88,8 @@ func (cs *controllerServer) ControllerUnpublishVolume(ctx context.Context, req *
 func (cs *controllerServer) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	for _, cap := range req.VolumeCapabilities {
 		if cap.GetAccessMode().GetMode() != csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER {
-			return &csi.ValidateVolumeCapabilitiesResponse{false, ""}, nil
+			return &csi.ValidateVolumeCapabilitiesResponse{Supported: false, Message: ""}, nil
 		}
 	}
-	return &csi.ValidateVolumeCapabilitiesResponse{true, ""}, nil
+	return &csi.ValidateVolumeCapabilitiesResponse{Supported: true, Message: ""}, nil
 }

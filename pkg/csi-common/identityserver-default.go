@@ -39,8 +39,14 @@ func (ids *DefaultIdentityServer) GetSupportedVersions(ctx context.Context, req 
 
 func (ids *DefaultIdentityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
 	glog.V(5).Infof("Using default GetPluginInnfo")
+
 	if ids.Driver.name == "" {
 		return nil, status.Error(codes.Unavailable, "Driver name not configured")
+	}
+
+	err := ids.Driver.CheckVersion(req.GetVersion())
+	if err != nil {
+		return nil, err
 	}
 
 	version := GetVersionString(ids.Driver.version)
