@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -26,12 +27,18 @@ import (
 )
 
 var (
-	endpoint   string
-	driverPath string
-	nodeID     string
+	endpoint string
+	nodeID   string
 )
 
+func init() {
+	flag.Set("logtostderr", "true")
+}
+
 func main() {
+
+	flag.CommandLine.Parse([]string{})
+
 	cmd := &cobra.Command{
 		Use:   "ISCSI",
 		Short: "CSI based ISCSI driver",
@@ -39,6 +46,8 @@ func main() {
 			handle()
 		},
 	}
+
+	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 
 	cmd.PersistentFlags().StringVar(&nodeID, "nodeid", "", "node id")
 	cmd.MarkPersistentFlagRequired("nodeid")

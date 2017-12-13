@@ -16,6 +16,10 @@
 
 all: flexadapter nfs hostpath iscsi cinder
 
+test:
+	go test github.com/kubernetes-csi/drivers/pkg/... -cover
+	go vet github.com/kubernetes-csi/drivers/pkg/...
+
 flexadapter:
 	if [ ! -d ./vendor ]; then dep ensure; fi
 	go build -o _output/flexadapter ./app/flexadapter

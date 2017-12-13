@@ -31,9 +31,8 @@ type flexAdapter struct {
 
 	flexDriver *flexVolumeDriver
 
-	ids *identityServer
-	ns  *nodeServer
-	cs  *controllerServer
+	ns *nodeServer
+	cs *controllerServer
 
 	cap   []*csi.VolumeCapability_AccessMode
 	cscap []*csi.ControllerServiceCapability
@@ -58,20 +57,15 @@ func GetFlexAdapter() *flexAdapter {
 	return adapter
 }
 
-func NewIdentityServer(d *csicommon.CSIDriver) *identityServer {
-	return &identityServer{
-		DefaultIdentityServer: csicommon.NewDefaultIdentityServer(d),
-	}
-}
-
 func NewControllerServer(d *csicommon.CSIDriver) *controllerServer {
 	return &controllerServer{
 		DefaultControllerServer: csicommon.NewDefaultControllerServer(d),
 	}
 }
 
-func NewNodeServer(d *csicommon.CSIDriver) *nodeServer {
+func NewNodeServer(d *csicommon.CSIDriver, f *flexVolumeDriver) *nodeServer {
 	return &nodeServer{
+		flexDriver:        f,
 		DefaultNodeServer: csicommon.NewDefaultNodeServer(d),
 	}
 }
@@ -96,9 +90,8 @@ func (f *flexAdapter) Run(driverName, driverPath, nodeID, endpoint string) {
 	adapter.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER})
 
 	// Create GRPC servers
-	f.ids = NewIdentityServer(adapter.driver)
-	f.ns = NewNodeServer(adapter.driver)
+	f.ns = NewNodeServer(adapter.driver, adapter.flexDriver)
 	f.cs = NewControllerServer(adapter.driver)
 
-	csicommon.Serve(endpoint, f.ids, f.cs, f.ns)
+	csicommon.RunControllerandNodePublishServer(endpoint, adapter.driver, f.cs, f.ns)
 }

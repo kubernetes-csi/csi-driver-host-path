@@ -30,6 +30,7 @@ import (
 )
 
 type nodeServer struct {
+	flexDriver *flexVolumeDriver
 	*csicommon.DefaultNodeServer
 }
 

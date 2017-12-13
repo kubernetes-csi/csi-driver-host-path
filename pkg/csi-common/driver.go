@@ -33,17 +33,50 @@ type CSIDriver struct {
 	vc      []*csi.VolumeCapability_AccessMode
 }
 
-func NewCSIDriver(name string, v *csi.Version, vers []*csi.Version, nodeID string) *CSIDriver {
+// Creates a NewCSIDriver object. Assumes vendor version is equal to driver version &
+// does not support optional driver plugin info manifest field. Refer to CSI spec for more details.
+func NewCSIDriver(name string, v *csi.Version, supVers []*csi.Version, nodeID string) *CSIDriver {
+	if name == "" {
+		glog.Errorf("Driver name missing")
+		return nil
+	}
+
+	if nodeID == "" {
+		glog.Errorf("NodeID missing")
+		return nil
+	}
+
+	if v == nil {
+		glog.Errorf("Version argument missing")
+		return nil
+	}
+
+	found := false
+	for _, sv := range supVers {
+		if sv.GetMajor() == v.GetMajor() && sv.GetMinor() == v.GetMinor() && sv.GetPatch() == v.GetPatch() {
+			found = true
+		}
+	}
+
+	if !found {
+		supVers = append(supVers, v)
+	}
+
 	driver := CSIDriver{
 		name:    name,
 		version: v,
-		supVers: vers,
+		supVers: supVers,
 		nodeID:  nodeID,
 	}
+
 	return &driver
 }
 
 func (d *CSIDriver) CheckVersion(v *csi.Version) error {
+	if v == nil {
+		return status.Error(codes.InvalidArgument, "Version missing")
+	}
+
 	// Assumes always backward compatible
 	for _, sv := range d.supVers {
 		if v.Major == sv.Major && v.Minor <= sv.Minor {
@@ -51,10 +84,10 @@ func (d *CSIDriver) CheckVersion(v *csi.Version) error {
 		}
 	}
 
-	return status.Error(codes.InvalidArgument, "Unsupported version: %s"+GetVersionString(v))
+	return status.Error(codes.InvalidArgument, "Unsupported version: "+GetVersionString(v))
 }
 
-func (d *CSIDriver) ValidateRequest(v *csi.Version, c csi.ControllerServiceCapability_RPC_Type) error {
+func (d *CSIDriver) ValidateControllerServiceRequest(v *csi.Version, c csi.ControllerServiceCapability_RPC_Type) error {
 	if v == nil {
 		return status.Error(codes.InvalidArgument, "Version not specified")
 	}
@@ -73,7 +106,7 @@ func (d *CSIDriver) ValidateRequest(v *csi.Version, c csi.ControllerServiceCapab
 		}
 	}
 
-	return status.Error(codes.InvalidArgument, "Unsupported version: %s"+GetVersionString(v))
+	return status.Error(codes.InvalidArgument, "Unsupported version: "+GetVersionString(v))
 }
 
 func (d *CSIDriver) AddControllerServiceCapabilities(cl []csi.ControllerServiceCapability_RPC_Type) {

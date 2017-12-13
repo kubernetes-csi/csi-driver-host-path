@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -32,7 +33,14 @@ var (
 	nodeID     string
 )
 
+func init() {
+	flag.Set("logtostderr", "true")
+}
+
 func main() {
+
+	flag.CommandLine.Parse([]string{})
+
 	cmd := &cobra.Command{
 		Use:   "flexadapter",
 		Short: "Flex volume adapter for CSI",
@@ -40,6 +48,8 @@ func main() {
 			handle()
 		},
 	}
+
+	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 
 	cmd.PersistentFlags().StringVar(&nodeID, "nodeid", "", "node id")
 	cmd.MarkPersistentFlagRequired("nodeid")

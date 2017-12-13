@@ -21,12 +21,17 @@ import (
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/golang/glog"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 func ParseEndpoint(ep string) (string, string, error) {
 	if strings.HasPrefix(strings.ToLower(ep), "unix://") || strings.HasPrefix(strings.ToLower(ep), "tcp://") {
 		s := strings.SplitN(ep, "://", 2)
-		return s[0], s[1], nil
+		if s[1] != "" {
+			return s[0], s[1], nil
+		}
 	}
 	return "", "", fmt.Errorf("Invalid endpoint: %v", ep)
 }
@@ -54,7 +59,7 @@ func GetVersionFromString(v string) (*csi.Version, error) {
 }
 
 func NewVolumeCapabilityAccessMode(mode csi.VolumeCapability_AccessMode_Mode) *csi.VolumeCapability_AccessMode {
-	return &csi.VolumeCapability_AccessMode{mode}
+	return &csi.VolumeCapability_AccessMode{Mode: mode}
 }
 
 func NewDefaultNodeServer(d *CSIDriver) *DefaultNodeServer {
@@ -77,9 +82,9 @@ func NewDefaultControllerServer(d *CSIDriver) *DefaultControllerServer {
 
 func NewControllerServiceCapability(cap csi.ControllerServiceCapability_RPC_Type) *csi.ControllerServiceCapability {
 	return &csi.ControllerServiceCapability{
-		&csi.ControllerServiceCapability_Rpc{
-			&csi.ControllerServiceCapability_RPC{
-				cap,
+		Type: &csi.ControllerServiceCapability_Rpc{
+			Rpc: &csi.ControllerServiceCapability_RPC{
+				Type: cap,
 			},
 		},
 	}
@@ -88,17 +93,35 @@ func NewControllerServiceCapability(cap csi.ControllerServiceCapability_RPC_Type
 func RunNodePublishServer(endpoint string, d *CSIDriver, ns csi.NodeServer) {
 	ids := NewDefaultIdentityServer(d)
 
-	Serve(endpoint, ids, nil, ns)
+	s := NewNonBlockingGRPCServer()
+	s.Start(endpoint, ids, nil, ns)
+	s.Wait()
 }
 
 func RunControllerPublishServer(endpoint string, d *CSIDriver, cs csi.ControllerServer) {
 	ids := NewDefaultIdentityServer(d)
 
-	Serve(endpoint, ids, cs, nil)
+	s := NewNonBlockingGRPCServer()
+	s.Start(endpoint, ids, cs, nil)
+	s.Wait()
 }
 
 func RunControllerandNodePublishServer(endpoint string, d *CSIDriver, cs csi.ControllerServer, ns csi.NodeServer) {
 	ids := NewDefaultIdentityServer(d)
 
-	Serve(endpoint, ids, cs, ns)
+	s := NewNonBlockingGRPCServer()
+	s.Start(endpoint, ids, cs, ns)
+	s.Wait()
+}
+
+func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	glog.V(3).Infof("GRPC call: %s", info.FullMethod)
+	glog.V(5).Infof("GRPC request: %+v", req)
+	resp, err := handler(ctx, req)
+	if err != nil {
+		glog.Errorf("GRPC error: %v", err)
+	} else {
+		glog.V(5).Infof("GRPC response: %+v", resp)
+	}
+	return resp, err
 }

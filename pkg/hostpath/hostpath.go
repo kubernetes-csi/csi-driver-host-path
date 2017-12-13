@@ -80,5 +80,7 @@ func (hp *hostPath) Run(driverName, nodeID, endpoint string) {
 	hp.ns = NewNodeServer(hp.driver)
 	hp.cs = NewControllerServer(hp.driver)
 
-	csicommon.Serve(endpoint, hp.ids, hp.cs, hp.ns)
+	s := csicommon.NewNonBlockingGRPCServer()
+	s.Start(endpoint, hp.ids, hp.cs, hp.ns)
+	s.Wait()
 }

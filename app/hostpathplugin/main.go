@@ -23,6 +23,10 @@ import (
 	"github.com/kubernetes-csi/drivers/pkg/hostpath"
 )
 
+func init() {
+	flag.Set("logtostderr", "true")
+}
+
 var (
 	endpoint   = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
 	driverName = flag.String("drivername", "csi-hostpath", "name of the driver")
@@ -31,7 +35,6 @@ var (
 
 func main() {
 	flag.Parse()
-	flag.Set("logtostderr", "true")
 
 	handle()
 	os.Exit(0)
