@@ -46,7 +46,7 @@ func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *cs
 	}
 
 	cap := req.GetVolumeCapability()
-	fsType := ""
+	fsType := "ext4"
 	if cap != nil {
 		mount := req.GetVolumeCapability().GetMount()
 		fsType = mount.FsType

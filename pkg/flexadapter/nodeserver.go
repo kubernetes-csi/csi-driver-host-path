@@ -59,6 +59,8 @@ func (ns *nodeServer) waitForAttach(req *csi.NodePublishVolumeRequest, fsType st
 		if !ok {
 			return status.Error(codes.InvalidArgument, "Missing device ID")
 		}
+	} else {
+		return status.Error(codes.InvalidArgument, "Missing publish info and device ID")
 	}
 
 	call := ns.flexDriver.NewDriverCall(waitForAttachCmd)
