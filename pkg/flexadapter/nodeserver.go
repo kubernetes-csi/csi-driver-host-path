@@ -46,16 +46,16 @@ func mountDevice(devicePath, targetPath, fsType string, readOnly bool, mountOpti
 
 	diskMounter := &mount.SafeFormatAndMount{Interface: mount.New(""), Exec: mount.NewOsExec()}
 
-	return diskMounter.FormatAndMount(deviceID, targetPath, fsType, options)
+	return diskMounter.FormatAndMount(devicePath, targetPath, fsType, options)
 }
 
 func (ns *nodeServer) waitForAttach(req *csi.NodePublishVolumeRequest, fsType string) error {
 
-	var deviceID string
+	var dID string
 
 	if req.GetPublishVolumeInfo() != nil {
 		var ok bool
-		deviceID, ok = req.GetPublishVolumeInfo()[deviceID]
+		dID, ok = req.GetPublishVolumeInfo()[deviceID]
 		if !ok {
 			return status.Error(codes.InvalidArgument, "Missing device ID")
 		}
@@ -64,7 +64,7 @@ func (ns *nodeServer) waitForAttach(req *csi.NodePublishVolumeRequest, fsType st
 	}
 
 	call := ns.flexDriver.NewDriverCall(waitForAttachCmd)
-	call.Append(deviceID)
+	call.Append(dID)
 	call.AppendSpec(req.GetVolumeId(), fsType, req.GetReadonly(), req.GetVolumeAttributes())
 
 	_, err := call.Run()
