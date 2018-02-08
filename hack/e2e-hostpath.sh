@@ -9,7 +9,13 @@
 
 UDS="/tmp/e2e-csi-sanity.sock"
 CSI_ENDPOINT="unix://${UDS}"
+CSI_MOUNTPOINT="/mnt"
 APP=hostpathplugin
+
+SKIP="WithCapacity"
+if [ x${TRAVIS} = x"true" ] ; then
+	SKIP="WithCapacity|NodeUnpublishVolume|NodePublishVolume"
+fi
 
 # Get csi-sanity
 ./hack/get-sanity.sh
@@ -27,7 +33,10 @@ sudo $GOPATH/bin/$APP --endpoint=$CSI_ENDPOINT --nodeid=1 &
 pid=$!
 
 # Need to skip Capacity testing since hostpath does not support it
-sudo $GOPATH/bin/csi-sanity $@ --ginkgo.skip="WithCapacity" --csi.endpoint=$CSI_ENDPOINT ; ret=$?
+sudo $GOPATH/bin/csi-sanity $@ \
+    --ginkgo.skip=${SKIP} \
+    --csi.mountpoint=$CSI_MOUNTPOINT \
+    --csi.endpoint=$CSI_ENDPOINT ; ret=$?
 sudo kill -9 $pid
 sudo rm -f $UDS
 
