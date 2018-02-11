@@ -53,9 +53,9 @@ func (ns *nodeServer) waitForAttach(req *csi.NodePublishVolumeRequest, fsType st
 
 	var dID string
 
-	if req.GetPublishVolumeInfo() != nil {
+	if req.GetPublishInfo() != nil {
 		var ok bool
-		dID, ok = req.GetPublishVolumeInfo()[deviceID]
+		dID, ok = req.GetPublishInfo()[deviceID]
 		if !ok {
 			return status.Error(codes.InvalidArgument, "Missing device ID")
 		}
@@ -116,8 +116,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	call.Append(req.GetTargetPath())
 
-	if req.GetPublishVolumeInfo() != nil {
-		call.Append(req.GetPublishVolumeInfo()[deviceID])
+	if req.GetPublishInfo() != nil {
+		call.Append(req.GetPublishInfo()[deviceID])
 	}
 
 	call.AppendSpec(req.GetVolumeId(), fsType, req.GetReadonly(), req.GetVolumeAttributes())

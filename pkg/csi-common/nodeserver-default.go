@@ -44,15 +44,15 @@ func (ns *DefaultNodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.N
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (ns *DefaultNodeServer) GetNodeID(ctx context.Context, req *csi.GetNodeIDRequest) (*csi.GetNodeIDResponse, error) {
-	glog.V(5).Infof("Using default GetNodeID")
+func (ns *DefaultNodeServer) NodeGetId(ctx context.Context, req *csi.NodeGetIdRequest) (*csi.NodeGetIdResponse, error) {
+	glog.V(5).Infof("Using default NodeGetId")
 
 	err := ns.Driver.CheckVersion(req.GetVersion())
 	if err != nil {
 		return nil, err
 	}
 
-	return &csi.GetNodeIDResponse{
+	return &csi.NodeGetIdResponse{
 		NodeId: ns.Driver.nodeID,
 	}, nil
 }

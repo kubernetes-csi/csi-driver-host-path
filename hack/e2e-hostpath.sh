@@ -18,7 +18,12 @@ if [ x${TRAVIS} = x"true" ] ; then
 fi
 
 # Get csi-sanity
-./hack/get-sanity.sh
+git clone https://github.com/kubernetes-csi/csi-test $GOPATH/src/github.com/kubernetes-csi/csi-test
+pushd $GOPATH/src/github.com/kubernetes-csi/csi-test/cmd/csi-sanity
+make all
+make install
+popd
+#./hack/get-sanity.sh
 
 # Build
 cd app/hostpathplugin
