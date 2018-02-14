@@ -70,8 +70,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	fsType := req.GetVolumeCapability().GetMount().GetFsType()
 
 	deviceId := ""
-	if req.GetPublishVolumeInfo() != nil {
-		deviceId = req.GetPublishVolumeInfo()[deviceID]
+	if req.GetPublishInfo() != nil {
+		deviceId = req.GetPublishInfo()[deviceID]
 	}
 
 	readOnly := req.GetReadonly()

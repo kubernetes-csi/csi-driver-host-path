@@ -69,7 +69,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	}
 	glog.V(4).Infof("create volume %s", path)
 	return &csi.CreateVolumeResponse{
-		VolumeInfo: &csi.VolumeInfo{
+		Volume: &csi.Volume{
 			Id: volumeId,
 		},
 	}, nil

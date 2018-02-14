@@ -37,7 +37,7 @@ type hostPath struct {
 var (
 	hostPathDriver *hostPath
 	version        = csi.Version{
-		Minor: 1,
+		Minor: 2,
 	}
 )
 

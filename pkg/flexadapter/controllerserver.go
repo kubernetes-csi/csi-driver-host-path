@@ -68,7 +68,7 @@ func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *cs
 	pvInfo[deviceID] = callStatus.DevicePath
 
 	return &csi.ControllerPublishVolumeResponse{
-		PublishVolumeInfo: pvInfo,
+		PublishInfo: pvInfo,
 	}, nil
 }
 
