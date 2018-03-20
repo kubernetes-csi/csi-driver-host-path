@@ -13,9 +13,9 @@
 # limitations under the License.
 
 REGISTRY_NAME = quay.io/k8scsi
-IMAGE_VERSION = v0.2.0
+IMAGE_VERSION = canary
 
-.PHONY: all flexadapter nfs hostpath iscsi cinder clean
+.PHONY: all flexadapter nfs hostpath iscsi cinder clean hostpath-container
 
 all: flexadapter nfs hostpath iscsi cinder
 
@@ -23,24 +23,21 @@ test:
 	go test github.com/kubernetes-csi/drivers/pkg/... -cover
 	go vet github.com/kubernetes-csi/drivers/pkg/...
 flexadapter:
-	if [ ! -d ./vendor ]; then dep ensure; fi
+	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/flexadapter ./app/flexadapter
 nfs:
-	if [ ! -d ./vendor ]; then dep ensure; fi
+	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/nfsplugin ./app/nfsplugin
-livenessprobe:
-	if [ ! -d ./vendor ]; then dep ensure; fi
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/livenessprobe ./app/livenessprobe/cmd
 hostpath:
-	if [ ! -d ./vendor ]; then dep ensure; fi
+	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/hostpathplugin ./app/hostpathplugin
-hostpath-container: hostpath livenessprobe
-	docker build -t $(REGISTRY_NAME)/hostpathplugin:$(IMAGE_VERSION) -f ./pkg/hostpath/extras/docker/Dockerfile .
+hostpath-container: hostpath
+	docker build -t $(REGISTRY_NAME)/hostpathplugin:$(IMAGE_VERSION) -f ./app/hostpathplugin/Dockerfile .
 iscsi:
-	if [ ! -d ./vendor ]; then dep ensure; fi
+	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/iscsiplugin ./app/iscsiplugin
 cinder:
-	if [ ! -d ./vendor ]; then dep ensure; fi
+	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/cinderplugin ./app/cinderplugin
 clean:
 	go clean -r -x
