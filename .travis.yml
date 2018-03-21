@@ -17,6 +17,6 @@ script:
 after_success:
   - if [ "${TRAVIS_BRANCH}" == "master" ] && [ "${TRAVIS_PULL_REQUEST}" == "false" ]; then
       docker login -u "${DOCKER_USERNAME}" -p "${DOCKER_PASSWORD}" quay.io;
-      sudo ./hack/travis-build-all-containers.sh;
-      docker push quay.io/k8scsi/driver-registrar:canary;
+      make hostpath-container;
+      docker push quay.io/k8scsi/hostpathplugin:canary;
     fi
