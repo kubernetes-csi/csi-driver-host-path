@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-REGISTRY_NAME = quay.io/k8scsi
-IMAGE_VERSION = canary
+REGISTRY_NAME=quay.io/k8scsi
+IMAGE_NAME=hostpathplugin
+IMAGE_VERSION=canary
+IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
 
 .PHONY: all flexadapter nfs hostpath iscsi cinder clean hostpath-container
 
@@ -32,7 +34,9 @@ hostpath:
 	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/hostpathplugin ./app/hostpathplugin
 hostpath-container: hostpath
-	docker build -t $(REGISTRY_NAME)/hostpathplugin:$(IMAGE_VERSION) -f ./app/hostpathplugin/Dockerfile .
+	docker build -t $(IMAGE_TAG) -f ./app/hostpathplugin/Dockerfile .
+push: hostpath-container
+	docker push $(IMAGE_TAG)
 iscsi:
 	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/iscsiplugin ./app/iscsiplugin
