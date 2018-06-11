@@ -52,7 +52,18 @@ type hostPathVolume struct {
 	VolPath string `json:"volPath"`
 }
 
+type hostPathSnapshot struct {
+	Name      string              `json:"name"`
+	Id        string              `json:"id"`
+	VolID     string              `json:"volID"`
+	Path      string              `json:"path"`
+	CreateAt  int64               `json:"createAt"`
+	SizeBytes int64               `json:"sizeBytes"`
+	Status    *csi.SnapshotStatus `json:"status"`
+}
+
 var hostPathVolumes map[string]hostPathVolume
+var hostPathVolumeSnapshots map[string]hostPathSnapshot
 
 var (
 	hostPathDriver *hostPath
@@ -61,6 +72,7 @@ var (
 
 func init() {
 	hostPathVolumes = map[string]hostPathVolume{}
+	hostPathVolumeSnapshots = map[string]hostPathSnapshot{}
 }
 
 func GetHostPathDriver() *hostPath {
@@ -93,7 +105,12 @@ func (hp *hostPath) Run(driverName, nodeID, endpoint string) {
 	if hp.driver == nil {
 		glog.Fatalln("Failed to initialize CSI Driver.")
 	}
-	hp.driver.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME})
+	hp.driver.AddControllerServiceCapabilities(
+		[]csi.ControllerServiceCapability_RPC_Type{
+			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+			csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
+			csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
+		})
 	hp.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER})
 
 	// Create GRPC servers
@@ -120,4 +137,13 @@ func getVolumeByName(volName string) (hostPathVolume, error) {
 		}
 	}
 	return hostPathVolume{}, fmt.Errorf("volume name %s does not exit in the volumes list", volName)
+}
+
+func getSnapshotByName(name string) (hostPathSnapshot, error) {
+	for _, snapshot := range hostPathVolumeSnapshots {
+		if snapshot.Name == name {
+			return snapshot, nil
+		}
+	}
+	return hostPathSnapshot{}, fmt.Errorf("snapshot name %s does not exit in the snapshots list", name)
 }
