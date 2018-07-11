@@ -128,6 +128,9 @@ func (cs *controllerServer) ValidateVolumeCapabilities(ctx context.Context, req 
 	if req.GetVolumeCapabilities() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capabilities missing in request")
 	}
+	if _, ok := hostPathVolumes[req.GetVolumeId()]; !ok {
+		return nil, status.Error(codes.NotFound, "Volume does not exist")
+	}
 
 	for _, cap := range req.VolumeCapabilities {
 		if cap.GetAccessMode().GetMode() != csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER {
