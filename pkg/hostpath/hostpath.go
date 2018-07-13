@@ -56,7 +56,7 @@ var hostPathVolumes map[string]hostPathVolume
 
 var (
 	hostPathDriver *hostPath
-	vendorVersion  = "0.2.0"
+	vendorVersion  = "0.3.0"
 )
 
 func init() {

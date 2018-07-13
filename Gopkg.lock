@@ -10,8 +10,8 @@
 [[projects]]
   name = "github.com/container-storage-interface/spec"
   packages = ["lib/go/csi/v0"]
-  revision = "35d9f9d77954980e449e52c3f3e43c21bd8171f5"
-  version = "v0.2.0-rc1"
+  revision = "2178fdeea87f1150a17a63252eee28d4d8141f72"
+  version = "v0.3.0"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -55,23 +55,17 @@
   revision = "66deaeb636dff1ac7d938ce666d090556056a4b0"
 
 [[projects]]
-  name = "github.com/golang/mock"
-  packages = ["gomock"]
-  revision = "13f360950a79f5864a972c786a10a50e44b69541"
-  version = "v1.0.0"
-
-[[projects]]
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
-    "protoc-gen-go/descriptor",
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
-    "ptypes/timestamp"
+    "ptypes/timestamp",
+    "ptypes/wrappers"
   ]
-  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
-  version = "v1.0.0"
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -146,15 +140,6 @@
   packages = ["."]
   revision = "59fac5042749a5afb9af70e813da1dd5474f0167"
   version = "1.0.1"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/kubernetes-csi/csi-test"
-  packages = [
-    "driver",
-    "utils"
-  ]
-  revision = "54c9bdefdd6cfdac7dda8a1c6ff44d923da21c64"
 
 [[projects]]
   name = "github.com/matttproud/golang_protobuf_extensions"
@@ -339,8 +324,6 @@
     "metadata",
     "naming",
     "peer",
-    "reflection",
-    "reflection/grpc_reflection_v1alpha",
     "resolver",
     "resolver/dns",
     "resolver/passthrough",
@@ -676,6 +659,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4663dd72fe1b35e7a7282b6d34d64a41b027bda486289861b1dcb4f1102bb2e5"
+  inputs-digest = "8b43ab8306203b049af581d7567bd62d58b438ad31ada07c05ab0398c721a0fd"
   solver-name = "gps-cdcl"
   solver-version = 1
