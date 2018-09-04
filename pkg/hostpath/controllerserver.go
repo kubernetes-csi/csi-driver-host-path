@@ -90,6 +90,26 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		glog.V(3).Infof("failed to create volume: %v", err)
 		return nil, err
 	}
+	if req.GetVolumeContentSource() != nil {
+		contentSource := req.GetVolumeContentSource()
+		if contentSource.GetSnapshot() != nil {
+			snapshotId := contentSource.GetSnapshot().GetId()
+			snapshot, ok := hostPathVolumeSnapshots[snapshotId]
+			if !ok {
+				return nil, status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
+			}
+			if snapshot.Status.Type != csi.SnapshotStatus_READY {
+				return nil, status.Errorf(codes.Internal, "status of snapshot %v is not ready", snapshotId)
+			}
+			snapshotPath := snapshot.Path
+			args := []string{"zxvf", snapshotPath, "-C", path}
+			executor := utilexec.New()
+			out, err := executor.Command("tar", args...).CombinedOutput()
+			if err != nil {
+				return nil, status.Error(codes.Internal, fmt.Sprintf("failed pre-populate data for volume: %v: %s", err, out))
+			}
+		}
+	}
 	glog.V(4).Infof("create volume %s", path)
 	hostPathVol := hostPathVolume{}
 	hostPathVol.VolName = req.GetName()
