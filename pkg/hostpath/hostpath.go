@@ -67,7 +67,7 @@ var hostPathVolumeSnapshots map[string]hostPathSnapshot
 
 var (
 	hostPathDriver *hostPath
-	vendorVersion  = "0.3.0"
+	vendorVersion  = "dev"
 )
 
 func init() {
@@ -99,6 +99,7 @@ func NewNodeServer(d *csicommon.CSIDriver) *nodeServer {
 
 func (hp *hostPath) Run(driverName, nodeID, endpoint string) {
 	glog.Infof("Driver: %v ", driverName)
+	glog.Infof("Version: %s", vendorVersion)
 
 	// Initialize default library driver
 	hp.driver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)
