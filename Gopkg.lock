@@ -499,7 +499,7 @@
   version = "v2.1.1"
 
 [[projects]]
-  digest = "1:ce7f9bcd1705ba049bbb23ac2736f6546c0d4fcca4f1e7793b3624691e3e4edb"
+  digest = "1:5f076f6f9c3ac4f2b99d79dc7974eabd3f51be35254aa0d8c4cf920fdb9c7ff8"
   name = "k8s.io/api"
   packages = [
     "admissionregistration/v1alpha1",
@@ -535,8 +535,8 @@
     "storage/v1beta1",
   ]
   pruneopts = ""
-  revision = "0527d9f2238346a310e6cf1e6afe2422f329cc3d"
-  version = "kubernetes-1.12.0-beta.1"
+  revision = "fd83cbc87e7632ccd8bbab63d2b673d4e0c631cc"
+  version = "kubernetes-1.12.0"
 
 [[projects]]
   branch = "master"
@@ -547,7 +547,7 @@
   revision = "cfb732a3dd26c3e6349d0954e1209c9d5c093d1f"
 
 [[projects]]
-  digest = "1:a36b0af9cb67dd558016e48ff172c14e1c22766860fab00938f69eafd1fcac7b"
+  digest = "1:7aa037a4df5432be2820d164f378d7c22335e5cbba124e90e42114757ebd11ac"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -598,11 +598,11 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = ""
-  revision = "63dd81ab0848cd58da3257a806f599808708029c"
-  version = "kubernetes-1.12.0-beta.1"
+  revision = "6dd46049f39503a1fc8d65de4bd566829e95faff"
+  version = "kubernetes-1.12.0"
 
 [[projects]]
-  digest = "1:8dac9244ea3b64d13b28fc5e17cd59f92dff36622fefce97f9b61fd6e9e05b86"
+  digest = "1:f129d76e4103ddcd176f1a07051eb1826922e54f489032bef8283f7f9c32c4f0"
   name = "k8s.io/apiserver"
   packages = [
     "pkg/authentication/authenticator",
@@ -612,8 +612,8 @@
     "pkg/util/feature",
   ]
   pruneopts = ""
-  revision = "401c12dcc30371b4ca17946f63489964f282963b"
-  version = "kubernetes-1.12.0-beta.1"
+  revision = "e85ad7b666fef0476185731329f4cff1536efff8"
+  version = "kubernetes-1.12.0"
 
 [[projects]]
   branch = "master"
@@ -772,7 +772,7 @@
   revision = "50ae88d24ede7b8bad68e23c805b5d3da5c8abaf"
 
 [[projects]]
-  digest = "1:8ea43dd1edd2e05347a9d909616b5d43d090bb1caf3c90e9273944eeb51bf173"
+  digest = "1:c8b66f8046163fd757f9fb87602e3bb181191512d31281c50c2c900046470877"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/api/legacyscheme",
@@ -823,8 +823,8 @@
     "pkg/volume/util/volumepathhandler",
   ]
   pruneopts = ""
-  revision = "553515b823634919e731774556fae554c95a6a5f"
-  version = "v1.12.0-beta.1"
+  revision = "4ed3216f3ec431b140b1d899130a69fc671678f4"
+  version = "v1.12.1"
 
 [[projects]]
   branch = "master"
