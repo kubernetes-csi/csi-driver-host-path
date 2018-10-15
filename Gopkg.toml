@@ -62,19 +62,19 @@
   version = "1.2.1"
 
 [[constraint]]
-  version = "kubernetes-1.12.0-beta.1"
+  version = "kubernetes-1.12.0"
   name = "k8s.io/apimachinery"
 
 [[constraint]]
   name = "k8s.io/kubernetes"
-  version = "=v1.12.0-beta.1"
+  version = "v1.12.0"
 
 [[override]]
-  version = "kubernetes-1.12.0-beta.1"
+  version = "kubernetes-1.12.0"
   name = "k8s.io/api"
 
 [[override]]
-  version = "kubernetes-1.12.0-beta.1"
+  version = "kubernetes-1.12.0"
   name = "k8s.io/apiserver"
 
 [[override]]
