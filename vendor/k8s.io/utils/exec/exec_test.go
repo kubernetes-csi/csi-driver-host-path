@@ -139,3 +139,25 @@ func TestTimeout(t *testing.T) {
 		t.Errorf("expected %v but got %v", context.DeadlineExceeded, err)
 	}
 }
+
+func TestSetEnv(t *testing.T) {
+	ex := New()
+
+	out, err := ex.Command("/bin/sh", "-c", "echo $FOOBAR").CombinedOutput()
+	if err != nil {
+		t.Errorf("expected success, got %+v", err)
+	}
+	if string(out) != "\n" {
+		t.Errorf("unexpected output: %q", string(out))
+	}
+
+	cmd := ex.Command("/bin/sh", "-c", "echo $FOOBAR")
+	cmd.SetEnv([]string{"FOOBAR=baz"})
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Errorf("expected success, got %+v", err)
+	}
+	if string(out) != "baz\n" {
+		t.Errorf("unexpected output: %q", string(out))
+	}
+}
