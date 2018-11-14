@@ -22,7 +22,8 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"time"
+
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/golang/glog"
 	"github.com/pborman/uuid"
@@ -30,7 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/container-storage-interface/spec/lib/go/csi/v0"
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 	utilexec "k8s.io/utils/exec"
 )
@@ -70,9 +71,9 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 			// TODO (sbezverk) Do I need to make sure that RBD volume still exists?
 			return &csi.CreateVolumeResponse{
 				Volume: &csi.Volume{
-					Id:            exVol.VolID,
+					VolumeId:      exVol.VolID,
 					CapacityBytes: int64(exVol.VolSize),
-					Attributes:    req.GetParameters(),
+					VolumeContext: req.GetParameters(),
 				},
 			}, nil
 		}
@@ -93,13 +94,13 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	if req.GetVolumeContentSource() != nil {
 		contentSource := req.GetVolumeContentSource()
 		if contentSource.GetSnapshot() != nil {
-			snapshotId := contentSource.GetSnapshot().GetId()
+			snapshotId := contentSource.GetSnapshot().GetSnapshotId()
 			snapshot, ok := hostPathVolumeSnapshots[snapshotId]
 			if !ok {
 				return nil, status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
 			}
-			if snapshot.Status.Type != csi.SnapshotStatus_READY {
-				return nil, status.Errorf(codes.Internal, "status of snapshot %v is not ready", snapshotId)
+			if snapshot.ReadyToUse != true {
+				return nil, status.Errorf(codes.Internal, "Snapshot %v is not yet ready to use.", snapshotId)
 			}
 			snapshotPath := snapshot.Path
 			args := []string{"zxvf", snapshotPath, "-C", path}
@@ -119,9 +120,9 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	hostPathVolumes[volumeID] = hostPathVol
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
-			Id:            volumeID,
+			VolumeId:      volumeID,
 			CapacityBytes: req.GetCapacityRange().GetRequiredBytes(),
-			Attributes:    req.GetParameters(),
+			VolumeContext: req.GetParameters(),
 		},
 	}, nil
 }
@@ -146,24 +147,7 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 }
 
 func (cs *controllerServer) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
-
-	// Check arguments
-	if len(req.GetVolumeId()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
-	}
-	if req.GetVolumeCapabilities() == nil {
-		return nil, status.Error(codes.InvalidArgument, "Volume capabilities missing in request")
-	}
-	if _, ok := hostPathVolumes[req.GetVolumeId()]; !ok {
-		return nil, status.Error(codes.NotFound, "Volume does not exist")
-	}
-
-	for _, cap := range req.VolumeCapabilities {
-		if cap.GetAccessMode().GetMode() != csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER {
-			return &csi.ValidateVolumeCapabilitiesResponse{Supported: false, Message: ""}, nil
-		}
-	}
-	return &csi.ValidateVolumeCapabilitiesResponse{Supported: true, Message: ""}, nil
+	return cs.DefaultControllerServer.ValidateVolumeCapabilities(ctx, req)
 }
 
 // CreateSnapshot uses tar command to create snapshot for hostpath volume. The tar command can quickly create
@@ -191,11 +175,11 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 			// same snapshot has been created.
 			return &csi.CreateSnapshotResponse{
 				Snapshot: &csi.Snapshot{
-					Id:             exSnap.Id,
+					SnapshotId:     exSnap.Id,
 					SourceVolumeId: exSnap.VolID,
-					CreatedAt:      exSnap.CreateAt,
+					CreationTime:   &exSnap.CreationTime,
 					SizeBytes:      exSnap.SizeBytes,
-					Status:         exSnap.Status,
+					ReadyToUse:     exSnap.ReadyToUse,
 				},
 			}, nil
 		}
@@ -209,7 +193,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	}
 
 	snapshotID := uuid.NewUUID().String()
-	createAt := time.Now().UnixNano()
+	creationTime := ptypes.TimestampNow()
 	volPath := hostPathVolume.VolPath
 	file := snapshotRoot + snapshotID + ".tgz"
 	args := []string{"czf", file, "-C", volPath, "."}
@@ -225,22 +209,19 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	snapshot.Id = snapshotID
 	snapshot.VolID = volumeID
 	snapshot.Path = file
-	snapshot.CreateAt = createAt
+	snapshot.CreationTime = *creationTime
 	snapshot.SizeBytes = hostPathVolume.VolSize
-	snapshot.Status = &csi.SnapshotStatus{
-		Type:    csi.SnapshotStatus_READY,
-		Details: fmt.Sprint("Successfully create snapshot"),
-	}
+	snapshot.ReadyToUse = true
 
 	hostPathVolumeSnapshots[snapshotID] = snapshot
 
 	return &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
-			Id:             snapshot.Id,
+			SnapshotId:     snapshot.Id,
 			SourceVolumeId: snapshot.VolID,
-			CreatedAt:      snapshot.CreateAt,
+			CreationTime:   &snapshot.CreationTime,
 			SizeBytes:      snapshot.SizeBytes,
-			Status:         snapshot.Status,
+			ReadyToUse:     snapshot.ReadyToUse,
 		},
 	}, nil
 }
@@ -297,11 +278,11 @@ func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnap
 	for _, key := range sortedKeys {
 		snap := hostPathVolumeSnapshots[key]
 		snapshot := csi.Snapshot{
-			Id:             snap.Id,
+			SnapshotId:     snap.Id,
 			SourceVolumeId: snap.VolID,
-			CreatedAt:      snap.CreateAt,
+			CreationTime:   &snap.CreationTime,
 			SizeBytes:      snap.SizeBytes,
-			Status:         snap.Status,
+			ReadyToUse:     snap.ReadyToUse,
 		}
 		snapshots = append(snapshots, snapshot)
 	}
@@ -369,11 +350,11 @@ func convertSnapshot(snap hostPathSnapshot) *csi.ListSnapshotsResponse {
 	entries := []*csi.ListSnapshotsResponse_Entry{
 		{
 			Snapshot: &csi.Snapshot{
-				Id:             snap.Id,
+				SnapshotId:     snap.Id,
 				SourceVolumeId: snap.VolID,
-				CreatedAt:      snap.CreateAt,
+				CreationTime:   &snap.CreationTime,
 				SizeBytes:      snap.SizeBytes,
-				Status:         snap.Status,
+				ReadyToUse:     snap.ReadyToUse,
 			},
 		},
 	}
