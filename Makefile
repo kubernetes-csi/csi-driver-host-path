@@ -18,9 +18,9 @@ IMAGE_VERSION=canary
 IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
 REV=$(shell git describe --long --tags --dirty)
 
-.PHONY: all flexadapter nfs hostpath iscsi cinder clean hostpath-container
+.PHONY: all flexadapter nfs hostpath iscsi clean hostpath-container
 
-all: flexadapter nfs hostpath iscsi cinder
+all: flexadapter nfs hostpath iscsi
 
 test:
 	go test github.com/kubernetes-csi/drivers/pkg/... -cover
@@ -41,9 +41,6 @@ push: hostpath-container
 iscsi:
 	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/iscsiplugin ./app/iscsiplugin
-cinder:
-	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/cinderplugin ./app/cinderplugin
 clean:
 	go clean -r -x
 	-rm -rf _output
