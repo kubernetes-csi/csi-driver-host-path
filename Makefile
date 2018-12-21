@@ -27,9 +27,9 @@ test:
 	go vet github.com/kubernetes-csi/csi-driver-host-path/pkg/...
 hostpath:
 	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-X github.com/kubernetes-csi/csi-driver-host-path/pkg/hostpath.vendorVersion=$(REV) -extldflags "-static"' -o _output/hostpathplugin ./app
+	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-X github.com/kubernetes-csi/csi-driver-host-path/pkg/hostpath.vendorVersion=$(REV) -extldflags "-static"' -o _output/hostpathplugin ./cmd/hostpathplugin
 hostpath-container: hostpath
-	docker build -t $(IMAGE_TAG) -f ./app/Dockerfile .
+	docker build -t $(IMAGE_TAG) -f ./cmd/Dockerfile .
 push: hostpath-container
 	docker push $(IMAGE_TAG)
 clean:
