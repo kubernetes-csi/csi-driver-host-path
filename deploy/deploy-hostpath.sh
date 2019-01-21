@@ -8,11 +8,22 @@
 # The script assumes that kubectl is available on the OS path 
 # where it is executed.
 
-K8S_RELEASE=${K8S_RELEASE:-"release-1.13"}
-PROVISIONER_RELEASE=${PROVISIONER_RELEASE:-"release-1.0"}
-ATTACHER_RELEASE=${ATTACHER_RELEASE:-"release-1.0"}
-INSTALL_CRD=${INSTALL_CRD:-"false"}
+set -e
+set -o pipefail
+
+function image_version () {
+    yaml="$1"
+    image="$2"
+
+    # get version from `image: quay.io/k8scsi/csi-attacher:v1.0.1`
+    grep "image:.*$image" "$yaml" | sed -e 's/.*:v/v/'
+}
+
 BASE_DIR=$(dirname "$0")
+K8S_RELEASE=${K8S_RELEASE:-"release-1.13"}
+PROVISIONER_RELEASE=${PROVISIONER_RELEASE:-$(image_version "${BASE_DIR}/hostpath/csi-hostpath-provisioner.yaml" csi-provisioner)}
+ATTACHER_RELEASE=${ATTACHER_RELEASE:-$(image_version "${BASE_DIR}/hostpath/csi-hostpath-attacher.yaml" csi-attacher)}
+INSTALL_CRD=${INSTALL_CRD:-"false"}
 
 # apply CSIDriver and CSINodeInfo API objects
 if [[ "${INSTALL_CRD}" =~ ^(y|Y|yes|true)$ ]] ; then
