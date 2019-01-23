@@ -14,17 +14,10 @@ The easiest way to test the Hostpath driver is to run `deploy/deploy-hostpath.sh
 $ sh deploy/deploy-hostpath.sh
 ```
 
-Or, if you want to override the version
-
-```shell
-$ K8S_RELEASE=1.14 CSI_RELEASE=1.0.1 sh deploy/deploy-hostpath.sh
-```
-
 You should see an output similar to the following printed on the terminal showing the application of rbac rules and the result of deploying the hostpath driver, external privisioner and external attacher components:
 
 ```shell
-customresourcedefinition.apiextensions.k8s.io/csidrivers.csi.storage.k8s.io created
-customresourcedefinition.apiextensions.k8s.io/csinodeinfos.csi.storage.k8s.io created
+applying RBAC rules
 serviceaccount/csi-provisioner created
 clusterrole.rbac.authorization.k8s.io/external-provisioner-runner created
 clusterrolebinding.rbac.authorization.k8s.io/csi-provisioner-role created
@@ -35,18 +28,18 @@ clusterrole.rbac.authorization.k8s.io/external-attacher-runner created
 clusterrolebinding.rbac.authorization.k8s.io/csi-attacher-role created
 role.rbac.authorization.k8s.io/external-attacher-cfg created
 rolebinding.rbac.authorization.k8s.io/csi-attacher-role-cfg created
-serviceaccount/csi-driver-registrar created
-clusterrole.rbac.authorization.k8s.io/driver-registrar-runner created
-clusterrolebinding.rbac.authorization.k8s.io/csi-driver-registrar-role created
+deploying hostpath components
 service/csi-hostpath-attacher created
 statefulset.apps/csi-hostpath-attacher created
 daemonset.apps/csi-hostpathplugin created
 service/csi-hostpath-provisioner created
 statefulset.apps/csi-hostpath-provisioner created
-serviceaccount/csi-node-sa created
-clusterrole.rbac.authorization.k8s.io/csi-node-sa created
-clusterrolebinding.rbac.authorization.k8s.io/csi-node-sa created
 ```
+
+The script can also install CRDs that are needed for alpha features,
+but as this is something that should be done by the cluster
+provisioning tool it is disabled in the script by default. For this
+and other customizations see the source code of the deploy script.
 
 ## Run example application and validate
 

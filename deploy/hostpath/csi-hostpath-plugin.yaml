@@ -11,11 +11,10 @@ spec:
       labels:
         app: csi-hostpathplugin
     spec:
-      serviceAccountName: csi-node-sa
       hostNetwork: true
       containers:
         - name: node-driver-registrar
-          image: quay.io/k8scsi/csi-node-driver-registrar:v1.0.1
+          image: quay.io/k8scsi/csi-node-driver-registrar:v1.0.2
           imagePullPolicy: Always
           lifecycle:
             preStop:
