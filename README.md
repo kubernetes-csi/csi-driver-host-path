@@ -4,17 +4,17 @@ This repository hosts the CSI Hostpath driver and all of its build and dependent
 
 ## Pre-requisite
 - Kubernetes cluster
-- Running verrsion 1.13 or later
+- Running version 1.13 or later
 - Access to terminal with `kubectl` installed
 
 ## Deployment
-The easiest way to test the Hostpath driver is to run `deploy/deploy-hostpath.sh` scrip as show:
+The easiest way to test the Hostpath driver is to run `deploy/deploy-hostpath.sh` script as shown:
 
 ```shell
 $ sh deploy/deploy-hostpath.sh
 ```
 
-You should see an output similar to the following printed on the terminal showing the application of rbac rules and the result of deploying the hostpath driver, external privisioner and external attacher components:
+You should see an output similar to the following printed on the terminal showing the application of rbac rules and the result of deploying the hostpath driver, external provisioner and external attacher components:
 
 ```shell
 applying RBAC rules
@@ -65,11 +65,11 @@ storageclass.storage.k8s.io/csi-hostpath-sc created
 Let's validate the components are deployed:
 
 ```shell
-$> kubectl get pv
+$ kubectl get pv
 NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM             STORAGECLASS      REASON   AGE
 pvc-58d5ec38-03e5-11e9-be51-000c29e88ff1   1Gi        RWO            Delete           Bound    default/csi-pvc   csi-hostpath-sc            80s
 
-$> kubectl get pvc
+$ kubectl get pvc
 NAME      STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
 csi-pvc   Bound    pvc-58d5ec38-03e5-11e9-be51-000c29e88ff1   1Gi        RWO            csi-hostpath-sc   93s
 ```
@@ -77,7 +77,7 @@ csi-pvc   Bound    pvc-58d5ec38-03e5-11e9-be51-000c29e88ff1   1Gi        RWO    
 Finally, inspect the application pod `my-csi-app`  which mounts a Hostpath volume:
 
 ```shell
-$> kubectl describe pods/my-csi-app
+$ kubectl describe pods/my-csi-app
 Name:               my-csi-app
 Namespace:          default
 Priority:           0
@@ -156,7 +156,7 @@ Then, use the following command to locate the file. If everything works OK you s
 An additional way to ensure the driver is working properly is by inspecting the VolumeAttachment API object created that represents the attached volume:
 
 ```shell
-$> kubectl describe volumeattachment
+$ kubectl describe volumeattachment
 Name:         csi-a7515d53b30a1193fd70b822b18181cff1d16422fd922692bce5ea234cb191e9
 Namespace:
 Labels:       <none>
