@@ -150,20 +150,24 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f5fb6c4c9e14909a66efe7d3e49403234cd52523eb3997c5753a880635e8be2d"
+  digest = "1:69c5526be047163a9f3f1dcb879fdb6247b7afae0d4a89d531f3af06075c66db"
   name = "k8s.io/apimachinery"
-  packages = ["pkg/util/sets"]
+  packages = [
+    "pkg/types",
+    "pkg/util/sets",
+  ]
   pruneopts = "UT"
   revision = "2a7c9300402896b3c073f2f47df85527c94f83a0"
 
 [[projects]]
-  digest = "1:54f05d2b09982c6ce153e2157eef013d98133cfea437a992a1a40d702a8770e4"
+  digest = "1:e59d7d4e595ef65c1059a53e4110fc179ce05a56eb149bcc270505325bb5cc68"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/util/file",
     "pkg/util/io",
     "pkg/util/mount",
     "pkg/util/nsenter",
+    "pkg/volume/util/volumepathhandler",
   ]
   pruneopts = "UT"
   revision = "17c77c7898218073f14c8d573582e8d2313dc740"
@@ -192,6 +196,7 @@
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/status",
     "k8s.io/kubernetes/pkg/util/mount",
+    "k8s.io/kubernetes/pkg/volume/util/volumepathhandler",
     "k8s.io/utils/exec",
   ]
   solver-name = "gps-cdcl"
