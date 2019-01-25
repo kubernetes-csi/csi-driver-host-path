@@ -13,9 +13,6 @@ CSI_MOUNTPOINT="/mnt"
 APP=hostpathplugin
 
 SKIP="WithCapacity"
-if [ x${TRAVIS} = x"true" ] ; then
-	SKIP="ValidateVolumeCapabilities"
-fi
 
 # Get csi-sanity
 ./hack/get-sanity.sh
