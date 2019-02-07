@@ -2,9 +2,12 @@
 
 approvers:
 - childsb
+- jsafrane
+- msau42
 - saad-ali
 - vladimirvivien
-- msau42
 reviewers:
-- childsb
+- jsafrane
+- msau42
 - saad-ali
+- vladimirvivien
