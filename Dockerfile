@@ -2,5 +2,5 @@ FROM alpine
 LABEL maintainers="Kubernetes Authors"
 LABEL description="HostPath Driver"
 
-COPY ./_output/hostpathplugin /hostpathplugin
+COPY ./bin/hostpathplugin /hostpathplugin
 ENTRYPOINT ["/hostpathplugin"]

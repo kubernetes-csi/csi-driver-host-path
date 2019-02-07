@@ -1,4 +1,4 @@
-# Copyright 2017 The Kubernetes Authors.
+# Copyright 2019 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,26 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-REGISTRY_NAME=quay.io/k8scsi
-IMAGE_NAME=hostpathplugin
-IMAGE_VERSION=canary
-IMAGE_TAG=$(REGISTRY_NAME)/$(IMAGE_NAME):$(IMAGE_VERSION)
-REV=$(shell git describe --long --tags --dirty)
+CMDS=hostpathplugin
+all: build
 
-.PHONY: all hostpath clean hostpath-container
-
-all:  hostpath
-
-test:
-	go test github.com/kubernetes-csi/csi-driver-host-path/pkg/... -cover
-	go vet github.com/kubernetes-csi/csi-driver-host-path/pkg/...
-hostpath:
-	if [ ! -d ./vendor ]; then dep ensure -vendor-only; fi
-	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-X github.com/kubernetes-csi/csi-driver-host-path/pkg/hostpath.vendorVersion=$(REV) -extldflags "-static"' -o _output/hostpathplugin ./cmd/hostpathplugin
-hostpath-container: hostpath
-	docker build -t $(IMAGE_TAG) -f ./cmd/Dockerfile .
-push: hostpath-container
-	docker push $(IMAGE_TAG)
-clean:
-	go clean -r -x
-	-rm -rf _output
+include release-tools/build.make
