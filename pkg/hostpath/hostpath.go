@@ -19,11 +19,9 @@ package hostpath
 import (
 	"fmt"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/glog"
 
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 )
 
 const (
@@ -36,14 +34,14 @@ const (
 )
 
 type hostPath struct {
-	driver *csicommon.CSIDriver
+	name     string
+	nodeID   string
+	version  string
+	endpoint string
 
 	ids *identityServer
 	ns  *nodeServer
 	cs  *controllerServer
-
-	cap   []*csi.VolumeCapability_AccessMode
-	cscap []*csi.ControllerServiceCapability
 }
 
 type hostPathVolume struct {
@@ -67,8 +65,7 @@ var hostPathVolumes map[string]hostPathVolume
 var hostPathVolumeSnapshots map[string]hostPathSnapshot
 
 var (
-	hostPathDriver *hostPath
-	vendorVersion  = "dev"
+	vendorVersion = "dev"
 )
 
 func init() {
@@ -76,52 +73,39 @@ func init() {
 	hostPathVolumeSnapshots = map[string]hostPathSnapshot{}
 }
 
-func GetHostPathDriver() *hostPath {
-	return &hostPath{}
-}
-
-func NewIdentityServer(d *csicommon.CSIDriver) *identityServer {
-	return &identityServer{
-		DefaultIdentityServer: csicommon.NewDefaultIdentityServer(d),
+func NewHostPathDriver(driverName, nodeID, endpoint string) (*hostPath, error) {
+	if driverName == "" {
+		return nil, fmt.Errorf("No driver name provided")
 	}
-}
 
-func NewControllerServer(d *csicommon.CSIDriver) *controllerServer {
-	return &controllerServer{
-		DefaultControllerServer: csicommon.NewDefaultControllerServer(d),
+	if nodeID == "" {
+		return nil, fmt.Errorf("No node id provided")
 	}
-}
 
-func NewNodeServer(d *csicommon.CSIDriver) *nodeServer {
-	return &nodeServer{
-		DefaultNodeServer: csicommon.NewDefaultNodeServer(d),
+	if endpoint == "" {
+		return nil, fmt.Errorf("No driver endpoint provided")
 	}
-}
 
-func (hp *hostPath) Run(driverName, nodeID, endpoint string) {
 	glog.Infof("Driver: %v ", driverName)
 	glog.Infof("Version: %s", vendorVersion)
 
-	// Initialize default library driver
-	hp.driver = csicommon.NewCSIDriver(driverName, vendorVersion, nodeID)
-	if hp.driver == nil {
-		glog.Fatalln("Failed to initialize CSI Driver.")
-	}
-	hp.driver.AddControllerServiceCapabilities(
-		[]csi.ControllerServiceCapability_RPC_Type{
-			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-			csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
-			csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
-		})
-	hp.driver.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER})
+	return &hostPath{
+		name:     driverName,
+		version:  vendorVersion,
+		nodeID:   nodeID,
+		endpoint: endpoint,
+	}, nil
+}
+
+func (hp *hostPath) Run() {
 
 	// Create GRPC servers
-	hp.ids = NewIdentityServer(hp.driver)
-	hp.ns = NewNodeServer(hp.driver)
-	hp.cs = NewControllerServer(hp.driver)
+	hp.ids = NewIdentityServer(hp.name, hp.version)
+	hp.ns = NewNodeServer(hp.nodeID)
+	hp.cs = NewControllerServer()
 
-	s := csicommon.NewNonBlockingGRPCServer()
-	s.Start(endpoint, hp.ids, hp.cs, hp.ns)
+	s := NewNonBlockingGRPCServer()
+	s.Start(hp.endpoint, hp.ids, hp.cs, hp.ns)
 	s.Wait()
 }
 

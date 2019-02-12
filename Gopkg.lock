@@ -42,14 +42,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:596505ce72821ef663980f7ce826984a30da406f9356a92c10ac8b44012d549c"
-  name = "github.com/kubernetes-csi/drivers"
-  packages = ["pkg/csi-common"]
-  pruneopts = "UT"
-  revision = "df8026fe9418ed9d7d59837b468f5be40e719ab1"
-  version = "v1.0.0"
-
-[[projects]]
   digest = "1:e5d0bd87abc2781d14e274807a470acd180f0499f8bf5bb18606e9ec22ad9de9"
   name = "github.com/pborman/uuid"
   packages = ["."]
@@ -184,9 +176,9 @@
     "github.com/golang/glog",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/timestamp",
-    "github.com/kubernetes-csi/drivers/pkg/csi-common",
     "github.com/pborman/uuid",
     "golang.org/x/net/context",
+    "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/status",
     "k8s.io/kubernetes/pkg/util/mount",
