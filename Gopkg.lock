@@ -18,9 +18,10 @@
   revision = "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
 
 [[projects]]
-  digest = "1:588beb9f80d2b0afddf05663b32d01c867da419458b560471d81cca0286e76b8"
+  digest = "1:9cab16c200148edbdc9f314f69bf71987085f618ec107385bd6634be21d1aae8"
   name = "github.com/golang/protobuf"
   packages = [
+    "descriptor",
     "proto",
     "protoc-gen-go/descriptor",
     "ptypes",
@@ -42,12 +43,12 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:596505ce72821ef663980f7ce826984a30da406f9356a92c10ac8b44012d549c"
-  name = "github.com/kubernetes-csi/drivers"
-  packages = ["pkg/csi-common"]
+  digest = "1:5f039a8e43dc5b00adee7b38e39baf6c36f607372940c11975f00ec9c5f298ae"
+  name = "github.com/kubernetes-csi/csi-lib-utils"
+  packages = ["protosanitizer"]
   pruneopts = "UT"
-  revision = "df8026fe9418ed9d7d59837b468f5be40e719ab1"
-  version = "v1.0.0"
+  revision = "763b95da1f9f7804ffe5e33f9aee5debf4517adf"
+  version = "v0.3.0"
 
 [[projects]]
   digest = "1:e5d0bd87abc2781d14e274807a470acd180f0499f8bf5bb18606e9ec22ad9de9"
@@ -184,9 +185,10 @@
     "github.com/golang/glog",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/timestamp",
-    "github.com/kubernetes-csi/drivers/pkg/csi-common",
+    "github.com/kubernetes-csi/csi-lib-utils/protosanitizer",
     "github.com/pborman/uuid",
     "golang.org/x/net/context",
+    "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/status",
     "k8s.io/kubernetes/pkg/util/mount",

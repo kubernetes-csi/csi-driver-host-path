@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/hostpath"
@@ -41,6 +42,10 @@ func main() {
 }
 
 func handle() {
-	driver := hostpath.GetHostPathDriver()
-	driver.Run(*driverName, *nodeID, *endpoint)
+	driver, err := hostpath.NewHostPathDriver(*driverName, *nodeID, *endpoint)
+	if err != nil {
+		fmt.Printf("Failed to initialize driver: %s", err.Error())
+		os.Exit(1)
+	}
+	driver.Run()
 }
