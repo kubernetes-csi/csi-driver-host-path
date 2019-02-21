@@ -163,7 +163,35 @@ func (cs *controllerServer) ControllerGetCapabilities(ctx context.Context, req *
 }
 
 func (cs *controllerServer) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+
+	// Check arguments
+	if len(req.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID cannot be empty")
+	}
+	if len(req.VolumeCapabilities) == 0 {
+		return nil, status.Error(codes.InvalidArgument, req.VolumeId)
+	}
+
+	if _, err := getVolumeByID(req.GetVolumeId()); err != nil {
+		return nil, status.Error(codes.NotFound, req.GetVolumeId())
+	}
+
+	for _, cap := range req.GetVolumeCapabilities() {
+		if cap.GetMount() == nil && cap.GetBlock() == nil {
+			return nil, status.Error(codes.InvalidArgument, "cannot have both mount and block access type be undefined")
+		}
+
+		// A real driver would check the capabilities of the given volume with
+		// the set of requested capabilities.
+	}
+
+	return &csi.ValidateVolumeCapabilitiesResponse{
+		Confirmed: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
+			VolumeContext:      req.GetVolumeContext(),
+			VolumeCapabilities: req.GetVolumeCapabilities(),
+			Parameters:         req.GetParameters(),
+		},
+	}, nil
 }
 
 func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
