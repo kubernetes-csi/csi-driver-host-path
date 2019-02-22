@@ -31,7 +31,7 @@ spec:
                   apiVersion: v1
                   fieldPath: spec.nodeName
             - name: DRIVER_REG_SOCK_DIR
-              value: /opt/rke/var/lib/kubelet/plugins/csi-hostpath
+              value: /var/lib/kubelet/plugins/csi-hostpath
           volumeMounts:
           - mountPath: /csi
             name: socket-dir
