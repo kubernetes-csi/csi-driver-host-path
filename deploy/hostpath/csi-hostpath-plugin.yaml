@@ -23,13 +23,15 @@ spec:
           args:
             - --v=5
             - --csi-address=/csi/csi.sock
-            - --kubelet-registration-path=/var/lib/kubelet/plugins/csi-hostpath/csi.sock
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_DIR)/csi.sock
           env:
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            - name: DRIVER_REG_SOCK_DIR
+              value: /opt/rke/var/lib/kubelet/plugins/csi-hostpath
           volumeMounts:
           - mountPath: /csi
             name: socket-dir
