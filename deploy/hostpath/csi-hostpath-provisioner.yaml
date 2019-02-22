@@ -27,6 +27,16 @@ spec:
       labels:
         app: csi-hostpath-provisioner
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - csi-hostpathplugin
+            topologyKey: kubernetes.io/hostname
       serviceAccountName: csi-provisioner
       containers:
         - name: csi-provisioner
