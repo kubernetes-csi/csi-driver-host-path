@@ -95,6 +95,12 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, maxStorageCapacity)
 	}
 	volumeID := uuid.NewUUID().String()
+	hostPathVolumes.Store(volumeID, nil)
+	defer func() {
+		if volumeInf, ok := hostPathVolumes.Load(volumeID); ok && volumeInf == nil {
+			hostPathVolumes.Delete(volumeID)
+		}
+	}()
 	path := provisionRoot + volumeID
 	err := os.MkdirAll(path, 0777)
 	if err != nil {
@@ -105,10 +111,11 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		contentSource := req.GetVolumeContentSource()
 		if contentSource.GetSnapshot() != nil {
 			snapshotId := contentSource.GetSnapshot().GetSnapshotId()
-			snapshot, ok := hostPathVolumeSnapshots[snapshotId]
+			snapshotInf, ok := hostPathVolumeSnapshots.Load(snapshotId)
 			if !ok {
 				return nil, status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
 			}
+			snapshot := snapshotInf.(hostPathSnapshot)
 			if snapshot.ReadyToUse != true {
 				return nil, status.Errorf(codes.Internal, "Snapshot %v is not yet ready to use.", snapshotId)
 			}
@@ -127,7 +134,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	hostPathVol.VolID = volumeID
 	hostPathVol.VolSize = capacity
 	hostPathVol.VolPath = path
-	hostPathVolumes[volumeID] = hostPathVol
+	hostPathVolumes.Store(volumeID, hostPathVol)
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volumeID,
@@ -152,7 +159,7 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	glog.V(4).Infof("deleting volume %s", volumeID)
 	path := provisionRoot + volumeID
 	os.RemoveAll(path)
-	delete(hostPathVolumes, volumeID)
+	hostPathVolumes.Delete(volumeID)
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
@@ -247,12 +254,20 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	}
 
 	volumeID := req.GetSourceVolumeId()
-	hostPathVolume, ok := hostPathVolumes[volumeID]
+	hostPathVolumeInf, ok := hostPathVolumes.Load(volumeID)
 	if !ok {
 		return nil, status.Error(codes.Internal, "volumeID is not exist")
 	}
-
+	hostPathVolume := hostPathVolumeInf.(hostPathVolume)
 	snapshotID := uuid.NewUUID().String()
+
+	hostPathVolumeSnapshots.Store(snapshotID, nil)
+	defer func() {
+		if snapShotInf, ok := hostPathVolumeSnapshots.Load(volumeID); ok && snapShotInf == nil {
+			hostPathVolumeSnapshots.Delete(volumeID)
+		}
+	}()
+
 	creationTime := ptypes.TimestampNow()
 	volPath := hostPathVolume.VolPath
 	file := snapshotRoot + snapshotID + ".tgz"
@@ -273,7 +288,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	snapshot.SizeBytes = hostPathVolume.VolSize
 	snapshot.ReadyToUse = true
 
-	hostPathVolumeSnapshots[snapshotID] = snapshot
+	hostPathVolumeSnapshots.Store(snapshotID, snapshot)
 
 	return &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
@@ -300,7 +315,7 @@ func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 	glog.V(4).Infof("deleting volume %s", snapshotID)
 	path := snapshotRoot + snapshotID + ".tgz"
 	os.RemoveAll(path)
-	delete(hostPathVolumeSnapshots, snapshotID)
+	hostPathVolumeSnapshots.Delete(snapshotID)
 	return &csi.DeleteSnapshotResponse{}, nil
 }
 
@@ -313,30 +328,40 @@ func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnap
 	// case 1: SnapshotId is not empty, return snapshots that match the snapshot id.
 	if len(req.GetSnapshotId()) != 0 {
 		snapshotID := req.SnapshotId
-		if snapshot, ok := hostPathVolumeSnapshots[snapshotID]; ok {
-			return convertSnapshot(snapshot), nil
+		if snapshotInf, ok := hostPathVolumeSnapshots.Load(snapshotID); ok {
+			return convertSnapshot(snapshotInf.(hostPathSnapshot)), nil
 		}
 	}
 
 	// case 2: SourceVolumeId is not empty, return snapshots that match the source volume id.
 	if len(req.GetSourceVolumeId()) != 0 {
-		for _, snapshot := range hostPathVolumeSnapshots {
-			if snapshot.VolID == req.SourceVolumeId {
-				return convertSnapshot(snapshot), nil
+
+		var snapshot hostPathSnapshot
+		hostPathVolumeSnapshots.Range(func(key, value interface{}) bool {
+			if value.(hostPathSnapshot).VolID == req.SourceVolumeId {
+				snapshot = value.(hostPathSnapshot)
+				return false
+			} else {
+				return true
 			}
-		}
+		},
+		)
+		return convertSnapshot(snapshot), nil
+
 	}
 
 	var snapshots []csi.Snapshot
 	// case 3: no parameter is set, so we return all the snapshots.
 	sortedKeys := make([]string, 0)
-	for k := range hostPathVolumeSnapshots {
-		sortedKeys = append(sortedKeys, k)
-	}
+	hostPathVolumeSnapshots.Range(func(key, value interface{}) bool {
+		sortedKeys = append(sortedKeys, key.(string))
+		return true
+	})
 	sort.Strings(sortedKeys)
 
 	for _, key := range sortedKeys {
-		snap := hostPathVolumeSnapshots[key]
+		snapInf, _ := hostPathVolumeSnapshots.Load(key)
+		snap := snapInf.(hostPathSnapshot)
 		snapshot := csi.Snapshot{
 			SnapshotId:     snap.Id,
 			SourceVolumeId: snap.VolID,

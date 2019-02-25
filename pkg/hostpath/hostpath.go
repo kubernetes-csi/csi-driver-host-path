@@ -18,10 +18,11 @@ package hostpath
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/golang/glog"
 
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/golang/protobuf/ptypes/timestamp"
 )
 
 const (
@@ -61,16 +62,16 @@ type hostPathSnapshot struct {
 	ReadyToUse   bool                `json:"readyToUse"`
 }
 
-var hostPathVolumes map[string]hostPathVolume
-var hostPathVolumeSnapshots map[string]hostPathSnapshot
+var hostPathVolumes = new(sync.Map)
+var hostPathVolumeSnapshots = new(sync.Map)
 
 var (
 	vendorVersion = "dev"
 )
 
 func init() {
-	hostPathVolumes = map[string]hostPathVolume{}
-	hostPathVolumeSnapshots = map[string]hostPathSnapshot{}
+	/*hostPathVolumes = map[string]hostPathVolume{}
+	hostPathVolumeSnapshots = map[string]hostPathSnapshot{}*/
 }
 
 func NewHostPathDriver(driverName, nodeID, endpoint string) (*hostPath, error) {
@@ -110,26 +111,53 @@ func (hp *hostPath) Run() {
 }
 
 func getVolumeByID(volumeID string) (hostPathVolume, error) {
-	if hostPathVol, ok := hostPathVolumes[volumeID]; ok {
-		return hostPathVol, nil
+	if hostPathVol, ok := hostPathVolumes.Load(volumeID); ok {
+		return hostPathVol.(hostPathVolume), nil
 	}
 	return hostPathVolume{}, fmt.Errorf("volume id %s does not exit in the volumes list", volumeID)
 }
 
 func getVolumeByName(volName string) (hostPathVolume, error) {
-	for _, hostPathVol := range hostPathVolumes {
-		if hostPathVol.VolName == volName {
-			return hostPathVol, nil
+
+	var volume hostPathVolume
+
+	hostPathVolumes.Range(func(key, value interface{}) bool {
+		if value != nil {
+			if value.(hostPathVolume).VolName == volName {
+				volume = value.(hostPathVolume)
+				return false
+			} else {
+				return true
+			}
+		} else {
+			return true
 		}
+	})
+	if len(volume.VolName) != 0 {
+		return volume, nil
 	}
+
 	return hostPathVolume{}, fmt.Errorf("volume name %s does not exit in the volumes list", volName)
 }
 
 func getSnapshotByName(name string) (hostPathSnapshot, error) {
-	for _, snapshot := range hostPathVolumeSnapshots {
-		if snapshot.Name == name {
-			return snapshot, nil
+
+	var snapshot hostPathSnapshot
+
+	hostPathVolumeSnapshots.Range(func(key, value interface{}) bool {
+		if value != nil {
+			if value.(hostPathSnapshot).Name == name {
+				snapshot = value.(hostPathSnapshot)
+				return false
+			} else {
+				return true
+			}
+		} else {
+			return true
 		}
+	})
+	if len(snapshot.Name) != 0 {
+		return snapshot, nil
 	}
 	return hostPathSnapshot{}, fmt.Errorf("snapshot name %s does not exit in the snapshots list", name)
 }
