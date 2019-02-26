@@ -18,29 +18,43 @@ You should see an output similar to the following printed on the terminal showin
 
 ```shell
 applying RBAC rules
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/v1.0.1/deploy/kubernetes/rbac.yaml
 serviceaccount/csi-provisioner created
 clusterrole.rbac.authorization.k8s.io/external-provisioner-runner created
 clusterrolebinding.rbac.authorization.k8s.io/csi-provisioner-role created
 role.rbac.authorization.k8s.io/external-provisioner-cfg created
 rolebinding.rbac.authorization.k8s.io/csi-provisioner-role-cfg created
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-attacher/v1.0.1/deploy/kubernetes/rbac.yaml
 serviceaccount/csi-attacher created
 clusterrole.rbac.authorization.k8s.io/external-attacher-runner created
 clusterrolebinding.rbac.authorization.k8s.io/csi-attacher-role created
 role.rbac.authorization.k8s.io/external-attacher-cfg created
 rolebinding.rbac.authorization.k8s.io/csi-attacher-role-cfg created
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v1.0.1/deploy/kubernetes/rbac.yaml
 serviceaccount/csi-snapshotter created
 clusterrole.rbac.authorization.k8s.io/external-snapshotter-runner created
 clusterrolebinding.rbac.authorization.k8s.io/csi-snapshotter-role created
 deploying hostpath components
+   deploy/hostpath/csi-hostpath-attacher.yaml
+        using           image: quay.io/k8scsi/csi-attacher:v1.0.1
 service/csi-hostpath-attacher created
 statefulset.apps/csi-hostpath-attacher created
+   deploy/hostpath/csi-hostpath-plugin.yaml
+        using           image: quay.io/k8scsi/csi-node-driver-registrar:v1.0.2
+        using           image: quay.io/k8scsi/hostpathplugin:v1.0.1
+        using           image: quay.io/k8scsi/livenessprobe:v1.0.2
+service/csi-hostpathplugin created
 statefulset.apps/csi-hostpathplugin created
+   deploy/hostpath/csi-hostpath-provisioner.yaml
+        using           image: quay.io/k8scsi/csi-provisioner:v1.0.1
 service/csi-hostpath-provisioner created
 statefulset.apps/csi-hostpath-provisioner created
-deploying snapshotter
-volumesnapshotclass.snapshot.storage.k8s.io/csi-hostpath-snapclass created
+   deploy/hostpath/csi-hostpath-snapshotter.yaml
+        using           image: quay.io/k8scsi/csi-snapshotter:v1.0.1
 service/csi-hostpath-snapshotter created
 statefulset.apps/csi-hostpath-snapshotter created
+deploying snapshotclass
+volumesnapshotclass.snapshot.storage.k8s.io/csi-hostpath-snapclass created
 ```
 
 The script can also install CRDs that are needed for alpha features,
