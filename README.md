@@ -28,12 +28,18 @@ clusterrole.rbac.authorization.k8s.io/external-attacher-runner created
 clusterrolebinding.rbac.authorization.k8s.io/csi-attacher-role created
 role.rbac.authorization.k8s.io/external-attacher-cfg created
 rolebinding.rbac.authorization.k8s.io/csi-attacher-role-cfg created
+serviceaccount/csi-snapshotter created
+clusterrole.rbac.authorization.k8s.io/external-snapshotter-runner created
+clusterrolebinding.rbac.authorization.k8s.io/csi-snapshotter-role created
 deploying hostpath components
 service/csi-hostpath-attacher created
 statefulset.apps/csi-hostpath-attacher created
 statefulset.apps/csi-hostpathplugin created
 service/csi-hostpath-provisioner created
 statefulset.apps/csi-hostpath-provisioner created
+deploying snapshotter
+service/csi-hostpath-snapshotter created
+statefulset.apps/csi-hostpath-snapshotter created
 ```
 
 The script can also install CRDs that are needed for alpha features,
@@ -50,6 +56,7 @@ $ kubectl get pods
 NAME                         READY   STATUS    RESTARTS   AGE
 csi-hostpath-attacher-0      1/1     Running   0          5m47s
 csi-hostpath-provisioner-0   1/1     Running   0          5m47s
+csi-hostpath-snapshotter-0   1/1     Running   0          5m47s
 csi-hostpathplugin-0         2/2     Running   0          5m45s
 ```
 
