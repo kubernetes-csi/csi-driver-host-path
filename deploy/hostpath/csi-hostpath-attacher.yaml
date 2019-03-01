@@ -27,6 +27,16 @@ spec:
       labels:
         app: csi-hostpath-attacher
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - csi-hostpathplugin
+            topologyKey: kubernetes.io/hostname
       serviceAccountName: csi-attacher
       containers:
         - name: csi-attacher

@@ -1,8 +1,31 @@
-kind: DaemonSet
+# Service defined here, plus serviceName below in StatefulSet,
+# are needed only because of condition explained in
+# https://github.com/kubernetes/kubernetes/issues/69608
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: csi-hostpathplugin
+  labels:
+    app: csi-hostpathplugin
+spec:
+  selector:
+    app: csi-hostpathplugin
+  ports:
+    - name: dummy
+      port: 12345
+---
+kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: csi-hostpathplugin
 spec:
+  serviceName: "csi-hostpathplugin"
+  # One replica only:
+  # Host path driver only works when everything runs
+  # on a single node. We achieve that by starting it once and then
+  # co-locate all other pods via inter-pod affinity
+  replicas: 1
   selector:
     matchLabels:
       app: csi-hostpathplugin

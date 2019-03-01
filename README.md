@@ -31,7 +31,7 @@ rolebinding.rbac.authorization.k8s.io/csi-attacher-role-cfg created
 deploying hostpath components
 service/csi-hostpath-attacher created
 statefulset.apps/csi-hostpath-attacher created
-daemonset.apps/csi-hostpathplugin created
+statefulset.apps/csi-hostpathplugin created
 service/csi-hostpath-provisioner created
 statefulset.apps/csi-hostpath-provisioner created
 ```
@@ -50,7 +50,7 @@ $ kubectl get pods
 NAME                         READY   STATUS    RESTARTS   AGE
 csi-hostpath-attacher-0      1/1     Running   0          5m47s
 csi-hostpath-provisioner-0   1/1     Running   0          5m47s
-csi-hostpathplugin-lzzlc     2/2     Running   0          5m45s
+csi-hostpathplugin-0         2/2     Running   0          5m45s
 ```
 
 From the root directory, deploy the application pods including a storage class, a PVC, and a pod which mounts a volume using the Hostpath driver found in directory `./examples`:
