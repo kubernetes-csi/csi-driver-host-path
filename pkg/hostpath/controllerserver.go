@@ -38,8 +38,8 @@ import (
 
 const (
 	deviceID           = "deviceID"
-	provisionRoot      = "/tmp/"
-	snapshotRoot       = "/tmp/"
+	provisionRoot      = "/csi-data-dir"
+	snapshotRoot       = "/csi-data-dir"
 	maxStorageCapacity = tib
 )
 
