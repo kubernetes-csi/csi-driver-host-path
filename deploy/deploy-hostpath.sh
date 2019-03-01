@@ -138,6 +138,24 @@ for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
     done | kubectl apply -f -
 done
 
+# Wait until all pods are running. We have to make some assumptions
+# about the deployment here, otherwise we wouldn't know what to wait
+# for: the expectation is that we run attacher, provisioner,
+# snapshotter and hostpath plugin in the default namespace.
+cnt=0
+while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) -lt 4 ] || ! kubectl describe volumesnapshotclasses.snapshot.storage.k8s.io 2>/dev/null >/dev/null; do
+    if [ $cnt -gt 30 ]; then
+        echo "Running pods:"
+        kubectl describe pods
+
+        echo >&2 "ERROR: hostpath deployment not ready after over 5min"
+        exit 1
+    fi
+    echo $(date +%H:%M:%S) "waiting for hostpath deployment to complete, attempt #$cnt"
+    cnt=$(($cnt + 1))
+    sleep 10
+done
+
 # deploy snapshotclass
 echo "deploying snapshotclass"
 kubectl create -f ${BASE_DIR}/snapshotter/csi-hostpath-snapshotclass.yaml

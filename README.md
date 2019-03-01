@@ -53,6 +53,9 @@ statefulset.apps/csi-hostpath-provisioner created
         using           image: quay.io/k8scsi/csi-snapshotter:v1.0.1
 service/csi-hostpath-snapshotter created
 statefulset.apps/csi-hostpath-snapshotter created
+23:04:27 waiting for hostpath deployment to complete, attempt #0
+23:04:38 waiting for hostpath deployment to complete, attempt #1
+23:04:48 waiting for hostpath deployment to complete, attempt #2
 deploying snapshotclass
 volumesnapshotclass.snapshot.storage.k8s.io/csi-hostpath-snapclass created
 ```
