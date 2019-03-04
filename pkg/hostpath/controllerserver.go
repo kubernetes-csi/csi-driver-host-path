@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 	utilexec "k8s.io/utils/exec"
 )
 
@@ -40,6 +41,13 @@ const (
 	provisionRoot      = "/tmp/"
 	snapshotRoot       = "/tmp/"
 	maxStorageCapacity = tib
+)
+
+type accessType int
+
+const (
+	mountAccess accessType = iota
+	blockAccess
 )
 
 type controllerServer struct {
@@ -67,9 +75,41 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	if len(req.GetName()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Name missing in request")
 	}
-	if req.GetVolumeCapabilities() == nil {
+	caps := req.GetVolumeCapabilities()
+	if caps == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume Capabilities missing in request")
 	}
+
+	// Keep a record of the requested access types.
+	var accessTypeMount, accessTypeBlock bool
+
+	for _, cap := range caps {
+		if cap.GetBlock() != nil {
+			accessTypeBlock = true
+		}
+		if cap.GetMount() != nil {
+			accessTypeMount = true
+		}
+	}
+	// A real driver would also need to check that the other
+	// fields in VolumeCapabilities are sane. The check above is
+	// just enough to pass the "[Testpattern: Dynamic PV (block
+	// volmode)] volumeMode should fail in binding dynamic
+	// provisioned PV to PVC" storage E2E test.
+
+	if accessTypeBlock && accessTypeMount {
+		return nil, status.Error(codes.InvalidArgument, "cannot have both block and mount access type")
+	}
+
+	var requestedAccessType accessType
+
+	if accessTypeBlock {
+		requestedAccessType = blockAccess
+	} else {
+		// Default to mount.
+		requestedAccessType = mountAccess
+	}
+
 	// Need to check for already existing volume name, and if found
 	// check for the requested capacity and already allocated capacity
 	if exVol, err := getVolumeByName(req.GetName()); err == nil {
@@ -94,13 +134,35 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	if capacity >= maxStorageCapacity {
 		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, maxStorageCapacity)
 	}
+
 	volumeID := uuid.NewUUID().String()
 	path := provisionRoot + volumeID
-	err := os.MkdirAll(path, 0777)
-	if err != nil {
-		glog.V(3).Infof("failed to create volume: %v", err)
-		return nil, err
+
+	switch requestedAccessType {
+	case blockAccess:
+		executor := utilexec.New()
+		size := fmt.Sprintf("%dM", capacity/mib)
+		// Create a block file.
+		out, err := executor.Command("fallocate", "-l", size, path).CombinedOutput()
+		if err != nil {
+			glog.V(3).Infof("failed to create block device: %v", string(out))
+			return nil, err
+		}
+
+		// Associate block file with the loop device.
+		volPathHandler := volumepathhandler.VolumePathHandler{}
+		_, err = volPathHandler.AttachFileDevice(path)
+		if err != nil {
+			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to attach device: %v", err))
+		}
+	case mountAccess:
+		err := os.MkdirAll(path, 0777)
+		if err != nil {
+			glog.V(3).Infof("failed to create volume: %v", err)
+			return nil, err
+		}
 	}
+
 	if req.GetVolumeContentSource() != nil {
 		contentSource := req.GetVolumeContentSource()
 		if contentSource.GetSnapshot() != nil {
@@ -127,6 +189,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	hostPathVol.VolID = volumeID
 	hostPathVol.VolSize = capacity
 	hostPathVol.VolPath = path
+	hostPathVol.VolAccessType = requestedAccessType
 	hostPathVolumes[volumeID] = hostPathVol
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
@@ -148,11 +211,34 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		glog.V(3).Infof("invalid delete volume req: %v", req)
 		return nil, err
 	}
-	volumeID := req.VolumeId
-	glog.V(4).Infof("deleting volume %s", volumeID)
-	path := provisionRoot + volumeID
-	os.RemoveAll(path)
-	delete(hostPathVolumes, volumeID)
+
+	vol, err := getVolumeByID(req.GetVolumeId())
+	if err != nil {
+		// Return OK if the volume is not found.
+		return &csi.DeleteVolumeResponse{}, nil
+	}
+	glog.V(4).Infof("deleting volume %s", vol.VolID)
+
+	if vol.VolAccessType == blockAccess {
+
+		volPathHandler := volumepathhandler.VolumePathHandler{}
+		// Get the associated loop device.
+		device, err := volPathHandler.GetLoopDevice(provisionRoot + vol.VolID)
+		if err != nil {
+			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to get the loop device: %v", err))
+		}
+
+		if device != "" {
+			// Remove any associated loop device.
+			glog.V(4).Infof("deleting loop device %s", device)
+			if err := volPathHandler.RemoveLoopDevice(device); err != nil {
+				return nil, status.Error(codes.Internal, fmt.Sprintf("failed to remove loop device: %v", err))
+			}
+		}
+	}
+
+	os.RemoveAll(vol.VolPath)
+	delete(hostPathVolumes, vol.VolID)
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
