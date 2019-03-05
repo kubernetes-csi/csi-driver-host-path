@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
 
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/hostpath"
 )
@@ -29,13 +30,22 @@ func init() {
 }
 
 var (
-	endpoint   = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
-	driverName = flag.String("drivername", "csi-hostpath", "name of the driver")
-	nodeID     = flag.String("nodeid", "", "node id")
+	endpoint    = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	driverName  = flag.String("drivername", "csi-hostpath", "name of the driver")
+	nodeID      = flag.String("nodeid", "", "node id")
+	showVersion = flag.Bool("version", false, "Show version.")
+	// Set by the build process
+	version = ""
 )
 
 func main() {
 	flag.Parse()
+
+	if *showVersion {
+		baseName := path.Base(os.Args[0])
+		fmt.Println(baseName, version)
+		return
+	}
 
 	handle()
 	os.Exit(0)
