@@ -23,6 +23,7 @@ BASE_DIR=$(dirname "$0")
 K8S_RELEASE=${K8S_RELEASE:-"release-1.13"}
 PROVISIONER_RELEASE=${PROVISIONER_RELEASE:-$(image_version "${BASE_DIR}/hostpath/csi-hostpath-provisioner.yaml" csi-provisioner)}
 ATTACHER_RELEASE=${ATTACHER_RELEASE:-$(image_version "${BASE_DIR}/hostpath/csi-hostpath-attacher.yaml" csi-attacher)}
+SNAPSHOTTER_RELEASE=${SNAPSHOTTER_RELEASE:-$(image_version "${BASE_DIR}/snapshotter/csi-hostpath-snpshotter.yaml" csi-snapshotter)}
 INSTALL_CRD=${INSTALL_CRD:-"false"}
 
 # apply CSIDriver and CSINodeInfo API objects
@@ -36,7 +37,12 @@ fi
 echo "applying RBAC rules"
 kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/${PROVISIONER_RELEASE}/deploy/kubernetes/rbac.yaml
 kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-attacher/${ATTACHER_RELEASE}/deploy/kubernetes/rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_RELEASE}/deploy/kubernetes/rbac.yaml
 
 # deploy hostpath plugin and registrar sidecar
 echo "deploying hostpath components"
 kubectl apply -f ${BASE_DIR}/hostpath
+
+# deploy snapshotter
+echo "deploying snapshotter"
+kubectl apply -f ${BASE_DIR}/snapshotter

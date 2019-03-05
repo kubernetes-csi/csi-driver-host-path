@@ -27,10 +27,20 @@ spec:
       labels:
         app: csi-hostpath-snapshotter
     spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - csi-hostpathplugin
+            topologyKey: kubernetes.io/hostname
       serviceAccount: csi-snapshotter
       containers:
         - name: csi-snapshotter
-          image: quay.io/k8scsi/csi-snapshotter:v0.4.1
+          image: quay.io/k8scsi/csi-snapshotter:v1.0.1
           args:
             - "--csi-address=$(ADDRESS)"
             - "--connection-timeout=15s"
