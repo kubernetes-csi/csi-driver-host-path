@@ -153,6 +153,11 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		volPathHandler := volumepathhandler.VolumePathHandler{}
 		_, err = volPathHandler.AttachFileDevice(path)
 		if err != nil {
+			glog.Errorf("failed to attach device: %v", err)
+			// Remove the block file because it'll no longer be used again.
+			if err2 := os.Remove(path); err != nil {
+				glog.Errorf("failed to cleanup block file %s: %v", path, err2)
+			}
 			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to attach device: %v", err))
 		}
 	case mountAccess:
