@@ -111,7 +111,7 @@ done
 echo "deploying hostpath components"
 for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
     echo "   $i"
-    cat "$i" | while IFS= read -r line; do
+    modified="$(cat "$i" | while IFS= read -r line; do
         nocomments="$(echo "$line" | sed -e 's/ *#.*$//')"
         if echo "$nocomments" | grep -q '^\s*image:\s*'; then
             # Split 'image: quay.io/k8scsi/csi-attacher:v1.0.1'
@@ -135,7 +135,12 @@ for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
             echo "        using $line" >&2
         fi
         echo "$line"
-    done | kubectl apply -f -
+    done)"
+    if ! echo "$modified" | kubectl apply -f -; then
+        echo "modified version of $i:"
+        echo "$modified"
+        exit 1
+    fi
 done
 
 # Wait until all pods are running. We have to make some assumptions
