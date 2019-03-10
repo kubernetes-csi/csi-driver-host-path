@@ -47,6 +47,8 @@ but as this is something that should be done by the cluster
 provisioning tool it is disabled in the script by default. For this
 and other customizations see the source code of the deploy script.
 
+The [livenessprobe side-container](https://github.com/kubernetes-csi/livenessprobe) provided by the CSI community is deployed with the CSI driver to provide the liveness checking of the CSI services.
+
 ## Run example application and validate
 
 Next, validate the deployment.  First, ensure all expected pods are running properly including the external attacher, provisioner, and the actual hostpath driver plugin:

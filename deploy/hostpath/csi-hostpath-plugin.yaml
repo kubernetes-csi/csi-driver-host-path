@@ -80,6 +80,18 @@ spec:
           imagePullPolicy: Always
           securityContext:
             privileged: true
+          ports:
+          - containerPort: 9898
+            name: healthz
+            protocol: TCP
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 2
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
@@ -89,6 +101,18 @@ spec:
             - mountPath: /var/lib/kubelet/plugins
               mountPropagation: Bidirectional
               name: plugins-dir
+
+        - name: liveness-probe
+          imagePullPolicy: Always
+          volumeMounts:
+          - mountPath: /csi
+            name: socket-dir
+          image: quay.io/k8scsi/livenessprobe:v1.0.2
+          args:
+          - --csi-address=/csi/csi.sock
+          - --connection-timeout=3s
+          - --health-port=9898
+
       volumes:
         - hostPath:
             path: /var/lib/kubelet/plugins/csi-hostpath
