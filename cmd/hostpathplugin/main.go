@@ -52,7 +52,7 @@ func main() {
 }
 
 func handle() {
-	driver, err := hostpath.NewHostPathDriver(*driverName, *nodeID, *endpoint)
+	driver, err := hostpath.NewHostPathDriver(*driverName, *nodeID, *endpoint, version)
 	if err != nil {
 		fmt.Printf("Failed to initialize driver: %s", err.Error())
 		os.Exit(1)

@@ -74,7 +74,7 @@ func init() {
 	hostPathVolumeSnapshots = map[string]hostPathSnapshot{}
 }
 
-func NewHostPathDriver(driverName, nodeID, endpoint string) (*hostPath, error) {
+func NewHostPathDriver(driverName, nodeID, endpoint, version string) (*hostPath, error) {
 	if driverName == "" {
 		return nil, fmt.Errorf("No driver name provided")
 	}
@@ -85,6 +85,9 @@ func NewHostPathDriver(driverName, nodeID, endpoint string) (*hostPath, error) {
 
 	if endpoint == "" {
 		return nil, fmt.Errorf("No driver endpoint provided")
+	}
+	if version != "" {
+		vendorVersion = version
 	}
 
 	glog.Infof("Driver: %v ", driverName)
