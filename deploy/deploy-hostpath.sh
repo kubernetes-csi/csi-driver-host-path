@@ -23,7 +23,7 @@ BASE_DIR=$(dirname "$0")
 K8S_RELEASE=${K8S_RELEASE:-"release-1.13"}
 PROVISIONER_RELEASE=${PROVISIONER_RELEASE:-$(image_version "${BASE_DIR}/hostpath/csi-hostpath-provisioner.yaml" csi-provisioner)}
 ATTACHER_RELEASE=${ATTACHER_RELEASE:-$(image_version "${BASE_DIR}/hostpath/csi-hostpath-attacher.yaml" csi-attacher)}
-SNAPSHOTTER_RELEASE=${SNAPSHOTTER_RELEASE:-$(image_version "${BASE_DIR}/snapshotter/csi-hostpath-snpshotter.yaml" csi-snapshotter)}
+SNAPSHOTTER_RELEASE=${SNAPSHOTTER_RELEASE:-$(image_version "${BASE_DIR}/snapshotter/csi-hostpath-snapshotter.yaml" csi-snapshotter)}
 INSTALL_CRD=${INSTALL_CRD:-"false"}
 
 # apply CSIDriver and CSINodeInfo API objects
@@ -43,6 +43,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snaps
 echo "deploying hostpath components"
 kubectl apply -f ${BASE_DIR}/hostpath
 
-# deploy snapshotter
-echo "deploying snapshotter"
-kubectl apply -f ${BASE_DIR}/snapshotter
+# deploy snapshotter and snapshotclass
+echo "deploying snapshotter and snapshotclass"
+kubectl create -f ${BASE_DIR}/snapshotter/csi-hostpath-snapshotter.yaml
+kubectl create -f ${BASE_DIR}/snapshotter/csi-hostpath-snapshotclass.yaml
