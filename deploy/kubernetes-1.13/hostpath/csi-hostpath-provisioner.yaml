@@ -42,12 +42,9 @@ spec:
         - name: csi-provisioner
           image: quay.io/k8scsi/csi-provisioner:v1.0.1
           args:
-            - "--provisioner=csi-hostpath"
-            - "--csi-address=$(ADDRESS)"
-            - "--connection-timeout=15s"
-          env:
-            - name: ADDRESS
-              value: /csi/csi.sock
+            - -v=5
+            - --csi-address=/csi/csi.sock
+            - --connection-timeout=15s
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
