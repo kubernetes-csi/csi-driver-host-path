@@ -42,12 +42,9 @@ spec:
         - name: csi-snapshotter
           image: quay.io/k8scsi/csi-snapshotter:v1.0.1
           args:
-            - "--csi-address=$(ADDRESS)"
-            - "--connection-timeout=15s"
-          env:
-            - name: ADDRESS
-              value: /csi/csi.sock
-          imagePullPolicy: Always
+            - -v=5
+            - --csi-address=/csi/csi.sock
+            - --connection-timeout=15s
           volumeMounts:
             - mountPath: /csi
               name: socket-dir

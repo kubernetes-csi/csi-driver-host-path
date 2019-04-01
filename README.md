@@ -8,45 +8,61 @@ This repository hosts the CSI Hostpath driver and all of its build and dependent
 - Access to terminal with `kubectl` installed
 
 ## Deployment
-The easiest way to test the Hostpath driver is to run `deploy/deploy-hostpath.sh` script as shown:
+The easiest way to test the Hostpath driver is to run the `deploy-hostpath.sh` script for the Kubernetes version used by
+the cluster as shown below for Kubernetes 1.13. This creates the deployment that is maintained specifically for that
+release of Kubernetes. However, other deployments may also work. For details see the individual READMEs.
 
 ```shell
-$ deploy/deploy-hostpath.sh
+$ deploy/kubernetes-1.13/deploy-hostpath.sh
 ```
 
 You should see an output similar to the following printed on the terminal showing the application of rbac rules and the result of deploying the hostpath driver, external provisioner, external attacher and snapshotter components:
 
 ```shell
 applying RBAC rules
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/v1.0.1/deploy/kubernetes/rbac.yaml
 serviceaccount/csi-provisioner created
 clusterrole.rbac.authorization.k8s.io/external-provisioner-runner created
 clusterrolebinding.rbac.authorization.k8s.io/csi-provisioner-role created
 role.rbac.authorization.k8s.io/external-provisioner-cfg created
 rolebinding.rbac.authorization.k8s.io/csi-provisioner-role-cfg created
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-attacher/v1.0.1/deploy/kubernetes/rbac.yaml
 serviceaccount/csi-attacher created
 clusterrole.rbac.authorization.k8s.io/external-attacher-runner created
 clusterrolebinding.rbac.authorization.k8s.io/csi-attacher-role created
 role.rbac.authorization.k8s.io/external-attacher-cfg created
 rolebinding.rbac.authorization.k8s.io/csi-attacher-role-cfg created
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v1.0.1/deploy/kubernetes/rbac.yaml
 serviceaccount/csi-snapshotter created
 clusterrole.rbac.authorization.k8s.io/external-snapshotter-runner created
 clusterrolebinding.rbac.authorization.k8s.io/csi-snapshotter-role created
 deploying hostpath components
+   deploy/kubernetes-1.13/hostpath/csi-hostpath-attacher.yaml
+        using           image: quay.io/k8scsi/csi-attacher:v1.0.1
 service/csi-hostpath-attacher created
 statefulset.apps/csi-hostpath-attacher created
+   deploy/kubernetes-1.13/hostpath/csi-hostpath-plugin.yaml
+        using           image: quay.io/k8scsi/csi-node-driver-registrar:v1.0.2
+        using           image: quay.io/k8scsi/hostpathplugin:v1.0.1
+        using           image: quay.io/k8scsi/livenessprobe:v1.0.2
+service/csi-hostpathplugin created
 statefulset.apps/csi-hostpathplugin created
+   deploy/kubernetes-1.13/hostpath/csi-hostpath-provisioner.yaml
+        using           image: quay.io/k8scsi/csi-provisioner:v1.0.1
 service/csi-hostpath-provisioner created
 statefulset.apps/csi-hostpath-provisioner created
-deploying snapshotter
-volumesnapshotclass.snapshot.storage.k8s.io/csi-hostpath-snapclass created
+   deploy/kubernetes-1.13/hostpath/csi-hostpath-snapshotter.yaml
+        using           image: quay.io/k8scsi/csi-snapshotter:v1.0.1
 service/csi-hostpath-snapshotter created
 statefulset.apps/csi-hostpath-snapshotter created
+   deploy/kubernetes-1.13/hostpath/csi-hostpath-testing.yaml
+        using           image: alpine/socat:1.0.3
+service/hostpath-service created
+statefulset.apps/csi-hostpath-socat created
+23:16:10 waiting for hostpath deployment to complete, attempt #0
+deploying snapshotclass
+volumesnapshotclass.snapshot.storage.k8s.io/csi-hostpath-snapclass created
 ```
-
-The script can also install CRDs that are needed for alpha features,
-but as this is something that should be done by the cluster
-provisioning tool it is disabled in the script by default. For this
-and other customizations see the source code of the deploy script.
 
 The [livenessprobe side-container](https://github.com/kubernetes-csi/livenessprobe) provided by the CSI community is deployed with the CSI driver to provide the liveness checking of the CSI services.
 

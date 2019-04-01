@@ -40,14 +40,10 @@ spec:
       serviceAccountName: csi-attacher
       containers:
         - name: csi-attacher
-          image: quay.io/k8scsi/csi-attacher:v1.0.1
-          imagePullPolicy: Always
+          image: quay.io/k8scsi/csi-attacher:canary # TODO: replace with released version
           args:
             - --v=5
-            - --csi-address=$(ADDRESS)
-          env:
-            - name: ADDRESS
-              value: /csi/csi.sock
+            - --csi-address=/csi/csi.sock
           volumeMounts:
           - mountPath: /csi
             name: socket-dir
