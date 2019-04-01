@@ -4,17 +4,17 @@ This repository hosts the CSI Hostpath driver and all of its build and dependent
 
 ## Pre-requisite
 - Kubernetes cluster
-- Running verrsion 1.13 or later
+- Running version 1.13 or later
 - Access to terminal with `kubectl` installed
 
 ## Deployment
-The easiest way to test the Hostpath driver is to run `deploy/deploy-hostpath.sh` scrip as show:
+The easiest way to test the Hostpath driver is to run `deploy/deploy-hostpath.sh` script as shown:
 
 ```shell
-$ sh deploy/deploy-hostpath.sh
+$ deploy/deploy-hostpath.sh
 ```
 
-You should see an output similar to the following printed on the terminal showing the application of rbac rules and the result of deploying the hostpath driver, external privisioner and external attacher components:
+You should see an output similar to the following printed on the terminal showing the application of rbac rules and the result of deploying the hostpath driver, external provisioner, external attacher and snapshotter components:
 
 ```shell
 applying RBAC rules
@@ -38,6 +38,7 @@ statefulset.apps/csi-hostpathplugin created
 service/csi-hostpath-provisioner created
 statefulset.apps/csi-hostpath-provisioner created
 deploying snapshotter
+volumesnapshotclass.snapshot.storage.k8s.io/csi-hostpath-snapclass created
 service/csi-hostpath-snapshotter created
 statefulset.apps/csi-hostpath-snapshotter created
 ```
@@ -51,7 +52,7 @@ The [livenessprobe side-container](https://github.com/kubernetes-csi/livenesspro
 
 ## Run example application and validate
 
-Next, validate the deployment.  First, ensure all expected pods are running properly including the external attacher, provisioner, and the actual hostpath driver plugin:
+Next, validate the deployment.  First, ensure all expected pods are running properly including the external attacher, provisioner, snapshotter and the actual hostpath driver plugin:
 
 ```shell
 $ kubectl get pods
@@ -74,11 +75,11 @@ storageclass.storage.k8s.io/csi-hostpath-sc created
 Let's validate the components are deployed:
 
 ```shell
-$> kubectl get pv
+$ kubectl get pv
 NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM             STORAGECLASS      REASON   AGE
 pvc-58d5ec38-03e5-11e9-be51-000c29e88ff1   1Gi        RWO            Delete           Bound    default/csi-pvc   csi-hostpath-sc            80s
 
-$> kubectl get pvc
+$ kubectl get pvc
 NAME      STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
 csi-pvc   Bound    pvc-58d5ec38-03e5-11e9-be51-000c29e88ff1   1Gi        RWO            csi-hostpath-sc   93s
 ```
@@ -86,7 +87,7 @@ csi-pvc   Bound    pvc-58d5ec38-03e5-11e9-be51-000c29e88ff1   1Gi        RWO    
 Finally, inspect the application pod `my-csi-app`  which mounts a Hostpath volume:
 
 ```shell
-$> kubectl describe pods/my-csi-app
+$ kubectl describe pods/my-csi-app
 Name:               my-csi-app
 Namespace:          default
 Priority:           0
@@ -165,7 +166,7 @@ Then, use the following command to locate the file. If everything works OK you s
 An additional way to ensure the driver is working properly is by inspecting the VolumeAttachment API object created that represents the attached volume:
 
 ```shell
-$> kubectl describe volumeattachment
+$ kubectl describe volumeattachment
 Name:         csi-a7515d53b30a1193fd70b822b18181cff1d16422fd922692bce5ea234cb191e9
 Namespace:
 Labels:       <none>
@@ -186,6 +187,143 @@ Status:
   Attached:  true
 Events:      <none>
 ```
+
+
+## Snapshot support
+
+Since volume snapshot is an alpha feature starting in Kubernetes v1.12, you need to enable feature gate called `VolumeSnapshotDataSource` in the Kubernetes.
+
+>
+> $ kubectl get volumesnapshotclass
+> ```
+> NAME                     AGE
+> csi-hostpath-snapclass   11s
+> ```
+>
+> $ kubectl describe volumesnapshotclass
+> ```
+> Name:         csi-hostpath-snapclass
+> Namespace:
+> Labels:       <none>
+> Annotations:  <none>
+> API Version:  snapshot.storage.k8s.io/v1alpha1
+> Kind:         VolumeSnapshotClass
+> Metadata:
+>   Creation Timestamp:  2018-10-03T14:15:30Z
+>   Generation:          1
+>   Resource Version:    2418
+>   Self Link:           /apis/snapshot.storage.k8s.io/v1alpha1/volumesnapshotclasses/csi-hostpath-snapclass
+>   UID:                 c8f5bc47-c716-11e8-8911-000c2967769a
+> Snapshotter:           csi-hostpath
+> Events:                <none>
+> ```
+
+Use the volume snapshot class to dynamically create a volume snapshot:
+
+> $ kubectl create -f deploy/snapshot/csi-snapshot.yaml
+> ```
+> volumesnapshot.snapshot.storage.k8s.io/new-snapshot-demo created
+> ```
+>
+>
+> $ kubectl get volumesnapshot
+> ```
+> NAME                AGE
+> new-snapshot-demo   12s
+> ```
+>
+> $ kubectl get volumesnapshotcontent
+>```
+> NAME                                               AGE
+> snapcontent-f55db632-c716-11e8-8911-000c2967769a   14s
+> ```
+>
+> $ kubectl describe volumesnapshot
+> ```
+> Name:         new-snapshot-demo
+> Namespace:    default
+> Labels:       <none>
+> Annotations:  <none>
+> API Version:  snapshot.storage.k8s.io/v1alpha1
+> Kind:         VolumeSnapshot
+> Metadata:
+>   Creation Timestamp:  2018-10-03T14:16:45Z
+>   Generation:          1
+>   Resource Version:    2476
+>   Self Link:           /apis/snapshot.storage.k8s.io/v1alpha1/namespaces/default/volumesnapshots/new-snapshot-demo
+>   UID:                 f55db632-c716-11e8-8911-000c2967769a
+> Spec:
+>   Snapshot Class Name:    csi-hostpath-snapclass
+>   Snapshot Content Name:  snapcontent-f55db632-c716-11e8-8911-000c2967769a
+>   Source:
+>     API Group:  <nil>
+>     Kind:  PersistentVolumeClaim
+>     Name:  csi-pvc
+> Status:
+>   Creation Time:  2018-10-03T14:16:45Z
+>   Ready:          true
+>   Restore Size:   1Gi
+> Events:           <none>
+> ```
+>
+> $ kubectl describe volumesnapshotcontent
+> ```
+> Name:         snapcontent-f55db632-c716-11e8-8911-000c2967769a
+> Namespace:
+> Labels:       <none>
+> Annotations:  <none>
+> API Version:  snapshot.storage.k8s.io/v1alpha1
+> Kind:         VolumeSnapshotContent
+> Metadata:
+>   Creation Timestamp:  2018-10-03T14:16:45Z
+>   Generation:          1
+>   Resource Version:    2474
+>   Self Link:           /apis/snapshot.storage.k8s.io/v1alpha1/volumesnapshotcontents/snapcontent-f55db632-c716-11e8-8911-000c2967769a
+>   UID:                 f561411f-c716-11e8-8911-000c2967769a
+> Spec:
+>   Csi Volume Snapshot Source:
+>     Creation Time:    1538576205471577525
+>     Driver:           csi-hostpath
+>     Restore Size:     1073741824
+>     Snapshot Handle:  f55ff979-c716-11e8-bb16-000c2967769a
+>   Deletion Policy:    Delete
+>   Persistent Volume Ref:
+>     API Version:        v1
+>     Kind:               PersistentVolume
+>     Name:               pvc-0571cc14-c714-11e8-8911-000c2967769a
+>     Resource Version:   1573
+>     UID:                0575b966-c714-11e8-8911-000c2967769a
+>   Snapshot Class Name:  csi-hostpath-snapclass
+>   Volume Snapshot Ref:
+>     API Version:       snapshot.storage.k8s.io/v1alpha1
+>     Kind:              VolumeSnapshot
+>     Name:              new-snapshot-demo
+>     Namespace:         default
+>     Resource Version:  2472
+>     UID:               f55db632-c716-11e8-8911-000c2967769a
+> Events:                <none>
+> ```
+
+## Restore volume from snapshot support
+
+Follow the following example to create a volume from a volume snapshot:
+
+> $ kubectl create -f deploy/snapshot/csi-restore.yaml
+> `persistentvolumeclaim/hpvc-restore created`
+>
+> $ kubectl get pvc
+> ```
+> NAME           STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
+> csi-pvc        Bound    pvc-0571cc14-c714-11e8-8911-000c2967769a   1Gi        RWO            csi-hostpath-sc   24m
+> hpvc-restore   Bound    pvc-77324684-c717-11e8-8911-000c2967769a   1Gi        RWO            csi-hostpath-sc   6s
+> ```
+>
+> $ kubectl get pv
+> ```
+> NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                  STORAGECLASS      REASON   AGE
+> pvc-0571cc14-c714-11e8-8911-000c2967769a   1Gi        RWO            Delete           Bound    default/csi-pvc        csi-hostpath-sc            25m
+> pvc-77324684-c717-11e8-8911-000c2967769a   1Gi        RWO            Delete           Bound    default/hpvc-restore   csi-hostpath-sc            33s
+> ```
 
 
 ## Building the binaries
