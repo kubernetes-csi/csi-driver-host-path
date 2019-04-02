@@ -12,7 +12,6 @@ set -e
 set -o pipefail
 
 BASE_DIR=$(dirname "$0")
-K8S_RELEASE=${K8S_RELEASE:-"release-1.13"}
 
 # If set, the following env variables override image registry and/or tag for each of the images.
 # They are named after the image name, with hyphen replaced by underscore and in upper case.
@@ -87,13 +86,6 @@ run () {
     echo "$@" >&2
     "$@"
 }
-
-# apply CSIDriver and CSINodeInfo API objects
-if [[ "${INSTALL_CRD}" =~ ^(y|Y|yes|true)$ ]] ; then
-    echo "installing CRDs"
-    run kubectl apply -f https://raw.githubusercontent.com/kubernetes/csi-api/${K8S_RELEASE}/pkg/crd/manifests/csidriver.yaml --validate=false
-    run kubectl apply -f https://raw.githubusercontent.com/kubernetes/csi-api/${K8S_RELEASE}/pkg/crd/manifests/csinodeinfo.yaml --validate=false
-fi
 
 # rbac rules
 echo "applying RBAC rules"
