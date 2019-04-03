@@ -19,6 +19,7 @@ package hostpath
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
@@ -31,12 +32,14 @@ import (
 )
 
 type nodeServer struct {
-	nodeID string
+	nodeID    string
+	ephemeral bool
 }
 
-func NewNodeServer(nodeId string) *nodeServer {
+func NewNodeServer(nodeId string, ephemeral bool) *nodeServer {
 	return &nodeServer{
-		nodeID: nodeId,
+		nodeID:    nodeId,
+		ephemeral: ephemeral,
 	}
 }
 
@@ -58,6 +61,18 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if req.GetVolumeCapability().GetBlock() != nil &&
 		req.GetVolumeCapability().GetMount() != nil {
 		return nil, status.Error(codes.InvalidArgument, "cannot have both block and mount access type")
+	}
+
+	// if ephemeral is specified, create volume here to avoid errors
+	if ns.ephemeral {
+		volID := req.GetVolumeId()
+		volName := fmt.Sprintf("ephemeral-%s", volID)
+		vol, err := createHostpathVolume(req.GetVolumeId(), volName, maxStorageCapacity, mountAccess)
+		if err != nil && !os.IsExist(err) {
+			glog.Error("ephemeral mode failed to create volume: ", err)
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		glog.V(4).Infof("ephemeral mode: created volume: %s", vol.VolPath)
 	}
 
 	vol, err := getVolumeByID(req.GetVolumeId())
@@ -150,9 +165,16 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			options = append(options, "ro")
 		}
 		mounter := mount.New("")
-		path := provisionRoot + volumeId
+		path := getVolumePath(volumeId)
+
 		if err := mounter.Mount(path, targetPath, "", options); err != nil {
-			return nil, err
+			var errList strings.Builder
+			errList.WriteString(err.Error())
+			if ns.ephemeral {
+				if rmErr := os.RemoveAll(path); rmErr != nil && !os.IsNotExist(rmErr) {
+					errList.WriteString(fmt.Sprintf(" :%s", rmErr.Error()))
+				}
+			}
 		}
 	}
 
@@ -194,6 +216,13 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 		glog.V(4).Infof("hostpath: volume %s/%s has been unmounted.", targetPath, volumeID)
+	}
+
+	if ns.ephemeral {
+		glog.V(4).Infof("deleting volume %s", volumeID)
+		if err := deleteHostpathVolume(volumeID); err != nil && !os.IsNotExist(err) {
+			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to delete volume: %s", err))
+		}
 	}
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
