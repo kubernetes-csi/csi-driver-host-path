@@ -82,6 +82,12 @@ CSI_SNAPSHOTTER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/exte
 
 INSTALL_CRD=${INSTALL_CRD:-"false"}
 
+# Some images are not affected by *_REGISTRY/*_TAG and IMAGE_* variables.
+# The default is to update unless explicitly excluded.
+update_image () {
+    case "$1" in socat) return 1;; esac
+}
+
 run () {
     echo "$@" >&2
     "$@"
@@ -121,9 +127,12 @@ for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
 
             # Now replace registry and/or tag, if set as env variables.
             # If not set, the replacement is the same as the original value.
-            prefix=$(eval echo \${${varname}_REGISTRY:-${IMAGE_REGISTRY:-${registry}}}/ | sed -e 's;none/;;')
-            suffix=$(eval echo :\${${varname}_TAG:-${IMAGE_TAG:-${tag}}})
-            line="$(echo "$nocomments" | sed -e "s;$image;${prefix}${name}${suffix};")"
+            # Only do this for the images which are meant to be configurable.
+            if update_image "$name"; then
+                prefix=$(eval echo \${${varname}_REGISTRY:-${IMAGE_REGISTRY:-${registry}}}/ | sed -e 's;none/;;')
+                suffix=$(eval echo :\${${varname}_TAG:-${IMAGE_TAG:-${tag}}})
+                line="$(echo "$nocomments" | sed -e "s;$image;${prefix}${name}${suffix};")"
+            fi
             echo "        using $line" >&2
         fi
         echo "$line"
