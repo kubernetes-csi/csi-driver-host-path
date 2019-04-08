@@ -105,13 +105,13 @@ for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
     echo "   $i"
     modified="$(cat "$i" | while IFS= read -r line; do
         nocomments="$(echo "$line" | sed -e 's/ *#.*$//')"
-        if echo "$nocomments" | grep -q '^\s*image:\s*'; then
+        if echo "$nocomments" | grep -q '^[[:space:]]*image:[[:space:]]*'; then
             # Split 'image: quay.io/k8scsi/csi-attacher:v1.0.1'
             # into image (quay.io/k8scsi/csi-attacher:v1.0.1),
             # registry (quay.io/k8scsi),
             # name (csi-attacher),
             # tag (v1.0.1).
-            image=$(echo "$nocomments" | sed -e 's;.*image:\s*;;')
+            image=$(echo "$nocomments" | sed -e 's;.*image:[[:space:]]*;;')
             registry=$(echo "$image" | sed -e 's;\(.*\)/.*;\1;')
             name=$(echo "$image" | sed -e 's;.*/\([^:]*\).*;\1;')
             tag=$(echo "$image" | sed -e 's;.*:;;')
