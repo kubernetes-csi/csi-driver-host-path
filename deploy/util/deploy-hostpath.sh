@@ -164,4 +164,4 @@ done
 
 # deploy snapshotclass
 echo "deploying snapshotclass"
-kubectl create -f ${BASE_DIR}/snapshotter/csi-hostpath-snapshotclass.yaml
+kubectl apply -f ${BASE_DIR}/snapshotter/csi-hostpath-snapshotclass.yaml
