@@ -141,9 +141,13 @@ test: test-shellcheck
 test-shellcheck:
 	@ echo; echo "### $@:"
 	@ ret=0; \
+	if ! command -v docker; then \
+		echo "skipped, no Docker"; \
+		exit 0; \
+        fi; \
 	for dir in $(abspath $(TEST_SHELLCHECK_DIRS)); do \
 		echo; \
 		echo "$$dir:"; \
 		./release-tools/verify-shellcheck.sh "$$dir" || ret=1; \
 	done; \
-	return $$ret
+	exit $$ret
