@@ -38,8 +38,8 @@ import (
 
 const (
 	deviceID           = "deviceID"
-	provisionRoot      = "/csi-data-dir"
-	snapshotRoot       = "/csi-data-dir"
+	provisionRoot      = "/csi-data-dir/"
+	snapshotRoot       = "/csi-data-dir/"
 	maxStorageCapacity = tib
 )
 
@@ -347,7 +347,14 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	creationTime := ptypes.TimestampNow()
 	volPath := hostPathVolume.VolPath
 	file := snapshotRoot + snapshotID + ".tgz"
-	args := []string{"czf", file, "-C", volPath, "."}
+	args := []string{}
+	if hostPathVolume.VolAccessType == blockAccess {
+		glog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
+		args = []string{"czf", file, volPath}
+	} else {
+		glog.V(4).Infof("Creating snapshot of Filsystem Mode Volume")
+		args = []string{"czf", file, "-C", volPath, "."}
+	}
 	executor := utilexec.New()
 	out, err := executor.Command("tar", args...).CombinedOutput()
 	if err != nil {
