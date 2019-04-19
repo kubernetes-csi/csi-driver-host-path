@@ -22,6 +22,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/golang/protobuf/ptypes"
 
@@ -346,8 +347,16 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	snapshotID := uuid.NewUUID().String()
 	creationTime := ptypes.TimestampNow()
 	volPath := hostPathVolume.VolPath
-	file := snapshotRoot + snapshotID + ".tgz"
-	args := []string{"czf", file, "-C", volPath, "."}
+	filePath := []string{snapshotRoot, "/", snapshotID, ".tgz"}
+	file := strings.Join(filePath, "")
+	args := []string{}
+	if hostPathVolume.VolAccessType == blockAccess {
+		glog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
+		args = []string{"czf", file, volPath}
+	} else {
+		glog.V(4).Infof("Creating snapshot of Filsystem Mode Volume")
+		args = []string{"czf", file, "-C", volPath, "."}
+	}
 	executor := utilexec.New()
 	out, err := executor.Command("tar", args...).CombinedOutput()
 	if err != nil {
@@ -389,7 +398,8 @@ func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 	}
 	snapshotID := req.GetSnapshotId()
 	glog.V(4).Infof("deleting volume %s", snapshotID)
-	path := snapshotRoot + snapshotID + ".tgz"
+	pathSlice := []string{snapshotRoot, "/", snapshotID, ".tgz"}
+	path := strings.Join(pathSlice, "")
 	os.RemoveAll(path)
 	delete(hostPathVolumeSnapshots, snapshotID)
 	return &csi.DeleteSnapshotResponse{}, nil
