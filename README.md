@@ -236,7 +236,7 @@ Since volume snapshot is an alpha feature starting in Kubernetes v1.12, you need
 
 Use the volume snapshot class to dynamically create a volume snapshot:
 
-> $ kubectl create -f deploy/snapshot/csi-snapshot.yaml
+> $ kubectl create -f examples/csi-snapshot.yaml
 > ```
 > volumesnapshot.snapshot.storage.k8s.io/new-snapshot-demo created
 > ```
@@ -324,7 +324,7 @@ Use the volume snapshot class to dynamically create a volume snapshot:
 
 Follow the following example to create a volume from a volume snapshot:
 
-> $ kubectl create -f deploy/snapshot/csi-restore.yaml
+> $ kubectl create -f examples/csi-restore.yaml
 > `persistentvolumeclaim/hpvc-restore created`
 >
 > $ kubectl get pvc
