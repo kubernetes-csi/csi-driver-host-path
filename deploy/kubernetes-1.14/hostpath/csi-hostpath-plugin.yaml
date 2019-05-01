@@ -63,7 +63,7 @@ spec:
             name: csi-data-dir
 
         - name: hostpath
-          image: quay.io/k8scsi/hostpathplugin:canary # TODO: replace with v1.1.0 when it is cut
+          image: quay.io/k8scsi/hostpathplugin:v1.1.0
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
