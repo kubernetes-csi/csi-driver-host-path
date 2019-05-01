@@ -37,7 +37,7 @@ spec:
       hostNetwork: true
       containers:
         - name: node-driver-registrar
-          image: quay.io/k8scsi/csi-node-driver-registrar:v1.0.2
+          image: quay.io/k8scsi/csi-node-driver-registrar:v1.1.0
           lifecycle:
             preStop:
               exec:
