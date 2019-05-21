@@ -193,6 +193,17 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		}
 	}
 
+	if req.GetVolumeContentSource() != nil {
+		return &csi.CreateVolumeResponse{
+			Volume: &csi.Volume{
+				VolumeId:      volumeID,
+				CapacityBytes: req.GetCapacityRange().GetRequiredBytes(),
+				VolumeContext: req.GetParameters(),
+				ContentSource: req.GetVolumeContentSource(),
+			},
+		}, nil
+	}
+
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volumeID,
