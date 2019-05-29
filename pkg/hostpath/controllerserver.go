@@ -193,24 +193,26 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		}
 	}
 
+	createVolumeResponse := &csi.CreateVolumeResponse{}
 	if req.GetVolumeContentSource() != nil {
-		return &csi.CreateVolumeResponse{
+		createVolumeResponse = &csi.CreateVolumeResponse{
 			Volume: &csi.Volume{
 				VolumeId:      volumeID,
 				CapacityBytes: req.GetCapacityRange().GetRequiredBytes(),
 				VolumeContext: req.GetParameters(),
 				ContentSource: req.GetVolumeContentSource(),
 			},
-		}, nil
+		}
+	} else {
+		createVolumeResponse = &csi.CreateVolumeResponse{
+			Volume: &csi.Volume{
+				VolumeId:      volumeID,
+				CapacityBytes: req.GetCapacityRange().GetRequiredBytes(),
+				VolumeContext: req.GetParameters(),
+			},
+		}
 	}
-
-	return &csi.CreateVolumeResponse{
-		Volume: &csi.Volume{
-			VolumeId:      volumeID,
-			CapacityBytes: req.GetCapacityRange().GetRequiredBytes(),
-			VolumeContext: req.GetParameters(),
-		},
-	}, nil
+	return createVolumeResponse, nil
 }
 
 func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
