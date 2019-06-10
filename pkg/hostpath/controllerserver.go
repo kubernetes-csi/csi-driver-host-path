@@ -65,6 +65,7 @@ func NewControllerServer(ephemeral bool) *controllerServer {
 				csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 				csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
 				csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
+				csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
 			}),
 	}
 }
@@ -178,9 +179,11 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 			snapshotId := contentSource.GetSnapshot().GetSnapshotId()
 			snapshot, ok := hostPathVolumeSnapshots[snapshotId]
 			if !ok {
+				deleteHostpathVolume(volumeID)
 				return nil, status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
 			}
 			if snapshot.ReadyToUse != true {
+				deleteHostpathVolume(volumeID)
 				return nil, status.Errorf(codes.Internal, "Snapshot %v is not yet ready to use.", snapshotId)
 			}
 			snapshotPath := snapshot.Path
@@ -188,7 +191,33 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 			executor := utilexec.New()
 			out, err := executor.Command("tar", args...).CombinedOutput()
 			if err != nil {
+				deleteHostpathVolume(volumeID)
 				return nil, status.Error(codes.Internal, fmt.Sprintf("failed pre-populate data for volume: %v: %s", err, out))
+			}
+		}
+		if srcVolume := contentSource.GetVolume(); srcVolume != nil {
+			srcVolumeID := srcVolume.GetVolumeId()
+			hostPathVolume, ok := hostPathVolumes[srcVolumeID]
+			if !ok {
+				deleteHostpathVolume(volumeID)
+				return nil, status.Error(codes.NotFound, "source volumeID does not exist, are source/destination in the same storage class?")
+			}
+			srcPath := hostPathVolume.VolPath
+			isEmpty, err := hostPathIsEmpty(srcPath)
+			if err != nil {
+				deleteHostpathVolume(volumeID)
+				return nil, status.Error(codes.Internal, fmt.Sprintf("failed verification check of source hostpath volume: %s: %v", srcVolumeID, err))
+			}
+
+			// If the source hostpath volume is empty it's a noop and we just move along, otherwise the cp call will fail with a a file stat error DNE
+			if !isEmpty {
+				args := []string{"-a", srcPath + "/*", path + "/"}
+				executor := utilexec.New()
+				out, err := executor.Command("cp", args...).CombinedOutput()
+				if err != nil {
+					deleteHostpathVolume(volumeID)
+					return nil, status.Error(codes.Internal, fmt.Sprintf("failed pre-populate data (clone) for volume: %s: %s", volumeID, out))
+				}
 			}
 		}
 	}
