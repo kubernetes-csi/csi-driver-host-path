@@ -18,6 +18,7 @@ package hostpath
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/golang/glog"
@@ -169,10 +170,27 @@ func createHostpathVolume(volID, name string, cap int64, volAccessType accessTyp
 
 // deleteVolume deletes the directory for the hostpath volume.
 func deleteHostpathVolume(volID string) error {
+	glog.V(4).Infof("deleting hostpath volume: %s", volID)
 	path := getVolumePath(volID)
 	if err := os.RemoveAll(path); err != nil {
 		return err
 	}
 	delete(hostPathVolumes, volID)
 	return nil
+}
+
+// hostPathIsEmpty is a simple check to determine if the specified hostpath directory
+// is empty or not.
+func hostPathIsEmpty(p string) (bool, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return true, fmt.Errorf("unable to open hostpath volume, error: %v", err)
+	}
+	defer f.Close()
+
+	_, err = f.Readdir(1)
+	if err == io.EOF {
+		return true, nil
+	}
+	return false, err
 }
