@@ -341,6 +341,60 @@ Follow the following example to create a volume from a volume snapshot:
 > pvc-77324684-c717-11e8-8911-000c2967769a   1Gi        RWO            Delete           Bound    default/hpvc-restore   csi-hostpath-sc            33s
 > ```
 
+## Inline ephemeral support
+As of version 1.15 of Kubernetes, the CSI Hostpath driver (starting with version 1.0.1) now includes support for inline ephemeral volume.  This means that a volume can be specified directly inside a pod spec without the need to use a persistent volume object.
+Find out how to enable or create a CSI inline driver [here](https://kubernetes-csi.github.io/docs/ephemeral-local-volumes.html)
+
+To test this feature, redeploy the CSI Hostpath plugin YAML by updating the `hostpath` container to use  the inline ephemeral mode by setting the `ephemeral` flag, of the driver binary, to true as shown in the following setup:
+
+```yaml
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: csi-hostpathplugin
+spec:
+...
+  template:
+    spec:
+      containers:
+        - name: hostpath
+          image: image: quay.io/k8scsi/hostpathplugin:v1.2.0
+          args:
+            - "--v=5"
+            - "--endpoint=$(CSI_ENDPOINT)"
+            - "--nodeid=$(KUBE_NODE_NAME)"
+            - "--ephemeral=true"      
+...
+
+```
+Notice the addition of the `ephemeral=true` flag used in the `args:` block in the previous snippet.
+
+Once the driver plugin has been deployed, it can be tested by deploying a simple pod which has an inline volume specified in the spec:
+
+```yaml
+kind: Pod
+apiVersion: v1
+metadata:
+  name: my-csi-app
+spec:
+  containers:
+    - name: my-frontend
+      image: busybox
+      volumeMounts:
+      - mountPath: "/data"
+        name: my-csi-volume
+      command: [ "sleep", "1000000" ]
+  volumes:
+    - name: my-csi-volume
+      csi:
+        driver: csi-hostpath
+``` 
+
+> See sample YAML file [here](./examples/csi-app-inline.yaml).
+
+Notice the CSI driver is now specified directly in the container spec inside the `volumes:` block.  You can use the [same steps as above][Confirm Hostpath driver works] 
+to verify that the volume has been created and deleted (when the pod is removed).
+
 
 ## Building the binaries
 If you want to build the driver yourself, you can do so with the following command from the root directory:
