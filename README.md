@@ -82,7 +82,7 @@ csi-hostpathplugin-0         2/2     Running   0          5m45s
 From the root directory, deploy the application pods including a storage class, a PVC, and a pod which mounts a volume using the Hostpath driver found in directory `./examples`:
 
 ```shell
-$ kubectl create -f ./examples
+$ for i in ./examples/csi-storageclass.yaml ./examples/csi-pvc.yaml ./examples/csi-app.yaml; do kubectl apply -f $i; done
 pod/my-csi-app created
 persistentvolumeclaim/csi-pvc created
 storageclass.storage.k8s.io/csi-hostpath-sc created
@@ -234,9 +234,10 @@ Since volume snapshot is an alpha feature starting in Kubernetes v1.12, you need
 > Events:                <none>
 > ```
 
-Use the volume snapshot class to dynamically create a volume snapshot:
+After having created the `csi-pvc` as described in the example above,
+use the volume snapshot class to dynamically create a volume snapshot:
 
-> $ kubectl create -f examples/csi-snapshot.yaml
+> $ kubectl apply -f examples/csi-snapshot.yaml
 > ```
 > volumesnapshot.snapshot.storage.k8s.io/new-snapshot-demo created
 > ```
@@ -324,7 +325,7 @@ Use the volume snapshot class to dynamically create a volume snapshot:
 
 Follow the following example to create a volume from a volume snapshot:
 
-> $ kubectl create -f examples/csi-restore.yaml
+> $ kubectl apply -f examples/csi-restore.yaml
 > `persistentvolumeclaim/hpvc-restore created`
 >
 > $ kubectl get pvc
