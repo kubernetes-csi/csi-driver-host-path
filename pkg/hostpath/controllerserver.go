@@ -167,7 +167,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		}
 	}
 
-	vol, err := createHostpathVolume(volumeID, req.GetName(), capacity, requestedAccessType)
+	vol, err := createHostpathVolume(volumeID, req.GetName(), capacity, requestedAccessType, false /* ephemeral */)
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to create volume: %s", err))
 	}
