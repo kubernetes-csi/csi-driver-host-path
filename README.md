@@ -230,7 +230,7 @@ Since volume snapshot is an alpha feature starting in Kubernetes v1.12, you need
 >   Resource Version:    2418
 >   Self Link:           /apis/snapshot.storage.k8s.io/v1alpha1/volumesnapshotclasses/csi-hostpath-snapclass
 >   UID:                 c8f5bc47-c716-11e8-8911-000c2967769a
-> Snapshotter:           csi-hostpath
+> Snapshotter:           hostpath.csi.k8s.io
 > Events:                <none>
 > ```
 
@@ -300,7 +300,7 @@ use the volume snapshot class to dynamically create a volume snapshot:
 > Spec:
 >   Csi Volume Snapshot Source:
 >     Creation Time:    1538576205471577525
->     Driver:           csi-hostpath
+>     Driver:           hostpath.csi.k8s.io
 >     Restore Size:     1073741824
 >     Snapshot Handle:  f55ff979-c716-11e8-bb16-000c2967769a
 >   Deletion Policy:    Delete
@@ -388,7 +388,7 @@ spec:
   volumes:
     - name: my-csi-volume
       csi:
-        driver: csi-hostpath
+        driver: hostpath.csi.k8s.io
 ``` 
 
 > See sample YAML file [here](./examples/csi-app-inline.yaml).

@@ -65,6 +65,7 @@ spec:
         - name: hostpath
           image: quay.io/k8scsi/hostpathplugin:v1.1.0
           args:
+            - "--drivername=hostpath.csi.k8s.io"
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
