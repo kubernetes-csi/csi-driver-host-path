@@ -52,6 +52,26 @@ configvar () {
     eval echo "\$3:" "$1=\${$1}"
 }
 
+# Takes the minor version of $CSI_PROW_KUBERNETES_VERSION and overrides it to
+# $1 if they are equal minor versions. Ignores versions that begin with
+# "release-".
+override_k8s_version () {
+    local current_minor_version
+    local override_minor_version
+
+    # Ignore: See if you can use ${variable//search/replace} instead.
+    # shellcheck disable=SC2001
+    current_minor_version="$(echo "${CSI_PROW_KUBERNETES_VERSION}" | sed -e 's/\([0-9]*\)\.\([0-9]*\).*/\1\.\2/')"
+
+    # Ignore: See if you can use ${variable//search/replace} instead.
+    # shellcheck disable=SC2001
+    override_minor_version="$(echo "${1}" | sed -e 's/\([0-9]*\)\.\([0-9]*\).*/\1\.\2/')"
+    if [ "${current_minor_version}" == "${override_minor_version}" ]; then
+      CSI_PROW_KUBERNETES_VERSION="$1"
+      echo "Overriding CSI_PROW_KUBERNETES_VERSION with $1: $CSI_PROW_KUBERNETES_VERSION"
+    fi
+}
+
 # Prints the value of a variable + version suffix, falling back to variable + "LATEST".
 get_versioned_variable () {
     local var="$1"
@@ -107,6 +127,18 @@ configvar CSI_PROW_BUILD_JOB true "building code in repo enabled"
 # as long as there are no breaking changes in Kubernetes, like
 # deprecating or changing the implementation of an alpha feature.
 configvar CSI_PROW_KUBERNETES_VERSION 1.13.3 "Kubernetes"
+
+# This is a hack to workaround the issue that each version
+# of kind currently only supports specific patch versions of
+# Kubernetes. We need to override CSI_PROW_KUBERNETES_VERSION
+# passed in by our CI/pull jobs to the versions that
+# kind v0.4.0 supports.
+#
+# If the version is prefixed with "release-", then nothing
+# is overridden.
+override_k8s_version "1.13.7"
+override_k8s_version "1.14.3"
+override_k8s_version "1.15.0"
 
 # CSI_PROW_KUBERNETES_VERSION reduced to first two version numbers and
 # with underscore (1_13 instead of 1.13.3) and in uppercase (LATEST
