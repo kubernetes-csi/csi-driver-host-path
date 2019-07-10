@@ -81,7 +81,7 @@ configvar CSI_PROW_GO_VERSION_GINKGO "${CSI_PROW_GO_VERSION_BUILD}" "Go version 
 # kind version to use. If the pre-installed version is different,
 # the desired version is downloaded from https://github.com/kubernetes-sigs/kind/releases/download/
 # (if available), otherwise it is built from source.
-configvar CSI_PROW_KIND_VERSION 0.2.1 "kind"
+configvar CSI_PROW_KIND_VERSION v0.4.0 "kind"
 
 # ginkgo test runner version to use. If the pre-installed version is
 # different, the desired version is built from source.
@@ -170,6 +170,7 @@ configvar CSI_PROW_HOSTPATH_CANARY "" "hostpath image"
 # CSI_PROW_E2E_REPO=none disables E2E testing.
 configvar CSI_PROW_E2E_VERSION_1_13 v1.14.0 "E2E version for Kubernetes 1.13.x" # we can't use the one from 1.13.x because it didn't have --storage.testdriver
 configvar CSI_PROW_E2E_VERSION_1_14 v1.14.0 "E2E version for Kubernetes 1.14.x"
+configvar CSI_PROW_E2E_VERSION_1_15 v1.15.0 "E2E version for Kubernetes 1.15.x"
 # TODO: add new CSI_PROW_E2E_VERSION entry for future Kubernetes releases
 configvar CSI_PROW_E2E_VERSION_LATEST master "E2E version for Kubernetes master" # testing against Kubernetes master is already tracking a moving target, so we might as well use a moving E2E version
 configvar CSI_PROW_E2E_REPO_LATEST https://github.com/kubernetes/kubernetes "E2E repo for Kubernetes >= 1.13.x" # currently the same for all versions
@@ -277,6 +278,7 @@ configvar CSI_PROW_E2E_ALPHA "$(get_versioned_variable CSI_PROW_E2E_ALPHA "${csi
 # it anymore for older releases.
 configvar CSI_PROW_E2E_ALPHA_GATES_1_13 'VolumeSnapshotDataSource=true,BlockVolume=true,CSIBlockVolume=true' "alpha feature gates for Kubernetes 1.13"
 configvar CSI_PROW_E2E_ALPHA_GATES_1_14 'VolumeSnapshotDataSource=true,ExpandCSIVolumes=true' "alpha feature gates for Kubernetes 1.14"
+configvar CSI_PROW_E2E_ALPHA_GATES_1_15 'VolumeSnapshotDataSource=true,ExpandCSIVolumes=true' "alpha feature gates for Kubernetes 1.15"
 # TODO: add new CSI_PROW_ALPHA_GATES_xxx entry for future Kubernetes releases and
 # add new gates to CSI_PROW_E2E_ALPHA_GATES_LATEST.
 configvar CSI_PROW_E2E_ALPHA_GATES_LATEST 'VolumeSnapshotDataSource=true,ExpandCSIVolumes=true' "alpha feature gates for latest Kubernetes"
@@ -464,38 +466,39 @@ start_cluster () {
         image="kindest/node:v${CSI_PROW_KUBERNETES_VERSION}"
     fi
     cat >"${CSI_PROW_WORK}/kind-config.yaml" <<EOF
-kind: Config
-apiVersion: kind.sigs.k8s.io/v1alpha2
+kind: Cluster
+apiVersion: kind.sigs.k8s.io/v1alpha3
 nodes:
 - role: control-plane
-  kubeadmConfigPatches:
-  - |
-    apiVersion: kubeadm.k8s.io/v1beta1
-    kind: ClusterConfiguration
-    metadata:
-      name: config
-    apiServer:
-      extraArgs:
-        "feature-gates": "$gates"
-    controllerManager:
-      extraArgs:
-        "feature-gates": "$gates"
-    scheduler:
-      extraArgs:
-        "feature-gates": "$gates"
-  - |
-    apiVersion: kubelet.config.k8s.io/v1beta1
-    kind: KubeletConfiguration
-    metadata:
-      name: config
-    featureGates:
-$(list_gates "$gates")
-  - |
-    apiVersion: kubeproxy.config.k8s.io/v1alpha1
-    kind: KubeProxyConfiguration
-    metadata:
-      name: config
-    featureGates:
+kubeadmConfigPatches:
+- |
+  apiVersion: kubeadm.k8s.io/v1beta2
+  kind: ClusterConfiguration
+  metadata:
+    name: config
+  apiServer:
+    extraArgs:
+      "feature-gates": "$gates"
+  controllerManager:
+    extraArgs:
+      "feature-gates": "$gates"
+  scheduler:
+    extraArgs:
+      "feature-gates": "$gates"
+- |
+  apiVersion: kubeadm.k8s.io/v1beta2
+  kind: InitConfiguration
+  metadata:
+    name: config
+  nodeRegistration:
+    kubeletExtraArgs:
+      "feature-gates": "$gates"
+- |
+  apiVersion: kubeproxy.config.k8s.io/v1alpha1
+  kind: KubeProxyConfiguration
+  metadata:
+    name: config
+  featureGates:
 $(list_gates "$gates")
 EOF
     info "kind-config.yaml:"
