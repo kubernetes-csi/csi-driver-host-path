@@ -1,12 +1,12 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: csi-hostpath-provisioner 
+  name: csi-hostpath-attacher
   labels:
-    app: csi-hostpath-provisioner 
+    app: csi-hostpath-attacher
 spec:
   selector:
-    app: csi-hostpath-provisioner 
+    app: csi-hostpath-attacher
   ports:
     - name: dummy
       port: 12345
@@ -15,17 +15,17 @@ spec:
 kind: StatefulSet
 apiVersion: apps/v1
 metadata:
-  name: csi-hostpath-provisioner
+  name: csi-hostpath-attacher
 spec:
-  serviceName: "csi-hostpath-provisioner"
+  serviceName: "csi-hostpath-attacher"
   replicas: 1
   selector:
     matchLabels:
-      app: csi-hostpath-provisioner
+      app: csi-hostpath-attacher
   template:
     metadata:
       labels:
-        app: csi-hostpath-provisioner
+        app: csi-hostpath-attacher
     spec:
       affinity:
         podAffinity:
@@ -37,17 +37,17 @@ spec:
                 values:
                 - csi-hostpathplugin
             topologyKey: kubernetes.io/hostname
-      serviceAccountName: csi-provisioner
+      serviceAccountName: csi-attacher
       containers:
-        - name: csi-provisioner
-          image: quay.io/k8scsi/csi-provisioner:v1.2.1
+        - name: csi-attacher
+          image: quay.io/k8scsi/csi-attacher:v1.2.0
           args:
-            - -v=5
+            - --v=5
             - --csi-address=/csi/csi.sock
-            - --connection-timeout=15s
           volumeMounts:
-            - mountPath: /csi
-              name: socket-dir
+          - mountPath: /csi
+            name: socket-dir
+
       volumes:
         - hostPath:
             path: /var/lib/kubelet/plugins/csi-hostpath

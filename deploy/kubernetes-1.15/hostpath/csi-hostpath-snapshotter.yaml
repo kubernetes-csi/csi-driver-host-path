@@ -1,12 +1,12 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: csi-hostpath-provisioner 
+  name: csi-hostpath-snapshotter
   labels:
-    app: csi-hostpath-provisioner 
+    app: csi-hostpath-snapshotter
 spec:
   selector:
-    app: csi-hostpath-provisioner 
+    app: csi-hostpath-snapshotter
   ports:
     - name: dummy
       port: 12345
@@ -15,17 +15,17 @@ spec:
 kind: StatefulSet
 apiVersion: apps/v1
 metadata:
-  name: csi-hostpath-provisioner
+  name: csi-hostpath-snapshotter
 spec:
-  serviceName: "csi-hostpath-provisioner"
+  serviceName: "csi-hostpath-snapshotter"
   replicas: 1
   selector:
     matchLabels:
-      app: csi-hostpath-provisioner
+      app: csi-hostpath-snapshotter
   template:
     metadata:
       labels:
-        app: csi-hostpath-provisioner
+        app: csi-hostpath-snapshotter
     spec:
       affinity:
         podAffinity:
@@ -37,10 +37,10 @@ spec:
                 values:
                 - csi-hostpathplugin
             topologyKey: kubernetes.io/hostname
-      serviceAccountName: csi-provisioner
+      serviceAccount: csi-snapshotter
       containers:
-        - name: csi-provisioner
-          image: quay.io/k8scsi/csi-provisioner:v1.2.1
+        - name: csi-snapshotter
+          image: quay.io/k8scsi/csi-snapshotter:v1.2.0
           args:
             - -v=5
             - --csi-address=/csi/csi.sock
