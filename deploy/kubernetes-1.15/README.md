@@ -1,8 +1,7 @@
 The deployment for Kubernetes 1.15 uses CSI 1.0 and thus is
 incompatible with Kubernetes < 1.13.
 
-It uses the APIs for CSIDriverInfo and CSINodeInfo that were
-introduced in Kubernetes 1.15, so features depending on those (like
-topology) will not work on Kubernetes 1.13. But because this example
-deployment does not enable those features, it can run on Kubernetes
-1.13.
+The sidecars depend on 1.15 API changes for migration and resizing,
+and 1.14 API changes for CSIDriver and CSINode.
+However the hostpath driver doesn't use those features, so this
+deployment can work on older Kubernetes versions.
