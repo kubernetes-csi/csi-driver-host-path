@@ -470,6 +470,14 @@ kind: Cluster
 apiVersion: kind.sigs.k8s.io/v1alpha3
 nodes:
 - role: control-plane
+EOF
+
+    # kubeadm has API dependencies between apiVersion and Kubernetes version
+    # 1.15+ requires kubeadm.k8s.io/v1beta2
+    # We only run alpha tests against master so we don't need to maintain
+    # different patches for different Kubernetes releases.
+    if [[ -n "$gates" ]]; then
+        cat >>"${CSI_PROW_WORK}/kind-config.yaml" <<EOF
 kubeadmConfigPatches:
 - |
   apiVersion: kubeadm.k8s.io/v1beta2
@@ -501,6 +509,8 @@ kubeadmConfigPatches:
   featureGates:
 $(list_gates "$gates")
 EOF
+    fi
+
     info "kind-config.yaml:"
     cat "${CSI_PROW_WORK}/kind-config.yaml"
     if ! run kind create cluster --name csi-prow --config "${CSI_PROW_WORK}/kind-config.yaml" --wait 5m --image "$image"; then
