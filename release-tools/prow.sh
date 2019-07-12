@@ -183,10 +183,10 @@ configvar CSI_PROW_WORK "$(mkdir -p "$GOPATH/pkg" && mktemp -d "$GOPATH/pkg/csip
 #
 # When no deploy script is found (nothing in `deploy` directory,
 # CSI_PROW_HOSTPATH_REPO=none), nothing gets deployed.
-configvar CSI_PROW_HOSTPATH_VERSION "v1.1.0" "hostpath driver"
+configvar CSI_PROW_HOSTPATH_VERSION "v1.2.0-rc1" "hostpath driver"
 configvar CSI_PROW_HOSTPATH_REPO https://github.com/kubernetes-csi/csi-driver-host-path "hostpath repo"
 configvar CSI_PROW_DEPLOYMENT "" "deployment"
-configvar CSI_PROW_HOSTPATH_DRIVER_NAME "csi-hostpath" "the driver (aka provisioner) name of the chosen hostpath driver"
+configvar CSI_PROW_HOSTPATH_DRIVER_NAME "hostpath.csi.k8s.io" "the hostpath driver name"
 
 # If CSI_PROW_HOSTPATH_CANARY is set (typically to "canary", but also
 # "1.0-canary"), then all image versions are replaced with that
