@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/golang/protobuf/ptypes"
 
@@ -38,8 +38,6 @@ import (
 
 const (
 	deviceID           = "deviceID"
-	provisionRoot      = "/csi-data-dir"
-	snapshotRoot       = "/csi-data-dir"
 	maxStorageCapacity = tib
 )
 
@@ -251,6 +249,11 @@ func (cs *controllerServer) ListVolumes(ctx context.Context, req *csi.ListVolume
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
+// getSnapshotPath returns the full path to where the snapshot is stored
+func getSnapshotPath(snapshotId string) string {
+	return filepath.Join(dataRoot, fmt.Sprintf("%s.tgz", snapshotId))
+}
+
 // CreateSnapshot uses tar command to create snapshot for hostpath volume. The tar command can quickly create
 // archives of entire directories. The host image must have "tar" binaries in /bin, /usr/sbin, or /usr/bin.
 func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
@@ -296,8 +299,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	snapshotID := uuid.NewUUID().String()
 	creationTime := ptypes.TimestampNow()
 	volPath := hostPathVolume.VolPath
-	filePath := []string{snapshotRoot, "/", snapshotID, ".tgz"}
-	file := strings.Join(filePath, "")
+	file := getSnapshotPath(snapshotID)
 	args := []string{}
 	if hostPathVolume.VolAccessType == blockAccess {
 		glog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
@@ -346,9 +348,8 @@ func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 		return nil, err
 	}
 	snapshotID := req.GetSnapshotId()
-	glog.V(4).Infof("deleting volume %s", snapshotID)
-	pathSlice := []string{snapshotRoot, "/", snapshotID, ".tgz"}
-	path := strings.Join(pathSlice, "")
+	glog.V(4).Infof("deleting snapshot %s", snapshotID)
+	path := getSnapshotPath(snapshotID)
 	os.RemoveAll(path)
 	delete(hostPathVolumeSnapshots, snapshotID)
 	return &csi.DeleteSnapshotResponse{}, nil

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
@@ -70,11 +71,18 @@ type hostPathSnapshot struct {
 	ReadyToUse   bool                `json:"readyToUse"`
 }
 
-var hostPathVolumes map[string]hostPathVolume
-var hostPathVolumeSnapshots map[string]hostPathSnapshot
-
 var (
 	vendorVersion = "dev"
+
+	hostPathVolumes         map[string]hostPathVolume
+	hostPathVolumeSnapshots map[string]hostPathSnapshot
+)
+
+const (
+	// Directory where data for volumes and snapshots are persisted.
+	// This can be ephemeral within the container or persisted if
+	// backed by a Pod volume.
+	dataRoot = "/csi-data-dir"
 )
 
 func init() {
@@ -96,6 +104,10 @@ func NewHostPathDriver(driverName, nodeID, endpoint, version string, ephemeral b
 	}
 	if version != "" {
 		vendorVersion = version
+	}
+
+	if err := os.MkdirAll(dataRoot, 0750); err != nil {
+		return nil, fmt.Errorf("failed to create dataRoot: %v", err)
 	}
 
 	glog.Infof("Driver: %v ", driverName)
@@ -148,7 +160,7 @@ func getSnapshotByName(name string) (hostPathSnapshot, error) {
 
 // getVolumePath returs the canonical path for hostpath volume
 func getVolumePath(volID string) string {
-	return fmt.Sprintf("%s/%s", provisionRoot, volID)
+	return filepath.Join(dataRoot, volID)
 }
 
 // createVolume create the directory for the hostpath volume.
