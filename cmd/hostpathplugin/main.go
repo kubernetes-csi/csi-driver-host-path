@@ -48,6 +48,10 @@ func main() {
 		return
 	}
 
+	if *ephemeral {
+		fmt.Fprintln(os.Stderr, "Deprecation warning: The ephemeral flag is deprecated and should only be used when deploying on Kubernetes 1.15. It will be removed in the future.")
+	}
+
 	handle()
 	os.Exit(0)
 }
