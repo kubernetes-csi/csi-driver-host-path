@@ -346,7 +346,7 @@ Follow the following example to create a volume from a volume snapshot:
 As of version 1.15 of Kubernetes, the CSI Hostpath driver (starting with version 1.0.1) now includes support for inline ephemeral volume.  This means that a volume can be specified directly inside a pod spec without the need to use a persistent volume object.
 Find out how to enable or create a CSI inline driver [here](https://kubernetes-csi.github.io/docs/ephemeral-local-volumes.html)
 
-To test this feature, redeploy the CSI Hostpath plugin YAML by updating the `hostpath` container to use  the inline ephemeral mode by setting the `ephemeral` flag, of the driver binary, to true as shown in the following setup:
+To test this feature on Kubernetes 1.15, redeploy the CSI Hostpath plugin YAML by updating the `hostpath` container to use  the inline ephemeral mode by setting the `ephemeral` flag, of the driver binary, to true as shown in the following setup:
 
 ```yaml
 kind: DaemonSet
@@ -369,6 +369,9 @@ spec:
 
 ```
 Notice the addition of the `ephemeral=true` flag used in the `args:` block in the previous snippet.
+This is an intermediate solution for Kubernetes 1.15. Kubernetes 1.16 will provide [additional
+information to the driver](https://github.com/kubernetes/kubernetes/pull/79983) which makes it
+possible to use the normal deployment for both inline ephemeral volumes and persistent volumes.
 
 Once the driver plugin has been deployed, it can be tested by deploying a simple pod which has an inline volume specified in the spec:
 

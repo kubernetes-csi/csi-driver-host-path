@@ -53,6 +53,7 @@ type hostPathVolume struct {
 	VolSize       int64      `json:"volSize"`
 	VolPath       string     `json:"volPath"`
 	VolAccessType accessType `json:"volAccessType"`
+	Ephemeral     bool       `json:"ephemeral"`
 }
 
 type hostPathSnapshot struct {
@@ -148,7 +149,7 @@ func getVolumePath(volID string) string {
 
 // createVolume create the directory for the hostpath volume.
 // It returns the volume path or err if one occurs.
-func createHostpathVolume(volID, name string, cap int64, volAccessType accessType) (*hostPathVolume, error) {
+func createHostpathVolume(volID, name string, cap int64, volAccessType accessType, ephemeral bool) (*hostPathVolume, error) {
 	path := getVolumePath(volID)
 	if volAccessType == mountAccess {
 		err := os.MkdirAll(path, 0777)
@@ -163,6 +164,7 @@ func createHostpathVolume(volID, name string, cap int64, volAccessType accessTyp
 		VolSize:       cap,
 		VolPath:       path,
 		VolAccessType: volAccessType,
+		Ephemeral:     ephemeral,
 	}
 	hostPathVolumes[volID] = hostpathVol
 	return &hostpathVol, nil
