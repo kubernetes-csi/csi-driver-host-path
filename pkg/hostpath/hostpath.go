@@ -293,7 +293,7 @@ func loadFromVolume(srcVolumeId, destPath string) error {
 
 	// If the source hostpath volume is empty it's a noop and we just move along, otherwise the cp call will fail with a a file stat error DNE
 	if !isEmpty {
-		args := []string{"-a", srcPath + "/*", destPath + "/"}
+		args := []string{"-a", srcPath + "/.", destPath + "/"}
 		executor := utilexec.New()
 		out, err := executor.Command("cp", args...).CombinedOutput()
 		if err != nil {
