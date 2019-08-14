@@ -36,7 +36,8 @@ var (
 	ephemeral   = flag.Bool("ephemeral", false, "publish volumes in ephemeral mode even if kubelet did not ask for it (only needed for Kubernetes 1.15)")
 	showVersion = flag.Bool("version", false, "Show version.")
 	// Set by the build process
-	version = ""
+	version    = ""
+	controller = flag.Bool("controller", false, "Open ControllerPublishVolume and ControllerUnpublishVolume")
 )
 
 func main() {
@@ -57,7 +58,7 @@ func main() {
 }
 
 func handle() {
-	driver, err := hostpath.NewHostPathDriver(*driverName, *nodeID, *endpoint, version, *ephemeral)
+	driver, err := hostpath.NewHostPathDriver(*driverName, *nodeID, *endpoint, version, *ephemeral, *controller)
 	if err != nil {
 		fmt.Printf("Failed to initialize driver: %s", err.Error())
 		os.Exit(1)

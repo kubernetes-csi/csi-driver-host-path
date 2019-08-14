@@ -52,9 +52,22 @@ type controllerServer struct {
 	caps []*csi.ControllerServiceCapability
 }
 
-func NewControllerServer(ephemeral bool) *controllerServer {
+func NewControllerServer(ephemeral bool, controller bool) *controllerServer {
 	if ephemeral {
 		return &controllerServer{caps: getControllerServiceCapabilities(nil)}
+	}
+
+	if controller {
+		return &controllerServer{
+			caps: getControllerServiceCapabilities(
+				[]csi.ControllerServiceCapability_RPC_Type{
+					csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+					csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
+					csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
+					csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
+					csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+				}),
+		}
 	}
 	return &controllerServer{
 		caps: getControllerServiceCapabilities(
@@ -234,11 +247,13 @@ func (cs *controllerServer) ValidateVolumeCapabilities(ctx context.Context, req 
 }
 
 func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	glog.V(4).Infof("ControllerPublishVolume %v", req)
+	return &csi.ControllerPublishVolumeResponse{}, nil
 }
 
 func (cs *controllerServer) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	glog.V(4).Infof("ControllerUnpublishVolume %v", req)
+	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
 func (cs *controllerServer) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
