@@ -5,3 +5,4 @@ metadata:
 provisioner: hostpath.csi.k8s.io
 reclaimPolicy: Delete
 volumeBindingMode: Immediate
+allowVolumeExpansion: true

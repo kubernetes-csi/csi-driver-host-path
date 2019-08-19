@@ -209,6 +209,18 @@ func createHostpathVolume(volID, name string, cap int64, volAccessType accessTyp
 	return &hostpathVol, nil
 }
 
+// updateVolume updates the existing hostpath volume.
+func updateHostpathVolume(volID string, volume hostPathVolume) error {
+	glog.V(4).Infof("updating hostpath volume: %s", volID)
+
+	if _, err := getVolumeByID(volID); err != nil {
+		return err
+	}
+
+	hostPathVolumes[volID] = volume
+	return nil
+}
+
 // deleteVolume deletes the directory for the hostpath volume.
 func deleteHostpathVolume(volID string) error {
 	glog.V(4).Infof("deleting hostpath volume: %s", volID)

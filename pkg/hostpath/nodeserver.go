@@ -277,10 +277,57 @@ func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetC
 					},
 				},
 			},
+			{
+				Type: &csi.NodeServiceCapability_Rpc{
+					Rpc: &csi.NodeServiceCapability_RPC{
+						Type: csi.NodeServiceCapability_RPC_EXPAND_VOLUME,
+					},
+				},
+			},
 		},
 	}, nil
 }
 
 func (ns *nodeServer) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
+}
+
+// NodeExpandVolume is only implemented so the driver can be used for e2e testing.
+func (ns *nodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+
+	volID := req.GetVolumeId()
+	if len(volID) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID not provided")
+	}
+
+	vol, err := getVolumeByID(volID)
+	if err != nil {
+		// Assume not found error
+		return nil, status.Errorf(codes.NotFound, "Could not get volume %s: %v", volID, err)
+	}
+
+	volPath := req.GetVolumePath()
+	if len(volPath) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume path not provided")
+	}
+
+	info, err := os.Stat(volPath)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Could not get file information from %s: %v", volPath, err)
+	}
+
+	switch m := info.Mode(); {
+	case m.IsDir():
+		if vol.VolAccessType != mountAccess {
+			return nil, status.Errorf(codes.InvalidArgument, "Volume %s is not a directory", volID)
+		}
+	case m&os.ModeDevice != 0:
+		if vol.VolAccessType != blockAccess {
+			return nil, status.Errorf(codes.InvalidArgument, "Volume %s is not a block device", volID)
+		}
+	default:
+		return nil, status.Errorf(codes.InvalidArgument, "Volume %s is invalid", volID)
+	}
+
+	return &csi.NodeExpandVolumeResponse{}, nil
 }
