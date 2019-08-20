@@ -31,6 +31,8 @@ import (
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 )
 
+const TopologyKeyNode = "topology.hostpath.csi/node"
+
 type nodeServer struct {
 	nodeID    string
 	ephemeral bool
@@ -261,8 +263,13 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 
 func (ns *nodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 
+	topology := &csi.Topology{
+		Segments: map[string]string{TopologyKeyNode: ns.nodeID},
+	}
+
 	return &csi.NodeGetInfoResponse{
-		NodeId: ns.nodeID,
+		NodeId:             ns.nodeID,
+		AccessibleTopology: topology,
 	}, nil
 }
 
