@@ -322,7 +322,7 @@ configvar CSI_PROW_E2E_ALPHA_GATES "$(get_versioned_variable CSI_PROW_E2E_ALPHA_
 # whether they can run with the current cluster provider, but until
 # they are, we filter them out by name. Like the other test selection
 # variables, this is again a space separated list of regular expressions.
-configvar CSI_PROW_E2E_SKIP 'Disruptive' "tests that need to be skipped"
+configvar CSI_PROW_E2E_SKIP 'Disruptive|volumeMode.*unused.*volumes' "tests that need to be skipped"
 
 # This is the directory for additional result files. Usually set by Prow, but
 # if not (for example, when invoking manually) it defaults to the work directory.
