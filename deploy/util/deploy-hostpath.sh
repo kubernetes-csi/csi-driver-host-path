@@ -5,7 +5,7 @@
 # authoritative and all updates for this process should be
 # done here and referenced elsewhere.
 
-# The script assumes that kubectl is available on the OS path 
+# The script assumes that kubectl is available on the OS path
 # where it is executed.
 
 set -e
@@ -79,6 +79,8 @@ CSI_ATTACHER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/externa
 : ${CSI_ATTACHER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-attacher/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-attacher.yaml" csi-attacher "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
 CSI_SNAPSHOTTER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter false)/deploy/kubernetes/rbac.yaml"
 : ${CSI_SNAPSHOTTER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
+CSI_RESIZER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-resizer/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-resizer.yaml" csi-resizer false)/deploy/kubernetes/rbac.yaml"
+: ${CSI_RESIZER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-resizer/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-resizer.yaml" csi-resizer "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
 
 INSTALL_CRD=${INSTALL_CRD:-"false"}
 
@@ -95,7 +97,7 @@ run () {
 
 # rbac rules
 echo "applying RBAC rules"
-for component in CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER; do
+for component in CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER CSI_RESIZER; do
     eval current="\${${component}_RBAC}"
     eval original="\${${component}_RBAC_YAML}"
     if [ "$current" != "$original" ]; then
@@ -147,7 +149,7 @@ done
 # Wait until all pods are running. We have to make some assumptions
 # about the deployment here, otherwise we wouldn't know what to wait
 # for: the expectation is that we run attacher, provisioner,
-# snapshotter, socat and hostpath plugin in the default namespace.
+# snapshotter, resizer, socat and hostpath plugin in the default namespace.
 cnt=0
 while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) -lt 5 ] || ! kubectl describe volumesnapshotclasses.snapshot.storage.k8s.io 2>/dev/null >/dev/null; do
     if [ $cnt -gt 30 ]; then
