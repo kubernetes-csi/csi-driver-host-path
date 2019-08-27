@@ -63,6 +63,7 @@ func NewControllerServer(ephemeral bool) *controllerServer {
 				csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
 				csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
 				csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
+				csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			}),
 	}
 }
@@ -454,6 +455,42 @@ func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnap
 	return &csi.ListSnapshotsResponse{
 		Entries:   entries,
 		NextToken: nextToken,
+	}, nil
+}
+
+func (cs *controllerServer) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+
+	volID := req.GetVolumeId()
+	if len(volID) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+
+	capRange := req.GetCapacityRange()
+	if capRange == nil {
+		return nil, status.Error(codes.InvalidArgument, "Capacity range not provided")
+	}
+
+	capacity := int64(capRange.GetRequiredBytes())
+	if capacity >= maxStorageCapacity {
+		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, maxStorageCapacity)
+	}
+
+	exVol, err := getVolumeByID(volID)
+	if err != nil {
+		// Assume not found error
+		return nil, status.Errorf(codes.NotFound, "Could not get volume %s: %v", volID, err)
+	}
+
+	if exVol.VolSize < capacity {
+		exVol.VolSize = capacity
+		if err := updateHostpathVolume(volID, exVol); err != nil {
+			return nil, status.Errorf(codes.Internal, "Could not update volume %s: %v", volID, err)
+		}
+	}
+
+	return &csi.ControllerExpandVolumeResponse{
+		CapacityBytes:         exVol.VolSize,
+		NodeExpansionRequired: true,
 	}, nil
 }
 
