@@ -163,7 +163,7 @@ func getVolumePath(volID string) string {
 	return filepath.Join(dataRoot, volID)
 }
 
-// createVolume create the directory for the hostpath volume.
+// createVolume create the sparse ext2 filesystem for the hostpath volume.
 // It returns the volume path or err if one occurs.
 func createHostpathVolume(volID, name string, cap int64, volAccessType accessType, ephemeral bool) (*hostPathVolume, error) {
 	path := getVolumePath(volID)
@@ -177,10 +177,17 @@ func createHostpathVolume(volID, name string, cap int64, volAccessType accessTyp
 	case blockAccess:
 		executor := utilexec.New()
 		size := fmt.Sprintf("%dM", cap/mib)
+
 		// Create a block file.
-		out, err := executor.Command("fallocate", "-l", size, path).CombinedOutput()
+		out, err := executor.Command("dd", "if=/dev/zero", "bs=1", "count=0", String.Join("seek=", size), String.Join("of=", path)).CombinedOutput()
 		if err != nil {
-			return nil, fmt.Errorf("failed to create block device: %v, %v", err, string(out))
+			return nil, fmt.Errorf("failed to create block device allocation: %v, %v", err, string(out))
+		}
+
+		//Format a block file
+		out, err := executor.Command("mkfs.ext2", "-q", path).CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ext2 filesystem on block device allocation: %v, %v", err, string(out))
 		}
 
 		// Associate block file with the loop device.
