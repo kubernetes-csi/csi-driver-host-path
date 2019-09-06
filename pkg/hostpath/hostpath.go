@@ -126,7 +126,7 @@ func (hp *hostPath) Run() {
 	// Create GRPC servers
 	hp.ids = NewIdentityServer(hp.name, hp.version)
 	hp.ns = NewNodeServer(hp.nodeID, hp.ephemeral)
-	hp.cs = NewControllerServer(hp.ephemeral)
+	hp.cs = NewControllerServer(hp.ephemeral, hp.nodeID)
 
 	s := NewNonBlockingGRPCServer()
 	s.Start(hp.endpoint, hp.ids, hp.cs, hp.ns)

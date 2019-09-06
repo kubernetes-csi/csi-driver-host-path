@@ -49,12 +49,13 @@ const (
 )
 
 type controllerServer struct {
-	caps []*csi.ControllerServiceCapability
+	caps   []*csi.ControllerServiceCapability
+	nodeID string
 }
 
-func NewControllerServer(ephemeral bool) *controllerServer {
+func NewControllerServer(ephemeral bool, nodeID string) *controllerServer {
 	if ephemeral {
-		return &controllerServer{caps: getControllerServiceCapabilities(nil)}
+		return &controllerServer{caps: getControllerServiceCapabilities(nil), nodeID: nodeID}
 	}
 	return &controllerServer{
 		caps: getControllerServiceCapabilities(
@@ -65,6 +66,7 @@ func NewControllerServer(ephemeral bool) *controllerServer {
 				csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
 				csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			}),
+		nodeID: nodeID,
 	}
 }
 
@@ -165,12 +167,17 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		glog.V(4).Infof("successfully populated volume %s", vol.VolID)
 	}
 
+	topologies := []*csi.Topology{&csi.Topology{
+		Segments: map[string]string{TopologyKeyNode: cs.nodeID},
+	}}
+
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
-			VolumeId:      volumeID,
-			CapacityBytes: req.GetCapacityRange().GetRequiredBytes(),
-			VolumeContext: req.GetParameters(),
-			ContentSource: req.GetVolumeContentSource(),
+			VolumeId:           volumeID,
+			CapacityBytes:      req.GetCapacityRange().GetRequiredBytes(),
+			VolumeContext:      req.GetParameters(),
+			ContentSource:      req.GetVolumeContentSource(),
+			AccessibleTopology: topologies,
 		},
 	}, nil
 }

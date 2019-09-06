@@ -45,6 +45,7 @@ spec:
             - -v=5
             - --csi-address=/csi/csi.sock
             - --connection-timeout=15s
+            - --feature-gates=Topology=true
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
