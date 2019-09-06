@@ -508,6 +508,7 @@ kind: Cluster
 apiVersion: kind.sigs.k8s.io/v1alpha3
 nodes:
 - role: control-plane
+- role: worker
 EOF
 
     # kubeadm has API dependencies between apiVersion and Kubernetes version
