@@ -133,7 +133,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, status.Error(codes.InvalidArgument, "cannot publish a non-mount volume as mount volume")
 		}
 
-		notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
+		notMnt, err := mount.New("").IsNotMountPoint(targetPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				if err = os.MkdirAll(targetPath, 0750); err != nil {
