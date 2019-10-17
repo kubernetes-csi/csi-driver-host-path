@@ -107,10 +107,14 @@ for component in CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER CSI_RESIZER; do
     run kubectl apply -f "${current}"
 done
 
-# deploy hostpath plugin and registrar sidecar
+# deploy hostpath plugin and CSI sidecars
 echo "deploying hostpath components"
 for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
     echo "   $i"
+    if [[ $i == *"snapshotter"* ]] ; then
+        continue
+    fi
+
     modified="$(cat "$i" | while IFS= read -r line; do
         nocomments="$(echo "$line" | sed -e 's/ *#.*$//')"
         if echo "$nocomments" | grep -q '^[[:space:]]*image:[[:space:]]*'; then
@@ -151,7 +155,7 @@ done
 # for: the expectation is that we run attacher, provisioner,
 # snapshotter, resizer, socat and hostpath plugin in the default namespace.
 cnt=0
-while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) -lt 5 ] || ! kubectl describe volumesnapshotclasses.snapshot.storage.k8s.io 2>/dev/null >/dev/null; do
+while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) -lt 4 ]; do
     if [ $cnt -gt 30 ]; then
         echo "Running pods:"
         kubectl describe pods
@@ -163,7 +167,3 @@ while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l
     cnt=$(($cnt + 1))
     sleep 10
 done
-
-# deploy snapshotclass
-echo "deploying snapshotclass"
-kubectl apply -f ${BASE_DIR}/snapshotter/csi-hostpath-snapshotclass.yaml
