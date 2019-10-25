@@ -4,16 +4,18 @@ This repository hosts the CSI Hostpath driver and all of its build and dependent
 
 ## Pre-requisite
 - Kubernetes cluster
-- Running version 1.13 or later
+- Running version 1.14 or later
 - Access to terminal with `kubectl` installed
 
 ## Deployment
 The easiest way to test the Hostpath driver is to run the `deploy-hostpath.sh` script for the Kubernetes version used by
-the cluster as shown below for Kubernetes 1.13. This creates the deployment that is maintained specifically for that
+the cluster as shown below for Kubernetes 1.16. This creates the deployment that is maintained specifically for that
 release of Kubernetes. However, other deployments may also work. For details see the individual READMEs.
 
+Note: the following assumes that kubelet runs with the default root dir of `/var/lib/kubelet`. If kubelet in your cluster runs with the `--root-dir` option pointing to a different directory then the .yaml files in `deploy/kubernetes-<version>/hostpath/` will need to be modified appropriately.
+
 ```shell
-$ deploy/kubernetes-1.13/deploy-hostpath.sh
+$ deploy/kubernetes-1.16/deploy-hostpath.sh
 ```
 
 You should see an output similar to the following printed on the terminal showing the application of rbac rules and the result of deploying the hostpath driver, external provisioner, external attacher and snapshotter components:
@@ -37,25 +39,25 @@ serviceaccount/csi-snapshotter created
 clusterrole.rbac.authorization.k8s.io/external-snapshotter-runner created
 clusterrolebinding.rbac.authorization.k8s.io/csi-snapshotter-role created
 deploying hostpath components
-   deploy/kubernetes-1.13/hostpath/csi-hostpath-attacher.yaml
+   deploy/kubernetes-1.16/hostpath/csi-hostpath-attacher.yaml
         using           image: quay.io/k8scsi/csi-attacher:v1.0.1
 service/csi-hostpath-attacher created
 statefulset.apps/csi-hostpath-attacher created
-   deploy/kubernetes-1.13/hostpath/csi-hostpath-plugin.yaml
+   deploy/kubernetes-1.16/hostpath/csi-hostpath-plugin.yaml
         using           image: quay.io/k8scsi/csi-node-driver-registrar:v1.0.2
         using           image: quay.io/k8scsi/hostpathplugin:v1.0.1
         using           image: quay.io/k8scsi/livenessprobe:v1.0.2
 service/csi-hostpathplugin created
 statefulset.apps/csi-hostpathplugin created
-   deploy/kubernetes-1.13/hostpath/csi-hostpath-provisioner.yaml
+   deploy/kubernetes-1.16/hostpath/csi-hostpath-provisioner.yaml
         using           image: quay.io/k8scsi/csi-provisioner:v1.0.1
 service/csi-hostpath-provisioner created
 statefulset.apps/csi-hostpath-provisioner created
-   deploy/kubernetes-1.13/hostpath/csi-hostpath-snapshotter.yaml
+   deploy/kubernetes-1.16/hostpath/csi-hostpath-snapshotter.yaml
         using           image: quay.io/k8scsi/csi-snapshotter:v1.0.1
 service/csi-hostpath-snapshotter created
 statefulset.apps/csi-hostpath-snapshotter created
-   deploy/kubernetes-1.13/hostpath/csi-hostpath-testing.yaml
+   deploy/kubernetes-1.16/hostpath/csi-hostpath-testing.yaml
         using           image: alpine/socat:1.0.3
 service/hostpath-service created
 statefulset.apps/csi-hostpath-socat created
