@@ -34,14 +34,16 @@ import (
 const TopologyKeyNode = "topology.hostpath.csi/node"
 
 type nodeServer struct {
-	nodeID    string
-	ephemeral bool
+	nodeID            string
+	ephemeral         bool
+	maxVolumesPerNode int64
 }
 
-func NewNodeServer(nodeId string, ephemeral bool) *nodeServer {
+func NewNodeServer(nodeId string, ephemeral bool, maxVolumesPerNode int64) *nodeServer {
 	return &nodeServer{
-		nodeID:    nodeId,
-		ephemeral: ephemeral,
+		nodeID:            nodeId,
+		ephemeral:         ephemeral,
+		maxVolumesPerNode: maxVolumesPerNode,
 	}
 }
 
@@ -269,6 +271,7 @@ func (ns *nodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoReque
 
 	return &csi.NodeGetInfoResponse{
 		NodeId:             ns.nodeID,
+		MaxVolumesPerNode:  ns.maxVolumesPerNode,
 		AccessibleTopology: topology,
 	}, nil
 }
