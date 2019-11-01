@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
@@ -75,8 +76,10 @@ type hostPathSnapshot struct {
 var (
 	vendorVersion = "dev"
 
-	hostPathVolumes         map[string]hostPathVolume
-	hostPathVolumeSnapshots map[string]hostPathSnapshot
+	hostPathVolumes              map[string]hostPathVolume
+	hostPathVolumesMutex         sync.RWMutex
+	hostPathVolumeSnapshots      map[string]hostPathSnapshot
+	hostPathVolumeSnapshotsMutex sync.RWMutex
 )
 
 const (
@@ -136,6 +139,8 @@ func (hp *hostPath) Run() {
 }
 
 func getVolumeByID(volumeID string) (hostPathVolume, error) {
+	hostPathVolumesMutex.RLock()
+	defer hostPathVolumesMutex.RUnlock()
 	if hostPathVol, ok := hostPathVolumes[volumeID]; ok {
 		return hostPathVol, nil
 	}
@@ -143,6 +148,8 @@ func getVolumeByID(volumeID string) (hostPathVolume, error) {
 }
 
 func getVolumeByName(volName string) (hostPathVolume, error) {
+	hostPathVolumesMutex.RLock()
+	defer hostPathVolumesMutex.RUnlock()
 	for _, hostPathVol := range hostPathVolumes {
 		if hostPathVol.VolName == volName {
 			return hostPathVol, nil
@@ -152,6 +159,8 @@ func getVolumeByName(volName string) (hostPathVolume, error) {
 }
 
 func getSnapshotByName(name string) (hostPathSnapshot, error) {
+	hostPathVolumeSnapshotsMutex.RLock()
+	defer hostPathVolumeSnapshotsMutex.RUnlock()
 	for _, snapshot := range hostPathVolumeSnapshots {
 		if snapshot.Name == name {
 			return snapshot, nil
@@ -207,6 +216,8 @@ func createHostpathVolume(volID, name string, cap int64, volAccessType accessTyp
 		VolAccessType: volAccessType,
 		Ephemeral:     ephemeral,
 	}
+	hostPathVolumesMutex.Lock()
+	defer hostPathVolumesMutex.Unlock()
 	hostPathVolumes[volID] = hostpathVol
 	return &hostpathVol, nil
 }
@@ -219,6 +230,8 @@ func updateHostpathVolume(volID string, volume hostPathVolume) error {
 		return err
 	}
 
+	hostPathVolumesMutex.Lock()
+	defer hostPathVolumesMutex.Unlock()
 	hostPathVolumes[volID] = volume
 	return nil
 }
@@ -254,6 +267,8 @@ func deleteHostpathVolume(volID string) error {
 	if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
+	hostPathVolumesMutex.Lock()
+	defer hostPathVolumesMutex.Unlock()
 	delete(hostPathVolumes, volID)
 	return nil
 }
@@ -276,7 +291,9 @@ func hostPathIsEmpty(p string) (bool, error) {
 
 // loadFromSnapshot populates the given destPath with data from the snapshotID
 func loadFromSnapshot(snapshotId, destPath string) error {
+	hostPathVolumeSnapshotsMutex.RLock()
 	snapshot, ok := hostPathVolumeSnapshots[snapshotId]
+	hostPathVolumeSnapshotsMutex.RUnlock()
 	if !ok {
 		return status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
 	}
@@ -295,7 +312,9 @@ func loadFromSnapshot(snapshotId, destPath string) error {
 
 // loadfromVolume populates the given destPath with data from the srcVolumeID
 func loadFromVolume(srcVolumeId, destPath string) error {
+	hostPathVolumesMutex.RLock()
 	hostPathVolume, ok := hostPathVolumes[srcVolumeId]
+	hostPathVolumesMutex.RUnlock()
 	if !ok {
 		return status.Error(codes.NotFound, "source volumeId does not exist, are source/destination in the same storage class?")
 	}
