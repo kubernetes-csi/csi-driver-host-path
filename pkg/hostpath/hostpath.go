@@ -41,11 +41,12 @@ const (
 )
 
 type hostPath struct {
-	name      string
-	nodeID    string
-	version   string
-	endpoint  string
-	ephemeral bool
+	name              string
+	nodeID            string
+	version           string
+	endpoint          string
+	ephemeral         bool
+	maxVolumesPerNode int64
 
 	ids *identityServer
 	ns  *nodeServer
@@ -90,7 +91,7 @@ func init() {
 	hostPathVolumeSnapshots = map[string]hostPathSnapshot{}
 }
 
-func NewHostPathDriver(driverName, nodeID, endpoint, version string, ephemeral bool) (*hostPath, error) {
+func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxVolumesPerNode int64, version string) (*hostPath, error) {
 	if driverName == "" {
 		return nil, fmt.Errorf("No driver name provided")
 	}
@@ -114,18 +115,19 @@ func NewHostPathDriver(driverName, nodeID, endpoint, version string, ephemeral b
 	glog.Infof("Version: %s", vendorVersion)
 
 	return &hostPath{
-		name:      driverName,
-		version:   vendorVersion,
-		nodeID:    nodeID,
-		endpoint:  endpoint,
-		ephemeral: ephemeral,
+		name:              driverName,
+		version:           vendorVersion,
+		nodeID:            nodeID,
+		endpoint:          endpoint,
+		ephemeral:         ephemeral,
+		maxVolumesPerNode: maxVolumesPerNode,
 	}, nil
 }
 
 func (hp *hostPath) Run() {
 	// Create GRPC servers
 	hp.ids = NewIdentityServer(hp.name, hp.version)
-	hp.ns = NewNodeServer(hp.nodeID, hp.ephemeral)
+	hp.ns = NewNodeServer(hp.nodeID, hp.ephemeral, hp.maxVolumesPerNode)
 	hp.cs = NewControllerServer(hp.ephemeral, hp.nodeID)
 
 	s := NewNonBlockingGRPCServer()
