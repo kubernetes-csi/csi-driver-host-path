@@ -1,3 +1,4 @@
 # The following canary images are known to be incompatible with this
 # deployment:
+csi-attacher
 csi-snapshotter
