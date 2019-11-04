@@ -32,6 +32,16 @@ BASE_DIR=$(dirname "$0")
 # - IMAGE_TAG
 # These are used as fallback when the more specific variables are unset or empty.
 #
+# IMAGE_TAG=canary is ignored for images that are blacklisted in the
+# deployment's optional canary-blacklist.txt file. This is meant for
+# images which have known API breakages and thus cannot work in those
+# deployments anymore. That text file must have the name of the blacklisted
+# image on a line by itself, other lines are ignored. Example:
+#
+#     # The following canary images are known to be incompatible with this
+#     # deployment:
+#     csi-snapshotter
+#
 # Beware that the .yaml files do not have "imagePullPolicy: Always". That means that
 # also the "canary" images will only be pulled once. This is good for testing
 # (starting a pod multiple times will always run with the same canary image), but
@@ -132,7 +142,15 @@ for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
             # Only do this for the images which are meant to be configurable.
             if update_image "$name"; then
                 prefix=$(eval echo \${${varname}_REGISTRY:-${IMAGE_REGISTRY:-${registry}}}/ | sed -e 's;none/;;')
-                suffix=$(eval echo :\${${varname}_TAG:-${IMAGE_TAG:-${tag}}})
+                if [ "$IMAGE_TAG" = "canary" ] &&
+                   [ -f ${BASE_DIR}/canary-blacklist.txt ] &&
+                   grep -q "^$name\$" ${BASE_DIR}/canary-blacklist.txt; then
+                    # Ignore IMAGE_TAG=canary for this particular image because its
+                    # canary image is blacklisted in the deployment's blacklist.
+                    suffix=$(eval echo :\${${varname}_TAG:-${tag}})
+                else
+                    suffix=$(eval echo :\${${varname}_TAG:-${IMAGE_TAG:-${tag}}})
+                fi
                 line="$(echo "$nocomments" | sed -e "s;$image;${prefix}${name}${suffix};")"
             fi
             echo "        using $line" >&2
@@ -150,11 +168,13 @@ done
 # about the deployment here, otherwise we wouldn't know what to wait
 # for: the expectation is that we run attacher, provisioner,
 # snapshotter, resizer, socat and hostpath plugin in the default namespace.
+expected_running_pods=6
 cnt=0
-while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) -lt 5 ] || ! kubectl describe volumesnapshotclasses.snapshot.storage.k8s.io 2>/dev/null >/dev/null; do
+while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) -lt $expected_running_pods ] || ! kubectl describe volumesnapshotclasses.snapshot.storage.k8s.io 2>/dev/null >/dev/null; do
     if [ $cnt -gt 30 ]; then
-        echo "Running pods:"
+        echo "$(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) running pods:"
         kubectl describe pods
+        (set -x; kubectl describe volumesnapshotclasses.snapshot.storage.k8s.io) || true
 
         echo >&2 "ERROR: hostpath deployment not ready after over 5min"
         exit 1
