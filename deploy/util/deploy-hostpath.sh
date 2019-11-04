@@ -32,14 +32,15 @@ BASE_DIR=$(dirname "$0")
 # - IMAGE_TAG
 # These are used as fallback when the more specific variables are unset or empty.
 #
-# IMAGE_TAG=canary is ignored for images that are blacklisted in the deployment's
-# top-level README.md. This is meant for images which have known API breakages and
-# thus cannot work in those deployments anymore. For the purpose of this script,
-# any line matching " *-* <image name>< optional additional text>" is fine, for example:
+# IMAGE_TAG=canary is ignored for images that are blacklisted in the
+# deployment's optional canary-blacklist.txt file. This is meant for
+# images which have known API breakages and thus cannot work in those
+# deployments anymore. That text file must have the name of the blacklisted
+# image on a line by itself, other lines are ignored. Example:
 #
-#     The following canary images are known to be incompatible with this
-#     deployment:
-#     - csi-snapshotter (canary uses VolumeSnapshot v1beta)
+#     # The following canary images are known to be incompatible with this
+#     # deployment:
+#     csi-snapshotter
 #
 # Beware that the .yaml files do not have "imagePullPolicy: Always". That means that
 # also the "canary" images will only be pulled once. This is good for testing
@@ -142,10 +143,10 @@ for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
             if update_image "$name"; then
                 prefix=$(eval echo \${${varname}_REGISTRY:-${IMAGE_REGISTRY:-${registry}}}/ | sed -e 's;none/;;')
                 if [ "$IMAGE_TAG" = "canary" ] &&
-                   [ -f ${BASE_DIR}/README.md ] &&
-                   grep -q "^ *-* *$name *" ${BASE_DIR}/README.md; then
+                   [ -f ${BASE_DIR}/canary-blacklist.txt ] &&
+                   grep -q "^$name\$" ${BASE_DIR}/canary-blacklist.txt; then
                     # Ignore IMAGE_TAG=canary for this particular image because its
-                    # canary image is blacklisted in the deployment's README.md.
+                    # canary image is blacklisted in the deployment's blacklist.
                     suffix=$(eval echo :\${${varname}_TAG:-${tag}})
                 else
                     suffix=$(eval echo :\${${varname}_TAG:-${IMAGE_TAG:-${tag}}})
