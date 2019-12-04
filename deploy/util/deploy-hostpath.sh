@@ -82,13 +82,46 @@ function rbac_version () {
     echo "$version"
 }
 
+# version_gt returns true if arg1 is greater than arg2.
+# 
+# This function expects versions to be one of the following formats:
+#   X.Y.Z, release-X.Y.Z, vX.Y.Z
+#
+#   where X,Y, and Z are any number.
+#
+# Partial versions (1.2, release-1.2) work as well.
+# The follow substrings are stripped before version comparison:
+#   - "v"
+#   - "release-"
+#
+# Usage:
+# version_gt release-1.3 v1.2.0  (returns true)
+# version_gt v1.1.1 v1.2.0  (returns false)
+# version_gt 1.1.1 v1.2.0  (returns false)
+# version_gt 1.3.1 v1.2.0  (returns true)
+# version_gt 1.1.1 release-1.2.0  (returns false)
+# version_gt 1.2.0 1.2.2  (returns false)
+function version_gt() { 
+    versions=$(for ver in "$@"; do ver=${ver#release-}; echo ${ver#v}; done)
+    greaterVersion=${1#"release-"};  
+    greaterVersion=${greaterVersion#"v"}; 
+    test "$(printf '%s' "$versions" | sort -V | head -n 1)" != "$greaterVersion"
+}
+
 # In addition, the RBAC rules can be overridden separately.
+# For snapshotter 2.0+, the directory has changed.
+SNAPSHOTTER_RBAC_RELATIVE_PATH="rbac.yaml"
+if version_gt $(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter "${UPDATE_RBAC_RULES}") "v1.255.255"; then
+	SNAPSHOTTER_RBAC_RELATIVE_PATH="csi-snapshotter/rbac-csi-snapshotter.yaml"
+fi
+echo "SNAPSHOTTER_RBAC_RELATIVE_PATH $SNAPSHOTTER_RBAC_RELATIVE_PATH"
+
 CSI_PROVISIONER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-provisioner.yaml" csi-provisioner false)/deploy/kubernetes/rbac.yaml"
 : ${CSI_PROVISIONER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-provisioner.yaml" csi-provisioner "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
 CSI_ATTACHER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-attacher/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-attacher.yaml" csi-attacher false)/deploy/kubernetes/rbac.yaml"
 : ${CSI_ATTACHER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-attacher/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-attacher.yaml" csi-attacher "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
-CSI_SNAPSHOTTER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter false)/deploy/kubernetes/rbac.yaml"
-: ${CSI_SNAPSHOTTER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
+CSI_SNAPSHOTTER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter false)/deploy/kubernetes/${SNAPSHOTTER_RBAC_RELATIVE_PATH}"
+: ${CSI_SNAPSHOTTER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter "${UPDATE_RBAC_RULES}")/deploy/kubernetes/${SNAPSHOTTER_RBAC_RELATIVE_PATH}
 CSI_RESIZER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-resizer/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-resizer.yaml" csi-resizer false)/deploy/kubernetes/rbac.yaml"
 : ${CSI_RESIZER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-resizer/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-resizer.yaml" csi-resizer "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
 
@@ -146,7 +179,7 @@ for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
                    [ -f ${BASE_DIR}/canary-blacklist.txt ] &&
                    grep -q "^$name\$" ${BASE_DIR}/canary-blacklist.txt; then
                     # Ignore IMAGE_TAG=canary for this particular image because its
-                    # canary image is blacklisted in the deployment's blacklist.
+                    # canary image is blacklisted in the deployment blacklist.
                     suffix=$(eval echo :\${${varname}_TAG:-${tag}})
                 else
                     suffix=$(eval echo :\${${varname}_TAG:-${IMAGE_TAG:-${tag}}})
@@ -186,4 +219,5 @@ done
 
 # deploy snapshotclass
 echo "deploying snapshotclass"
-kubectl apply -f ${BASE_DIR}/snapshotter/csi-hostpath-snapshotclass.yaml
+SNAPSHOTCLASS_PATH="${BASE_DIR}/snapshotter/csi-hostpath-snapshotclass.yaml"
+kubectl apply -f $SNAPSHOTCLASS_PATH
