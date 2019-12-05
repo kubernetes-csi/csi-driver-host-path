@@ -107,8 +107,7 @@ configvar CSI_PROW_GO_VERSION_GINKGO "${CSI_PROW_GO_VERSION_BUILD}" "Go version 
 # kind version to use. If the pre-installed version is different,
 # the desired version is downloaded from https://github.com/kubernetes-sigs/kind/releases/download/
 # (if available), otherwise it is built from source.
-# TODO: https://github.com/kubernetes-csi/csi-release-tools/issues/39
-configvar CSI_PROW_KIND_VERSION "86bc23d84ac12dcb56a0528890736e2c347c2dc3" "kind"
+configvar CSI_PROW_KIND_VERSION "v0.6.0" "kind"
 
 # ginkgo test runner version to use. If the pre-installed version is
 # different, the desired version is built from source.
@@ -322,13 +321,20 @@ configvar CSI_PROW_E2E_ALPHA_GATES_1_16 'VolumeSnapshotDataSource=true' "alpha f
 configvar CSI_PROW_E2E_ALPHA_GATES_LATEST 'VolumeSnapshotDataSource=true' "alpha feature gates for latest Kubernetes"
 configvar CSI_PROW_E2E_ALPHA_GATES "$(get_versioned_variable CSI_PROW_E2E_ALPHA_GATES "${csi_prow_kubernetes_version_suffix}")" "alpha E2E feature gates"
 
+# Which external-snapshotter tag to use for the snapshotter CRD and snapshot-controller deployment
+configvar CSI_SNAPSHOTTER_VERSION 'v2.0.0-rc4' "external-snapshotter version tag"
+
 # Some tests are known to be unusable in a KinD cluster. For example,
 # stopping kubelet with "ssh <node IP> systemctl stop kubelet" simply
 # doesn't work. Such tests should be written in a way that they verify
 # whether they can run with the current cluster provider, but until
 # they are, we filter them out by name. Like the other test selection
 # variables, this is again a space separated list of regular expressions.
-configvar CSI_PROW_E2E_SKIP 'Disruptive' "tests that need to be skipped"
+#
+# "different node" test skips can be removed once
+# https://github.com/kubernetes/kubernetes/pull/82678 has been backported
+# to all the K8s versions we test against
+configvar CSI_PROW_E2E_SKIP 'Disruptive|different\s+node' "tests that need to be skipped"
 
 # This is the directory for additional result files. Usually set by Prow, but
 # if not (for example, when invoking manually) it defaults to the work directory.
@@ -524,6 +530,7 @@ apiVersion: kind.sigs.k8s.io/v1alpha3
 nodes:
 - role: control-plane
 - role: worker
+- role: worker
 EOF
 
     # kubeadm has API dependencies between apiVersion and Kubernetes version
@@ -576,8 +583,20 @@ EOF
             die "Cluster creation failed again, giving up. See the 'kind-cluster' artifact directory for additional logs."
         fi
     fi
-    KUBECONFIG="$(kind get kubeconfig-path --name=csi-prow)"
-    export KUBECONFIG
+    export KUBECONFIG="${HOME}/.kube/config"
+}
+
+# Deletes kind cluster inside a prow job
+delete_cluster_inside_prow_job() {
+    # Inside a real Prow job it is better to clean up at runtime
+    # instead of leaving that to the Prow job cleanup code
+    # because the later sometimes times out (https://github.com/kubernetes-csi/csi-release-tools/issues/24#issuecomment-554765872).
+    if [ "$JOB_NAME" ]; then
+        if kind get clusters | grep -q csi-prow; then
+            run kind delete cluster --name=csi-prow || die "kind delete failed"
+        fi
+        unset KUBECONFIG
+    fi
 }
 
 # Looks for the deployment as specified by CSI_PROW_DEPLOYMENT and CSI_PROW_KUBERNETES_VERSION
@@ -655,6 +674,60 @@ install_hostpath () {
         info "For container output see job artifacts."
         die "deploying the hostpath driver with ${deploy_hostpath} failed"
     fi
+}
+
+# Installs all nessesary snapshotter CRDs  
+install_snapshot_crds() {
+  # Wait until volumesnapshot CRDs are in place.
+  CRD_BASE_DIR="https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${CSI_SNAPSHOTTER_VERSION}/config/crd"
+  kubectl apply -f "${CRD_BASE_DIR}/snapshot.storage.k8s.io_volumesnapshotclasses.yaml" --validate=false
+  kubectl apply -f "${CRD_BASE_DIR}/snapshot.storage.k8s.io_volumesnapshots.yaml" --validate=false
+  kubectl apply -f "${CRD_BASE_DIR}/snapshot.storage.k8s.io_volumesnapshotcontents.yaml" --validate=false
+  cnt=0
+  until kubectl get volumesnapshotclasses.snapshot.storage.k8s.io \
+    && kubectl get volumesnapshots.snapshot.storage.k8s.io \
+    && kubectl get volumesnapshotcontents.snapshot.storage.k8s.io; do
+    if [ $cnt -gt 30 ]; then
+        echo >&2 "ERROR: snapshot CRDs not ready after over 1 min"
+        exit 1
+    fi
+    echo "$(date +%H:%M:%S)" "waiting for snapshot CRDs, attempt #$cnt"
+	cnt=$((cnt + 1))
+    sleep 2
+  done
+}
+
+# Install snapshot controller and associated RBAC, retrying until the pod is running.
+install_snapshot_controller() {
+  kubectl apply -f "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${CSI_SNAPSHOTTER_VERSION}/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml"
+  cnt=0
+  until kubectl get clusterrolebinding snapshot-controller-role; do
+     if [ $cnt -gt 30 ]; then
+        echo "Cluster role bindings:"
+        kubectl describe clusterrolebinding
+        echo >&2 "ERROR: snapshot controller RBAC not ready after over 5 min"
+        exit 1
+    fi
+    echo "$(date +%H:%M:%S)" "waiting for snapshot RBAC setup complete, attempt #$cnt"
+	cnt=$((cnt + 1))
+    sleep 10   
+  done
+
+
+  kubectl apply -f "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${CSI_SNAPSHOTTER_VERSION}/deploy/kubernetes/snapshot-controller/setup-snapshot-controller.yaml"
+  cnt=0
+  expected_running_pods=$(curl https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/"${CSI_SNAPSHOTTER_VERSION}"/deploy/kubernetes/snapshot-controller/setup-snapshot-controller.yaml | grep replicas | cut -d ':' -f 2-)
+  while [ "$(kubectl get pods -l app=snapshot-controller | grep 'Running' -c)" -lt "$expected_running_pods" ]; do
+    if [ $cnt -gt 30 ]; then
+        echo "snapshot-controller pod status:"
+        kubectl describe pods -l app=snapshot-controller
+        echo >&2 "ERROR: snapshot controller not ready after over 5 min"
+        exit 1
+    fi
+    echo "$(date +%H:%M:%S)" "waiting for snapshot controller deployment to complete, attempt #$cnt"
+	cnt=$((cnt + 1))
+    sleep 10   
+  done
 }
 
 # collect logs and cluster status (like the version of all components, Kubernetes version, test version)
@@ -772,10 +845,6 @@ run_e2e () (
 
     install_e2e || die "building e2e.test failed"
     install_ginkgo || die "installing ginkgo failed"
-
-    # TODO (?): multi-node cluster (depends on https://github.com/kubernetes-csi/csi-driver-host-path/pull/14).
-    # When running on a multi-node cluster, we need to figure out where the
-    # hostpath driver was deployed and set ClientNodeName accordingly.
 
     generate_test_driver >"${CSI_PROW_WORK}/test-driver.yaml" || die "generating test-driver.yaml failed"
 
@@ -927,6 +996,32 @@ make_test_to_junit () {
     fi
 }
 
+# version_gt returns true if arg1 is greater than arg2.
+#
+# This function expects versions to be one of the following formats:
+#   X.Y.Z, release-X.Y.Z, vX.Y.Z
+#
+#   where X,Y, and Z are any number.
+#
+# Partial versions (1.2, release-1.2) work as well.
+# The follow substrings are stripped before version comparison:
+#   - "v"
+#   - "release-"
+#
+# Usage:
+# version_gt release-1.3 v1.2.0  (returns true)
+# version_gt v1.1.1 v1.2.0  (returns false)
+# version_gt 1.1.1 v1.2.0  (returns false)
+# version_gt 1.3.1 v1.2.0  (returns true)
+# version_gt 1.1.1 release-1.2.0  (returns false)
+# version_gt 1.2.0 1.2.2  (returns false)
+function version_gt() { 
+    versions=$(for ver in "$@"; do ver=${ver#release-}; echo "${ver#v}"; done)
+    greaterVersion=${1#"release-"};
+    greaterVersion=${greaterVersion#"v"};
+    test "$(printf '%s' "$versions" | sort -V | head -n 1)" != "$greaterVersion"
+}
+
 main () {
     local images ret
     ret=0
@@ -987,6 +1082,16 @@ main () {
         if tests_need_non_alpha_cluster; then
             start_cluster || die "starting the non-alpha cluster failed"
 
+            # Install necessary snapshot CRDs and snapshot controller
+            # For Kubernetes 1.17+, we will install the CRDs and snapshot controller.
+            if version_gt "${CSI_PROW_KUBERNETES_VERSION}" "1.16.255" || "${CSI_PROW_KUBERNETES_VERSION}" == "latest"; then
+                info "Version ${CSI_PROW_KUBERNETES_VERSION}, installing CRDs and snapshot controller"
+                install_snapshot_crds
+                install_snapshot_controller
+            else
+                info "Version ${CSI_PROW_KUBERNETES_VERSION}, skipping CRDs and snapshot controller"
+            fi
+
             # Installing the driver might be disabled.
             if install_hostpath "$images"; then
                 collect_cluster_info
@@ -1017,11 +1122,22 @@ main () {
                     fi
                 fi
             fi
+            delete_cluster_inside_prow_job
         fi
 
         if tests_need_alpha_cluster && [ "${CSI_PROW_E2E_ALPHA_GATES}" ]; then
             # Need to (re)create the cluster.
             start_cluster "${CSI_PROW_E2E_ALPHA_GATES}" || die "starting alpha cluster failed"
+
+            # Install necessary snapshot CRDs and snapshot controller
+            # For Kubernetes 1.17+, we will install the CRDs and snapshot controller.
+            if version_gt "${CSI_PROW_KUBERNETES_VERSION}" "1.16.255" || "${CSI_PROW_KUBERNETES_VERSION}" == "latest"; then
+                info "Version ${CSI_PROW_KUBERNETES_VERSION}, installing CRDs and snapshot controller"
+                install_snapshot_crds
+                install_snapshot_controller
+            else
+                info "Version ${CSI_PROW_KUBERNETES_VERSION}, skipping CRDs and snapshot controller"
+            fi
 
             # Installing the driver might be disabled.
             if install_hostpath "$images"; then
@@ -1047,6 +1163,7 @@ main () {
                     fi
                 fi
             fi
+            delete_cluster_inside_prow_job
         fi
     fi
 
