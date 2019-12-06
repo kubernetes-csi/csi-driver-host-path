@@ -107,7 +107,7 @@ configvar CSI_PROW_GO_VERSION_GINKGO "${CSI_PROW_GO_VERSION_BUILD}" "Go version 
 # kind version to use. If the pre-installed version is different,
 # the desired version is downloaded from https://github.com/kubernetes-sigs/kind/releases/download/
 # (if available), otherwise it is built from source.
-configvar CSI_PROW_KIND_VERSION "86bc23d84ac12dcb56a0528890736e2c347c2dc3" "kind"
+configvar CSI_PROW_KIND_VERSION "v0.6.0" "kind"
 
 # ginkgo test runner version to use. If the pre-installed version is
 # different, the desired version is built from source.
@@ -385,8 +385,8 @@ run_with_go () {
 
 # Ensure that we have the desired version of kind.
 install_kind () {
-	CSI_PROW_KIND_VERSION=86bc23d84ac12dcb56a0528890736e2c347c2dc3
-    if kind --version 2>/dev/null | grep -q " ${CSI_PROW_KIND_VERSION}$"; then
+    
+	if kind --version 2>/dev/null | grep -q " ${CSI_PROW_KIND_VERSION}$"; then
         return
     fi
     if run curl --fail --location -o "${CSI_PROW_WORK}/bin/kind" "https://github.com/kubernetes-sigs/kind/releases/download/${CSI_PROW_KIND_VERSION}/kind-linux-amd64"; then
