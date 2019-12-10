@@ -104,6 +104,7 @@ function rbac_version () {
 function version_gt() { 
     versions=$(for ver in "$@"; do ver=${ver#release-}; echo ${ver#v}; done)
     greaterVersion=${1#"release-"};  
+    greaterVersion=${1#"kubernetes-"};  
     greaterVersion=${greaterVersion#"v"}; 
     test "$(printf '%s' "$versions" | sort -V | head -n 1)" != "$greaterVersion"
 }
@@ -218,6 +219,9 @@ while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l
 done
 
 # deploy snapshotclass
-echo "deploying snapshotclass"
-SNAPSHOTCLASS_PATH="${BASE_DIR}/snapshotter/csi-hostpath-snapshotclass.yaml"
-kubectl apply -f $SNAPSHOTCLASS_PATH
+echo "deploying snapshotclass based on snapshotter version"
+snapshotter_version="$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter false)"
+driver_version="$(basename $PWD)"
+if [ version_gt $driver_version "1.16" ]; then
+    kubectl apply -f "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${snapshotter_version}/examples/kubernetes/snapshotclass.yaml" 
+fi
