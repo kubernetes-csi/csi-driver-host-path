@@ -40,9 +40,7 @@ spec:
       serviceAccount: csi-snapshotter
       containers:
         - name: csi-snapshotter
-          # TODO: change to official image when released
-          image: quay.io/k8scsi/csi-snapshotter:v2.0.0-rc2
-          imagePullPolicy: IfNotPresent
+          image: quay.io/k8scsi/csi-snapshotter:v2.0.0
           args:
             - -v=5
             - --csi-address=/csi/csi.sock
