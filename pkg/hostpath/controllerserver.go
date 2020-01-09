@@ -135,6 +135,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 					VolumeId:      exVol.VolID,
 					CapacityBytes: int64(exVol.VolSize),
 					VolumeContext: req.GetParameters(),
+					ContentSource: req.GetVolumeContentSource(),
 				},
 			}, nil
 		}
