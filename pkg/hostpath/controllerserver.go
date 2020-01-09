@@ -129,7 +129,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		// request
 		if exVol.VolSize >= int64(req.GetCapacityRange().GetRequiredBytes()) {
 			// exisiting volume is compatible with new request and should be reused.
-			// TODO (sbezverk) Do I need to make sure that RBD volume still exists?
+			// TODO (sbezverk) Do I need to make sure that volume still exists?
 			return &csi.CreateVolumeResponse{
 				Volume: &csi.Volume{
 					VolumeId:      exVol.VolID,
