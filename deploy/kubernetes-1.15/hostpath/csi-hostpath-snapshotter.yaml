@@ -44,7 +44,6 @@ spec:
           args:
             - -v=5
             - --csi-address=/csi/csi.sock
-            - --connection-timeout=15s
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
