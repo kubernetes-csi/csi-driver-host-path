@@ -111,7 +111,6 @@ spec:
           image: quay.io/k8scsi/livenessprobe:v1.1.0
           args:
           - --csi-address=/csi/csi.sock
-          - --connection-timeout=3s
           - --health-port=9898
 
       volumes:
