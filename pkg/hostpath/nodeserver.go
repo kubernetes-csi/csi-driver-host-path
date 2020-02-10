@@ -204,25 +204,24 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	switch vol.VolAccessType {
-	case blockAccess:
-		// Unmount and delete the block file.
+	// Unmount only if the target path is really a mount point.
+	if notMnt, err := mount.IsNotMountPoint(mount.New(""), targetPath); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	} else if !notMnt {
+		// Unmounting the image or filesystem.
 		err = mount.New("").Unmount(targetPath)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
-		if err = os.RemoveAll(targetPath); err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		glog.V(4).Infof("hostpath: volume %s has been unpublished.", targetPath)
-	case mountAccess:
-		// Unmounting the image
-		err = mount.New("").Unmount(req.GetTargetPath())
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		glog.V(4).Infof("hostpath: volume %s/%s has been unmounted.", targetPath, volumeID)
 	}
+	// Delete the mount point.
+	// Does not return error for non-existent path, repeated calls OK for idempotency.
+	if err = os.RemoveAll(targetPath); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	glog.V(4).Infof("hostpath: volume %s has been unpublished.", targetPath)
 
 	if vol.Ephemeral {
 		glog.V(4).Infof("deleting volume %s", volumeID)
