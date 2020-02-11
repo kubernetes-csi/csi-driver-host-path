@@ -225,3 +225,9 @@ driver_version="$(basename "${BASE_DIR}")"
 if version_gt "$driver_version" "1.16"; then
     kubectl apply -f "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${snapshotter_version}/examples/kubernetes/snapshotclass.yaml" 
 fi
+
+# Create a test driver configuration in the place where the prow job
+# expects it?
+if [ "${CSI_PROW_TEST_DRIVER}" ]; then
+    cp "${BASE_DIR}/test-driver.yaml" "${CSI_PROW_TEST_DRIVER}"
+fi
