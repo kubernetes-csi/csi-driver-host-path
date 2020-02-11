@@ -139,7 +139,7 @@ func getVolumeByID(volumeID string) (hostPathVolume, error) {
 	if hostPathVol, ok := hostPathVolumes[volumeID]; ok {
 		return hostPathVol, nil
 	}
-	return hostPathVolume{}, fmt.Errorf("volume id %s does not exit in the volumes list", volumeID)
+	return hostPathVolume{}, fmt.Errorf("volume id %s does not exist in the volumes list", volumeID)
 }
 
 func getVolumeByName(volName string) (hostPathVolume, error) {
@@ -148,7 +148,7 @@ func getVolumeByName(volName string) (hostPathVolume, error) {
 			return hostPathVol, nil
 		}
 	}
-	return hostPathVolume{}, fmt.Errorf("volume name %s does not exit in the volumes list", volName)
+	return hostPathVolume{}, fmt.Errorf("volume name %s does not exist in the volumes list", volName)
 }
 
 func getSnapshotByName(name string) (hostPathSnapshot, error) {
@@ -157,10 +157,10 @@ func getSnapshotByName(name string) (hostPathSnapshot, error) {
 			return snapshot, nil
 		}
 	}
-	return hostPathSnapshot{}, fmt.Errorf("snapshot name %s does not exit in the snapshots list", name)
+	return hostPathSnapshot{}, fmt.Errorf("snapshot name %s does not exist in the snapshots list", name)
 }
 
-// getVolumePath returs the canonical path for hostpath volume
+// getVolumePath returns the canonical path for hostpath volume
 func getVolumePath(volID string) string {
 	return filepath.Join(dataRoot, volID)
 }

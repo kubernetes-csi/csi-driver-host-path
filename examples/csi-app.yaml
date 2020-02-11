@@ -13,4 +13,4 @@ spec:
   volumes:
     - name: my-csi-volume
       persistentVolumeClaim:
-        claimName: csi-pvc # defined in csi-pvs.yaml
+        claimName: csi-pvc # defined in csi-pvc.yaml
