@@ -160,7 +160,7 @@ func getSnapshotByName(name string) (hostPathSnapshot, error) {
 	return hostPathSnapshot{}, fmt.Errorf("snapshot name %s does not exit in the snapshots list", name)
 }
 
-// getVolumePath returs the canonical path for hostpath volume
+// getVolumePath returns the canonical path for hostpath volume
 func getVolumePath(volID string) string {
 	return filepath.Join(dataRoot, volID)
 }
