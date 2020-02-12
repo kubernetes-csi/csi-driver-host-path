@@ -60,6 +60,8 @@ type hostPathVolume struct {
 	VolSize       int64      `json:"volSize"`
 	VolPath       string     `json:"volPath"`
 	VolAccessType accessType `json:"volAccessType"`
+	ParentVolID   string     `json:"parentVolID,omitempty"`
+	ParentSnapID  string     `json:"parentSnapID,omitempty"`
 	Ephemeral     bool       `json:"ephemeral"`
 }
 

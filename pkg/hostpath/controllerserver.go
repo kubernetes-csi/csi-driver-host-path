@@ -127,23 +127,36 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		// Since err is nil, it means the volume with the same name already exists
 		// need to check if the size of existing volume is the same as in new
 		// request
-		if exVol.VolSize >= int64(req.GetCapacityRange().GetRequiredBytes()) {
-			// existing volume is compatible with new request and should be reused.
-			// TODO (sbezverk) Do I need to make sure that volume still exists?
-			return &csi.CreateVolumeResponse{
-				Volume: &csi.Volume{
-					VolumeId:      exVol.VolID,
-					CapacityBytes: int64(exVol.VolSize),
-					VolumeContext: req.GetParameters(),
-					ContentSource: req.GetVolumeContentSource(),
-				},
-			}, nil
+		if exVol.VolSize < capacity {
+			return nil, status.Errorf(codes.AlreadyExists, "Volume with the same name: %s but with different size already exist", req.GetName())
 		}
-		return nil, status.Errorf(codes.AlreadyExists, "Volume with the same name: %s but with different size already exist", req.GetName())
+		if req.GetVolumeContentSource() != nil {
+			volumeSource := req.VolumeContentSource
+			switch volumeSource.Type.(type) {
+			case *csi.VolumeContentSource_Snapshot:
+				if volumeSource.GetSnapshot() != nil && exVol.ParentSnapID != volumeSource.GetSnapshot().GetSnapshotId() {
+					return nil, status.Error(codes.AlreadyExists, "existing volume source snapshot id not matching")
+				}
+			case *csi.VolumeContentSource_Volume:
+				if volumeSource.GetVolume() != nil && exVol.ParentVolID != volumeSource.GetVolume().GetVolumeId() {
+					return nil, status.Error(codes.AlreadyExists, "existing volume source volume id not matching")
+				}
+			default:
+				return nil, status.Errorf(codes.InvalidArgument, "%v not a proper volume source", volumeSource)
+			}
+		}
+		// TODO (sbezverk) Do I need to make sure that volume still exists?
+		return &csi.CreateVolumeResponse{
+			Volume: &csi.Volume{
+				VolumeId:      exVol.VolID,
+				CapacityBytes: int64(exVol.VolSize),
+				VolumeContext: req.GetParameters(),
+				ContentSource: req.GetVolumeContentSource(),
+			},
+		}, nil
 	}
 
 	volumeID := uuid.NewUUID().String()
-	path := getVolumePath(volumeID)
 
 	vol, err := createHostpathVolume(volumeID, req.GetName(), capacity, requestedAccessType, false /* ephemeral */)
 	if err != nil {
@@ -152,12 +165,21 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	glog.V(4).Infof("created volume %s at path %s", vol.VolID, vol.VolPath)
 
 	if req.GetVolumeContentSource() != nil {
-		contentSource := req.GetVolumeContentSource()
-		if snapshot := contentSource.GetSnapshot(); snapshot != nil {
-			err = loadFromSnapshot(capacity, snapshot.GetSnapshotId(), path)
-		}
-		if srcVolume := contentSource.GetVolume(); srcVolume != nil {
-			err = loadFromVolume(capacity, srcVolume.GetVolumeId(), path)
+		path := getVolumePath(volumeID)
+		volumeSource := req.VolumeContentSource
+		switch volumeSource.Type.(type) {
+		case *csi.VolumeContentSource_Snapshot:
+			if snapshot := volumeSource.GetSnapshot(); snapshot != nil {
+				err = loadFromSnapshot(capacity, snapshot.GetSnapshotId(), path)
+				vol.ParentSnapID = snapshot.GetSnapshotId()
+			}
+		case *csi.VolumeContentSource_Volume:
+			if srcVolume := volumeSource.GetVolume(); srcVolume != nil {
+				err = loadFromVolume(capacity, srcVolume.GetVolumeId(), path)
+				vol.ParentVolID = srcVolume.GetVolumeId()
+			}
+		default:
+			err = status.Errorf(codes.InvalidArgument, "%v not a proper volume source", volumeSource)
 		}
 		if err != nil {
 			if delErr := deleteHostpathVolume(volumeID); delErr != nil {
