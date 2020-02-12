@@ -125,10 +125,10 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	// check for the requested capacity and already allocated capacity
 	if exVol, err := getVolumeByName(req.GetName()); err == nil {
 		// Since err is nil, it means the volume with the same name already exists
-		// need to check if the size of exisiting volume is the same as in new
+		// need to check if the size of existing volume is the same as in new
 		// request
 		if exVol.VolSize >= int64(req.GetCapacityRange().GetRequiredBytes()) {
-			// exisiting volume is compatible with new request and should be reused.
+			// existing volume is compatible with new request and should be reused.
 			// TODO (sbezverk) Do I need to make sure that volume still exists?
 			return &csi.CreateVolumeResponse{
 				Volume: &csi.Volume{

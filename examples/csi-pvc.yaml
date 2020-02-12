@@ -8,4 +8,4 @@ spec:
   resources:
     requests:
       storage: 1Gi
-  storageClassName: csi-hostpath-sc # defined in csi-setup.yaml
+  storageClassName: csi-hostpath-sc # defined in csi-storageclass.yaml
