@@ -17,6 +17,7 @@ limitations under the License.
 package hostpath
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -93,15 +94,15 @@ func init() {
 
 func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxVolumesPerNode int64, version string) (*hostPath, error) {
 	if driverName == "" {
-		return nil, fmt.Errorf("No driver name provided")
+		return nil, errors.New("no driver name provided")
 	}
 
 	if nodeID == "" {
-		return nil, fmt.Errorf("No node id provided")
+		return nil, errors.New("no node id provided")
 	}
 
 	if endpoint == "" {
-		return nil, fmt.Errorf("No driver endpoint provided")
+		return nil, errors.New("no driver endpoint provided")
 	}
 	if version != "" {
 		vendorVersion = version
