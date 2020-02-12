@@ -10,7 +10,11 @@ spec:
   ports:
     - name: dummy
       port: 12345
-
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: csi-provisioner
 ---
 kind: StatefulSet
 apiVersion: apps/v1
