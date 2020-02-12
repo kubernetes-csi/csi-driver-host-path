@@ -154,10 +154,10 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	if req.GetVolumeContentSource() != nil {
 		contentSource := req.GetVolumeContentSource()
 		if snapshot := contentSource.GetSnapshot(); snapshot != nil {
-			err = loadFromSnapshot(snapshot.GetSnapshotId(), path)
+			err = loadFromSnapshot(capacity, snapshot.GetSnapshotId(), path)
 		}
 		if srcVolume := contentSource.GetVolume(); srcVolume != nil {
-			err = loadFromVolume(srcVolume.GetVolumeId(), path)
+			err = loadFromVolume(capacity, srcVolume.GetVolumeId(), path)
 		}
 		if err != nil {
 			if delErr := deleteHostpathVolume(volumeID); delErr != nil {

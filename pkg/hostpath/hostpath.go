@@ -275,13 +275,16 @@ func hostPathIsEmpty(p string) (bool, error) {
 }
 
 // loadFromSnapshot populates the given destPath with data from the snapshotID
-func loadFromSnapshot(snapshotId, destPath string) error {
+func loadFromSnapshot(size int64, snapshotId, destPath string) error {
 	snapshot, ok := hostPathVolumeSnapshots[snapshotId]
 	if !ok {
 		return status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
 	}
 	if snapshot.ReadyToUse != true {
 		return status.Errorf(codes.Internal, "snapshot %v is not yet ready to use.", snapshotId)
+	}
+	if snapshot.SizeBytes > size {
+		return status.Errorf(codes.InvalidArgument, "snapshot %v size %v is greater than requested volume size %v", snapshotId, snapshot.SizeBytes, size)
 	}
 	snapshotPath := snapshot.Path
 	args := []string{"zxvf", snapshotPath, "-C", destPath}
@@ -294,7 +297,7 @@ func loadFromSnapshot(snapshotId, destPath string) error {
 }
 
 // loadfromVolume populates the given destPath with data from the srcVolumeID
-func loadFromVolume(srcVolumeId, destPath string) error {
+func loadFromVolume(size int64, srcVolumeId, destPath string) error {
 	hostPathVolume, ok := hostPathVolumes[srcVolumeId]
 	if !ok {
 		return status.Error(codes.NotFound, "source volumeId does not exist, are source/destination in the same storage class?")
@@ -303,6 +306,10 @@ func loadFromVolume(srcVolumeId, destPath string) error {
 	isEmpty, err := hostPathIsEmpty(srcPath)
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed verification check of source hostpath volume: %s: %v", srcVolumeId, err)
+	}
+
+	if hostPathVolume.VolSize > size {
+		return status.Errorf(codes.InvalidArgument, "volume %v size %v is greater than requested volume size %v", srcVolumeId, hostPathVolume.VolSize, size)
 	}
 
 	// If the source hostpath volume is empty it's a noop and we just move along, otherwise the cp call will fail with a a file stat error DNE
