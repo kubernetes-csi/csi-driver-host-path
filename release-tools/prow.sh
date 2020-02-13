@@ -609,6 +609,15 @@ EOF
         fi
     fi
     export KUBECONFIG="${HOME}/.kube/config"
+
+    info "Running on host $(hostname)."
+    info "loop devices on host"
+    ls -l /dev/loop*
+    losetup
+
+    info "loop devices on KIND node"
+    docker exec csi-prow-worker sh -c 'ls -l /dev/loop*'
+    docker exec csi-prow-worker losetup
 }
 
 # Deletes kind cluster inside a prow job
@@ -698,6 +707,10 @@ install_csi_driver () {
         info "For container output see job artifacts."
         die "deploying the CSI driver with ${deploy_driver} failed"
     fi
+
+    info "loop devices in hostpath driver"
+    kubectl exec csi-hostpathplugin-0 -c hostpath -- sh -c 'ls -l /dev/loop*'
+    kubectl exec csi-hostpathplugin-0 -c hostpath -- losetup
 }
 
 # Installs all nessesary snapshotter CRDs  
@@ -1178,6 +1191,10 @@ main () {
     if ls "${ARTIFACTS}"/junit_*.xml 2>/dev/null >&2; then
         run_filter_junit -o "${CSI_PROW_WORK}/junit_final.xml" "${ARTIFACTS}"/junit_*.xml && rm "${ARTIFACTS}"/junit_*.xml && mv "${CSI_PROW_WORK}/junit_final.xml" "${ARTIFACTS}"
     fi
+
+    info "loop devices on host"
+    ls -l /dev/loop*
+    losetup
 
     return "$ret"
 }
