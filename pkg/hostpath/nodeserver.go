@@ -181,6 +181,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 					errList.WriteString(fmt.Sprintf(" :%s", rmErr.Error()))
 				}
 			}
+			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to mount device: %s at %s: %s", path, targetPath, errList.String()))
 		}
 	}
 
