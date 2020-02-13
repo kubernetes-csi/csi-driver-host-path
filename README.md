@@ -155,7 +155,7 @@ Events:          <none>
 ```
 
 ## Confirm Hostpath driver works
-The Hostpath driver is configured to create new volumes under `/tmp` inside the hostpath container that is specified in the plugin DaemonSet found [here](./deploy/hostpath/csi-hostpath-plugin.yaml).  This path persist as long as the DaemonSet pod is up and running. 
+The Hostpath driver is configured to create new volumes under `/csi-data-dir` inside the hostpath container that is specified in the plugin StatefulSet found [here](./deploy/kubernetes-latest/hostpath/csi-hostpath-plugin.yaml).  This path persist as long as the StatefulSet pod is up and running.
 
 A file written in a properly mounted Hostpath volume inside an application should show up inside the Hostpath container.  The following steps confirms that Hostpath is working properly.  First, create a file from the application pod as shown:
 
@@ -349,7 +349,7 @@ Find out how to enable or create a CSI driver with support for such volumes [her
 To test this feature on Kubernetes 1.15 (and only with that release), redeploy the CSI Hostpath plugin YAML by updating the `hostpath` container to use  the inline ephemeral mode by setting the `ephemeral` flag, of the driver binary, to true as shown in the following setup:
 
 ```yaml
-kind: DaemonSet
+kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: csi-hostpathplugin
