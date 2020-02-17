@@ -175,7 +175,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 			}
 		case *csi.VolumeContentSource_Volume:
 			if srcVolume := volumeSource.GetVolume(); srcVolume != nil {
-				err = loadFromVolume(capacity, srcVolume.GetVolumeId(), path)
+				err = loadFromVolume(capacity, srcVolume.GetVolumeId(), path, requestedAccessType)
 				vol.ParentVolID = srcVolume.GetVolumeId()
 			}
 		default:

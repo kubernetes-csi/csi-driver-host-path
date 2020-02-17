@@ -299,20 +299,34 @@ func loadFromSnapshot(size int64, snapshotId, destPath string) error {
 	return nil
 }
 
-// loadfromVolume populates the given destPath with data from the srcVolumeID
-func loadFromVolume(size int64, srcVolumeId, destPath string) error {
+// loadFromVolume populates the given destPath with data from the srcVolumeID
+func loadFromVolume(size int64, srcVolumeId, destPath string, mode accessType) error {
 	hostPathVolume, ok := hostPathVolumes[srcVolumeId]
 	if !ok {
 		return status.Error(codes.NotFound, "source volumeId does not exist, are source/destination in the same storage class?")
 	}
+	if hostPathVolume.VolSize > size {
+		return status.Errorf(codes.InvalidArgument, "volume %v size %v is greater than requested volume size %v", srcVolumeId, hostPathVolume.VolSize, size)
+	}
+	if mode != hostPathVolume.VolAccessType {
+		return status.Errorf(codes.InvalidArgument, "volume %v mode is not compatible with requested mode", srcVolumeId)
+	}
+
+	switch mode {
+	case mountAccess:
+		return loadFromFilesystemVolume(hostPathVolume, destPath)
+	case blockAccess:
+		return loadFromBlockVolume(hostPathVolume, destPath)
+	default:
+		return status.Errorf(codes.InvalidArgument, "unknown accessType: %d", mode)
+	}
+}
+
+func loadFromFilesystemVolume(hostPathVolume hostPathVolume, destPath string) error {
 	srcPath := hostPathVolume.VolPath
 	isEmpty, err := hostPathIsEmpty(srcPath)
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed verification check of source hostpath volume: %s: %v", srcVolumeId, err)
-	}
-
-	if hostPathVolume.VolSize > size {
-		return status.Errorf(codes.InvalidArgument, "volume %v size %v is greater than requested volume size %v", srcVolumeId, hostPathVolume.VolSize, size)
+		return status.Errorf(codes.Internal, "failed verification check of source hostpath volume %v: %v", hostPathVolume.VolID, err)
 	}
 
 	// If the source hostpath volume is empty it's a noop and we just move along, otherwise the cp call will fail with a a file stat error DNE
@@ -321,8 +335,19 @@ func loadFromVolume(size int64, srcVolumeId, destPath string) error {
 		executor := utilexec.New()
 		out, err := executor.Command("cp", args...).CombinedOutput()
 		if err != nil {
-			return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", srcVolumeId, err, out)
+			return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", hostPathVolume.VolID, err, out)
 		}
+	}
+	return nil
+}
+
+func loadFromBlockVolume(hostPathVolume hostPathVolume, destPath string) error {
+	srcPath := hostPathVolume.VolPath
+	args := []string{"if=" + srcPath, "of=" + destPath}
+	executor := utilexec.New()
+	out, err := executor.Command("dd", args...).CombinedOutput()
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", hostPathVolume.VolID, err, out)
 	}
 	return nil
 }
