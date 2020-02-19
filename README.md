@@ -237,11 +237,16 @@ Since volume snapshot is an alpha feature starting in Kubernetes v1.12, you need
 After having created the `csi-pvc` as described in the example above,
 use the volume snapshot class to dynamically create a volume snapshot:
 
-> $ kubectl apply -f examples/csi-snapshot.yaml
+> For Kubernetes < v1.17 
+>
+>  - `$ kubectl apply -f examples/csi-snapshot.yaml`
+>
+> For Kubernetes >= v1.17
+>  - `$ kubectl apply -f examples/csi-snapshot-v1beta1.yaml`
 > ```
 > volumesnapshot.snapshot.storage.k8s.io/new-snapshot-demo created
 > ```
->
+
 >
 > $ kubectl get volumesnapshot
 > ```
