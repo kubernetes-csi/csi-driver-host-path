@@ -281,8 +281,8 @@ func (cs *controllerServer) ListVolumes(ctx context.Context, req *csi.ListVolume
 }
 
 // getSnapshotPath returns the full path to where the snapshot is stored
-func getSnapshotPath(snapshotId string) string {
-	return filepath.Join(dataRoot, fmt.Sprintf("%s.snap", snapshotId))
+func getSnapshotPath(snapshotID string) string {
+	return filepath.Join(dataRoot, fmt.Sprintf("%s%s", snapshotID, snapshotExt))
 }
 
 // CreateSnapshot uses tar command to create snapshot for hostpath volume. The tar command can quickly create
