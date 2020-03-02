@@ -4,8 +4,6 @@
 
 StorageClass:
   FromName: true
-SnapshotClass:
-  FromName: true
 DriverInfo:
   Name: hostpath.csi.k8s.io
   Capabilities:
@@ -15,4 +13,3 @@ DriverInfo:
     multipods: true
     nodeExpansion: true
     persistence: true
-    snapshotDataSource: true
