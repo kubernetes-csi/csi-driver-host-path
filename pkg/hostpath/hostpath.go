@@ -278,7 +278,7 @@ func hostPathIsEmpty(p string) (bool, error) {
 }
 
 // loadFromSnapshot populates the given destPath with data from the snapshotID
-func loadFromSnapshot(size int64, snapshotId, destPath string) error {
+func loadFromSnapshot(size int64, snapshotId, destPath string, mode accessType) error {
 	snapshot, ok := hostPathVolumeSnapshots[snapshotId]
 	if !ok {
 		return status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
@@ -290,9 +290,18 @@ func loadFromSnapshot(size int64, snapshotId, destPath string) error {
 		return status.Errorf(codes.InvalidArgument, "snapshot %v size %v is greater than requested volume size %v", snapshotId, snapshot.SizeBytes, size)
 	}
 	snapshotPath := snapshot.Path
-	args := []string{"zxvf", snapshotPath, "-C", destPath}
+
+	var cmd []string
+	switch mode {
+	case mountAccess:
+		cmd = []string{"tar", "zxvf", snapshotPath, "-C", destPath}
+	case blockAccess:
+		cmd = []string{"dd", "if=" + snapshotPath, "of=" + destPath}
+	default:
+		return status.Errorf(codes.InvalidArgument, "unknown accessType: %d", mode)
+	}
 	executor := utilexec.New()
-	out, err := executor.Command("tar", args...).CombinedOutput()
+	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed pre-populate data from snapshot %v: %v: %s", snapshotId, err, out)
 	}

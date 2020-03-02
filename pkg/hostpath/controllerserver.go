@@ -170,7 +170,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		switch volumeSource.Type.(type) {
 		case *csi.VolumeContentSource_Snapshot:
 			if snapshot := volumeSource.GetSnapshot(); snapshot != nil {
-				err = loadFromSnapshot(capacity, snapshot.GetSnapshotId(), path)
+				err = loadFromSnapshot(capacity, snapshot.GetSnapshotId(), path, requestedAccessType)
 				vol.ParentSnapID = snapshot.GetSnapshotId()
 			}
 		case *csi.VolumeContentSource_Volume:
@@ -282,7 +282,7 @@ func (cs *controllerServer) ListVolumes(ctx context.Context, req *csi.ListVolume
 
 // getSnapshotPath returns the full path to where the snapshot is stored
 func getSnapshotPath(snapshotId string) string {
-	return filepath.Join(dataRoot, fmt.Sprintf("%s.tgz", snapshotId))
+	return filepath.Join(dataRoot, fmt.Sprintf("%s.snap", snapshotId))
 }
 
 // CreateSnapshot uses tar command to create snapshot for hostpath volume. The tar command can quickly create
@@ -331,16 +331,17 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	creationTime := ptypes.TimestampNow()
 	volPath := hostPathVolume.VolPath
 	file := getSnapshotPath(snapshotID)
-	args := []string{}
+
+	var cmd []string
 	if hostPathVolume.VolAccessType == blockAccess {
 		glog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
-		args = []string{"czf", file, volPath}
+		cmd = []string{"cp", volPath, file}
 	} else {
 		glog.V(4).Infof("Creating snapshot of Filsystem Mode Volume")
-		args = []string{"czf", file, "-C", volPath, "."}
+		cmd = []string{"tar", "czf", file, "-C", volPath, "."}
 	}
 	executor := utilexec.New()
-	out, err := executor.Command("tar", args...).CombinedOutput()
+	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed create snapshot: %v: %s", err, out)
 	}
