@@ -20,8 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
@@ -87,6 +89,9 @@ const (
 	// This can be ephemeral within the container or persisted if
 	// backed by a Pod volume.
 	dataRoot = "/csi-data-dir"
+
+	// Extension with which snapshot files will be saved.
+	snapshotExt = ".snap"
 )
 
 func init() {
@@ -127,12 +132,42 @@ func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxV
 	}, nil
 }
 
+func getSnapshotID(file string) (bool, string) {
+	glog.V(4).Infof("file: %s", file)
+	// Files with .snap extension are volumesnapshot files.
+	// e.g. foo.snap, foo.bar.snap
+	if filepath.Ext(file) == snapshotExt {
+		return true, strings.TrimSuffix(file, snapshotExt)
+	}
+	return false, ""
+}
+
+func discoverExistingSnapshots() {
+	glog.V(4).Infof("discovering existing snapshots in %s", dataRoot)
+	files, err := ioutil.ReadDir(dataRoot)
+	if err != nil {
+		glog.Errorf("failed to discover snapshots under %s: %v", dataRoot, err)
+	}
+	for _, file := range files {
+		isSnapshot, snapshotID := getSnapshotID(file.Name())
+		if isSnapshot {
+			glog.V(4).Infof("adding snapshot %s from file %s", snapshotID, file.Name())
+			hostPathVolumeSnapshots[snapshotID] = hostPathSnapshot{
+				Id:         snapshotID,
+				Path:       file.Name(),
+				ReadyToUse: true,
+			}
+		}
+	}
+}
+
 func (hp *hostPath) Run() {
 	// Create GRPC servers
 	hp.ids = NewIdentityServer(hp.name, hp.version)
 	hp.ns = NewNodeServer(hp.nodeID, hp.ephemeral, hp.maxVolumesPerNode)
 	hp.cs = NewControllerServer(hp.ephemeral, hp.nodeID)
 
+	discoverExistingSnapshots()
 	s := NewNonBlockingGRPCServer()
 	s.Start(hp.endpoint, hp.ids, hp.cs, hp.ns)
 	s.Wait()
