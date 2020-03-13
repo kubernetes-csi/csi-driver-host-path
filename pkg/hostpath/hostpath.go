@@ -151,10 +151,10 @@ func discoverExistingSnapshots() {
 	for _, file := range files {
 		isSnapshot, snapshotID := getSnapshotID(file.Name())
 		if isSnapshot {
-			glog.V(4).Infof("adding snapshot %s from file %s", snapshotID, file.Name())
+			glog.V(4).Infof("adding snapshot %s from file %s", snapshotID, getSnapshotPath(snapshotID))
 			hostPathVolumeSnapshots[snapshotID] = hostPathSnapshot{
 				Id:         snapshotID,
-				Path:       file.Name(),
+				Path:       getSnapshotPath(snapshotID),
 				ReadyToUse: true,
 			}
 		}
