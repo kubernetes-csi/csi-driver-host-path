@@ -115,7 +115,6 @@ SNAPSHOTTER_RBAC_RELATIVE_PATH="rbac.yaml"
 if version_gt $(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter "${UPDATE_RBAC_RULES}") "v1.255.255"; then
 	SNAPSHOTTER_RBAC_RELATIVE_PATH="csi-snapshotter/rbac-csi-snapshotter.yaml"
 fi
-echo "SNAPSHOTTER_RBAC_RELATIVE_PATH $SNAPSHOTTER_RBAC_RELATIVE_PATH"
 
 CSI_PROVISIONER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-provisioner.yaml" csi-provisioner false)/deploy/kubernetes/rbac.yaml"
 : ${CSI_PROVISIONER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-provisioner.yaml" csi-provisioner "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
@@ -224,4 +223,10 @@ snapshotter_version="$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshott
 driver_version="$(basename "${BASE_DIR}")"
 if version_gt "$driver_version" "1.16"; then
     kubectl apply -f "https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${snapshotter_version}/examples/kubernetes/snapshotclass.yaml" 
+fi
+
+# Create a test driver configuration in the place where the prow job
+# expects it?
+if [ "${CSI_PROW_TEST_DRIVER}" ]; then
+    cp "${BASE_DIR}/test-driver.yaml" "${CSI_PROW_TEST_DRIVER}"
 fi

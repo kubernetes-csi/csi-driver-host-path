@@ -17,10 +17,13 @@ limitations under the License.
 package hostpath
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
@@ -59,6 +62,8 @@ type hostPathVolume struct {
 	VolSize       int64      `json:"volSize"`
 	VolPath       string     `json:"volPath"`
 	VolAccessType accessType `json:"volAccessType"`
+	ParentVolID   string     `json:"parentVolID,omitempty"`
+	ParentSnapID  string     `json:"parentSnapID,omitempty"`
 	Ephemeral     bool       `json:"ephemeral"`
 }
 
@@ -84,6 +89,9 @@ const (
 	// This can be ephemeral within the container or persisted if
 	// backed by a Pod volume.
 	dataRoot = "/csi-data-dir"
+
+	// Extension with which snapshot files will be saved.
+	snapshotExt = ".snap"
 )
 
 func init() {
@@ -93,15 +101,15 @@ func init() {
 
 func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxVolumesPerNode int64, version string) (*hostPath, error) {
 	if driverName == "" {
-		return nil, fmt.Errorf("No driver name provided")
+		return nil, errors.New("no driver name provided")
 	}
 
 	if nodeID == "" {
-		return nil, fmt.Errorf("No node id provided")
+		return nil, errors.New("no node id provided")
 	}
 
 	if endpoint == "" {
-		return nil, fmt.Errorf("No driver endpoint provided")
+		return nil, errors.New("no driver endpoint provided")
 	}
 	if version != "" {
 		vendorVersion = version
@@ -124,12 +132,42 @@ func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxV
 	}, nil
 }
 
+func getSnapshotID(file string) (bool, string) {
+	glog.V(4).Infof("file: %s", file)
+	// Files with .snap extension are volumesnapshot files.
+	// e.g. foo.snap, foo.bar.snap
+	if filepath.Ext(file) == snapshotExt {
+		return true, strings.TrimSuffix(file, snapshotExt)
+	}
+	return false, ""
+}
+
+func discoverExistingSnapshots() {
+	glog.V(4).Infof("discovering existing snapshots in %s", dataRoot)
+	files, err := ioutil.ReadDir(dataRoot)
+	if err != nil {
+		glog.Errorf("failed to discover snapshots under %s: %v", dataRoot, err)
+	}
+	for _, file := range files {
+		isSnapshot, snapshotID := getSnapshotID(file.Name())
+		if isSnapshot {
+			glog.V(4).Infof("adding snapshot %s from file %s", snapshotID, getSnapshotPath(snapshotID))
+			hostPathVolumeSnapshots[snapshotID] = hostPathSnapshot{
+				Id:         snapshotID,
+				Path:       getSnapshotPath(snapshotID),
+				ReadyToUse: true,
+			}
+		}
+	}
+}
+
 func (hp *hostPath) Run() {
 	// Create GRPC servers
 	hp.ids = NewIdentityServer(hp.name, hp.version)
 	hp.ns = NewNodeServer(hp.nodeID, hp.ephemeral, hp.maxVolumesPerNode)
 	hp.cs = NewControllerServer(hp.ephemeral, hp.nodeID)
 
+	discoverExistingSnapshots()
 	s := NewNonBlockingGRPCServer()
 	s.Start(hp.endpoint, hp.ids, hp.cs, hp.ns)
 	s.Wait()
@@ -139,7 +177,7 @@ func getVolumeByID(volumeID string) (hostPathVolume, error) {
 	if hostPathVol, ok := hostPathVolumes[volumeID]; ok {
 		return hostPathVol, nil
 	}
-	return hostPathVolume{}, fmt.Errorf("volume id %s does not exit in the volumes list", volumeID)
+	return hostPathVolume{}, fmt.Errorf("volume id %s does not exist in the volumes list", volumeID)
 }
 
 func getVolumeByName(volName string) (hostPathVolume, error) {
@@ -148,7 +186,7 @@ func getVolumeByName(volName string) (hostPathVolume, error) {
 			return hostPathVol, nil
 		}
 	}
-	return hostPathVolume{}, fmt.Errorf("volume name %s does not exit in the volumes list", volName)
+	return hostPathVolume{}, fmt.Errorf("volume name %s does not exist in the volumes list", volName)
 }
 
 func getSnapshotByName(name string) (hostPathSnapshot, error) {
@@ -157,10 +195,10 @@ func getSnapshotByName(name string) (hostPathSnapshot, error) {
 			return snapshot, nil
 		}
 	}
-	return hostPathSnapshot{}, fmt.Errorf("snapshot name %s does not exit in the snapshots list", name)
+	return hostPathSnapshot{}, fmt.Errorf("snapshot name %s does not exist in the snapshots list", name)
 }
 
-// getVolumePath returs the canonical path for hostpath volume
+// getVolumePath returns the canonical path for hostpath volume
 func getVolumePath(volID string) string {
 	return filepath.Join(dataRoot, volID)
 }
@@ -275,7 +313,7 @@ func hostPathIsEmpty(p string) (bool, error) {
 }
 
 // loadFromSnapshot populates the given destPath with data from the snapshotID
-func loadFromSnapshot(snapshotId, destPath string) error {
+func loadFromSnapshot(size int64, snapshotId, destPath string, mode accessType) error {
 	snapshot, ok := hostPathVolumeSnapshots[snapshotId]
 	if !ok {
 		return status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
@@ -283,26 +321,56 @@ func loadFromSnapshot(snapshotId, destPath string) error {
 	if snapshot.ReadyToUse != true {
 		return status.Errorf(codes.Internal, "snapshot %v is not yet ready to use.", snapshotId)
 	}
+	if snapshot.SizeBytes > size {
+		return status.Errorf(codes.InvalidArgument, "snapshot %v size %v is greater than requested volume size %v", snapshotId, snapshot.SizeBytes, size)
+	}
 	snapshotPath := snapshot.Path
-	args := []string{"zxvf", snapshotPath, "-C", destPath}
+
+	var cmd []string
+	switch mode {
+	case mountAccess:
+		cmd = []string{"tar", "zxvf", snapshotPath, "-C", destPath}
+	case blockAccess:
+		cmd = []string{"dd", "if=" + snapshotPath, "of=" + destPath}
+	default:
+		return status.Errorf(codes.InvalidArgument, "unknown accessType: %d", mode)
+	}
 	executor := utilexec.New()
-	out, err := executor.Command("tar", args...).CombinedOutput()
+	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed pre-populate data from snapshot %v: %v: %s", snapshotId, err, out)
 	}
 	return nil
 }
 
-// loadfromVolume populates the given destPath with data from the srcVolumeID
-func loadFromVolume(srcVolumeId, destPath string) error {
+// loadFromVolume populates the given destPath with data from the srcVolumeID
+func loadFromVolume(size int64, srcVolumeId, destPath string, mode accessType) error {
 	hostPathVolume, ok := hostPathVolumes[srcVolumeId]
 	if !ok {
 		return status.Error(codes.NotFound, "source volumeId does not exist, are source/destination in the same storage class?")
 	}
+	if hostPathVolume.VolSize > size {
+		return status.Errorf(codes.InvalidArgument, "volume %v size %v is greater than requested volume size %v", srcVolumeId, hostPathVolume.VolSize, size)
+	}
+	if mode != hostPathVolume.VolAccessType {
+		return status.Errorf(codes.InvalidArgument, "volume %v mode is not compatible with requested mode", srcVolumeId)
+	}
+
+	switch mode {
+	case mountAccess:
+		return loadFromFilesystemVolume(hostPathVolume, destPath)
+	case blockAccess:
+		return loadFromBlockVolume(hostPathVolume, destPath)
+	default:
+		return status.Errorf(codes.InvalidArgument, "unknown accessType: %d", mode)
+	}
+}
+
+func loadFromFilesystemVolume(hostPathVolume hostPathVolume, destPath string) error {
 	srcPath := hostPathVolume.VolPath
 	isEmpty, err := hostPathIsEmpty(srcPath)
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed verification check of source hostpath volume: %s: %v", srcVolumeId, err)
+		return status.Errorf(codes.Internal, "failed verification check of source hostpath volume %v: %v", hostPathVolume.VolID, err)
 	}
 
 	// If the source hostpath volume is empty it's a noop and we just move along, otherwise the cp call will fail with a a file stat error DNE
@@ -311,8 +379,19 @@ func loadFromVolume(srcVolumeId, destPath string) error {
 		executor := utilexec.New()
 		out, err := executor.Command("cp", args...).CombinedOutput()
 		if err != nil {
-			return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", srcVolumeId, err, out)
+			return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", hostPathVolume.VolID, err, out)
 		}
+	}
+	return nil
+}
+
+func loadFromBlockVolume(hostPathVolume hostPathVolume, destPath string) error {
+	srcPath := hostPathVolume.VolPath
+	args := []string{"if=" + srcPath, "of=" + destPath}
+	executor := utilexec.New()
+	out, err := executor.Command("dd", args...).CombinedOutput()
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", hostPathVolume.VolID, err, out)
 	}
 	return nil
 }

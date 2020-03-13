@@ -125,25 +125,38 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	// check for the requested capacity and already allocated capacity
 	if exVol, err := getVolumeByName(req.GetName()); err == nil {
 		// Since err is nil, it means the volume with the same name already exists
-		// need to check if the size of exisiting volume is the same as in new
+		// need to check if the size of existing volume is the same as in new
 		// request
-		if exVol.VolSize >= int64(req.GetCapacityRange().GetRequiredBytes()) {
-			// exisiting volume is compatible with new request and should be reused.
-			// TODO (sbezverk) Do I need to make sure that volume still exists?
-			return &csi.CreateVolumeResponse{
-				Volume: &csi.Volume{
-					VolumeId:      exVol.VolID,
-					CapacityBytes: int64(exVol.VolSize),
-					VolumeContext: req.GetParameters(),
-					ContentSource: req.GetVolumeContentSource(),
-				},
-			}, nil
+		if exVol.VolSize < capacity {
+			return nil, status.Errorf(codes.AlreadyExists, "Volume with the same name: %s but with different size already exist", req.GetName())
 		}
-		return nil, status.Errorf(codes.AlreadyExists, "Volume with the same name: %s but with different size already exist", req.GetName())
+		if req.GetVolumeContentSource() != nil {
+			volumeSource := req.VolumeContentSource
+			switch volumeSource.Type.(type) {
+			case *csi.VolumeContentSource_Snapshot:
+				if volumeSource.GetSnapshot() != nil && exVol.ParentSnapID != volumeSource.GetSnapshot().GetSnapshotId() {
+					return nil, status.Error(codes.AlreadyExists, "existing volume source snapshot id not matching")
+				}
+			case *csi.VolumeContentSource_Volume:
+				if volumeSource.GetVolume() != nil && exVol.ParentVolID != volumeSource.GetVolume().GetVolumeId() {
+					return nil, status.Error(codes.AlreadyExists, "existing volume source volume id not matching")
+				}
+			default:
+				return nil, status.Errorf(codes.InvalidArgument, "%v not a proper volume source", volumeSource)
+			}
+		}
+		// TODO (sbezverk) Do I need to make sure that volume still exists?
+		return &csi.CreateVolumeResponse{
+			Volume: &csi.Volume{
+				VolumeId:      exVol.VolID,
+				CapacityBytes: int64(exVol.VolSize),
+				VolumeContext: req.GetParameters(),
+				ContentSource: req.GetVolumeContentSource(),
+			},
+		}, nil
 	}
 
 	volumeID := uuid.NewUUID().String()
-	path := getVolumePath(volumeID)
 
 	vol, err := createHostpathVolume(volumeID, req.GetName(), capacity, requestedAccessType, false /* ephemeral */)
 	if err != nil {
@@ -152,12 +165,21 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	glog.V(4).Infof("created volume %s at path %s", vol.VolID, vol.VolPath)
 
 	if req.GetVolumeContentSource() != nil {
-		contentSource := req.GetVolumeContentSource()
-		if snapshot := contentSource.GetSnapshot(); snapshot != nil {
-			err = loadFromSnapshot(snapshot.GetSnapshotId(), path)
-		}
-		if srcVolume := contentSource.GetVolume(); srcVolume != nil {
-			err = loadFromVolume(srcVolume.GetVolumeId(), path)
+		path := getVolumePath(volumeID)
+		volumeSource := req.VolumeContentSource
+		switch volumeSource.Type.(type) {
+		case *csi.VolumeContentSource_Snapshot:
+			if snapshot := volumeSource.GetSnapshot(); snapshot != nil {
+				err = loadFromSnapshot(capacity, snapshot.GetSnapshotId(), path, requestedAccessType)
+				vol.ParentSnapID = snapshot.GetSnapshotId()
+			}
+		case *csi.VolumeContentSource_Volume:
+			if srcVolume := volumeSource.GetVolume(); srcVolume != nil {
+				err = loadFromVolume(capacity, srcVolume.GetVolumeId(), path, requestedAccessType)
+				vol.ParentVolID = srcVolume.GetVolumeId()
+			}
+		default:
+			err = status.Errorf(codes.InvalidArgument, "%v not a proper volume source", volumeSource)
 		}
 		if err != nil {
 			if delErr := deleteHostpathVolume(volumeID); delErr != nil {
@@ -259,8 +281,8 @@ func (cs *controllerServer) ListVolumes(ctx context.Context, req *csi.ListVolume
 }
 
 // getSnapshotPath returns the full path to where the snapshot is stored
-func getSnapshotPath(snapshotId string) string {
-	return filepath.Join(dataRoot, fmt.Sprintf("%s.tgz", snapshotId))
+func getSnapshotPath(snapshotID string) string {
+	return filepath.Join(dataRoot, fmt.Sprintf("%s%s", snapshotID, snapshotExt))
 }
 
 // CreateSnapshot uses tar command to create snapshot for hostpath volume. The tar command can quickly create
@@ -309,16 +331,17 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	creationTime := ptypes.TimestampNow()
 	volPath := hostPathVolume.VolPath
 	file := getSnapshotPath(snapshotID)
-	args := []string{}
+
+	var cmd []string
 	if hostPathVolume.VolAccessType == blockAccess {
 		glog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
-		args = []string{"czf", file, volPath}
+		cmd = []string{"cp", volPath, file}
 	} else {
 		glog.V(4).Infof("Creating snapshot of Filsystem Mode Volume")
-		args = []string{"czf", file, "-C", volPath, "."}
+		cmd = []string{"tar", "czf", file, "-C", volPath, "."}
 	}
 	executor := utilexec.New()
-	out, err := executor.Command("tar", args...).CombinedOutput()
+	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed create snapshot: %v: %s", err, out)
 	}
