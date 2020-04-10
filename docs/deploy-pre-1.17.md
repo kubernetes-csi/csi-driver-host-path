@@ -1,10 +1,10 @@
 ## Deployment
-The easiest way to test the Hostpath driver is to run the `deploy-hostpath.sh` script for the Kubernetes version used by
+The easiest way to test the Hostpath driver is to run the `deploy.sh` script for the Kubernetes version used by
 the cluster as shown below for Kubernetes 1.16. This creates the deployment that is maintained specifically for that
 release of Kubernetes. However, other deployments may also work.
 
 ```shell
-$ deploy/kubernetes-1.16/deploy-hostpath.sh
+$ deploy/kubernetes-1.16/deploy.sh
 ```
 
 You should see an output similar to the following printed on the terminal showing the application of rbac rules and the result of deploying the hostpath driver, external provisioner, external attacher and snapshotter components:
