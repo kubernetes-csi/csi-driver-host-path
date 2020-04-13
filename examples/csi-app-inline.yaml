@@ -3,6 +3,13 @@ apiVersion: v1
 metadata:
   name: my-csi-app-inline
 spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.hostpath.csi/node
+            operator: Exists
   containers:
     - name: my-frontend
       image: busybox
