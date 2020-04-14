@@ -1,31 +1,37 @@
-kind: Service
-apiVersion: v1
-metadata:
-  name: csi-hostpath-resizer
-  labels:
-    app: csi-hostpath-resizer
-spec:
-  selector:
-    app: csi-hostpath-resizer
-  ports:
-    - name: dummy
-      port: 12345
+# WARNING: this is only for testing purposes. Do not install in a production
+# cluster.
+#
+# This exposes the hostpath's Unix domain csi.sock as a TCP port to the
+# outside world. The mapping from Unix domain socket to TCP is done
+# by socat.
+#
+# This is useful for testing with csi-sanity or csc.
 
+apiVersion: v1
+kind: Service
+metadata:
+  name: hostpath-service
+spec:
+  type: NodePort
+  selector:
+    app: csi-hostpath-socat
+  ports:
+  - port: 10000 # fixed port inside the pod, dynamically allocated port outside
 ---
 kind: StatefulSet
 apiVersion: apps/v1
 metadata:
-  name: csi-hostpath-resizer
+  name: csi-hostpath-socat
 spec:
-  serviceName: "csi-hostpath-resizer"
+  serviceName: "csi-hostpath-socat"
   replicas: 1
   selector:
     matchLabels:
-      app: csi-hostpath-resizer
+      app: csi-hostpath-socat
   template:
     metadata:
       labels:
-        app: csi-hostpath-resizer
+        app: csi-hostpath-socat
     spec:
       affinity:
         podAffinity:
@@ -37,21 +43,20 @@ spec:
                 values:
                 - csi-hostpathplugin
             topologyKey: kubernetes.io/hostname
-      serviceAccountName: csi-resizer
       containers:
-        - name: csi-resizer
-          image: quay.io/k8scsi/csi-resizer:v0.5.0
+        - name: socat
+          image: alpine/socat:1.0.3
           args:
-            - -v=5
-            - -csi-address=/csi/csi.sock
+            - tcp-listen:10000,fork,reuseaddr
+            - unix-connect:/csi/csi.sock
           securityContext:
             # This is necessary only for systems with SELinux, where
             # non-privileged sidecar containers cannot access unix domain socket
             # created by privileged CSI driver container.
             privileged: true
           volumeMounts:
-            - mountPath: /csi
-              name: socket-dir
+          - mountPath: /csi
+            name: socket-dir
       volumes:
         - hostPath:
             path: /var/lib/kubelet/plugins/csi-hostpath
