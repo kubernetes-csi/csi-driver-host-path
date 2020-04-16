@@ -203,11 +203,10 @@ done
 # snapshotter, resizer, socat and hostpath plugin in the default namespace.
 expected_running_pods=6
 cnt=0
-while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) -lt $expected_running_pods ] || ! kubectl describe volumesnapshotclasses.snapshot.storage.k8s.io 2>/dev/null >/dev/null; do
+while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) -lt ${expected_running_pods} ]; do
     if [ $cnt -gt 30 ]; then
         echo "$(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) running pods:"
         kubectl describe pods
-        (set -x; kubectl describe volumesnapshotclasses.snapshot.storage.k8s.io) || true
 
         echo >&2 "ERROR: hostpath deployment not ready after over 5min"
         exit 1
