@@ -3,3 +3,4 @@
 csi-snapshotter
 csi-attacher
 csi-provisioner
+csi-resizer
