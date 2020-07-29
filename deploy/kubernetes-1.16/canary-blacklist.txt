@@ -1,5 +1,0 @@
-# The following canary images are known to be incompatible with this
-# deployment:
-csi-snapshotter
-csi-attacher
-csi-provisioner
