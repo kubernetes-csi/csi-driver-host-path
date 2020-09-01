@@ -1,17 +1,3 @@
-kind: Service
-apiVersion: v1
-metadata:
-  name: csi-hostpath-attacher
-  labels:
-    app: csi-hostpath-attacher
-spec:
-  selector:
-    app: csi-hostpath-attacher
-  ports:
-    - name: dummy
-      port: 12345
-
----
 kind: StatefulSet
 apiVersion: apps/v1
 metadata:
