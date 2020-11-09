@@ -2,14 +2,25 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: csi-hostpathplugin
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: plugin
 spec:
   selector:
     matchLabels:
-      app: csi-hostpathplugin
+      app.kubernetes.io/instance: hostpath.csi.k8s.io
+      app.kubernetes.io/part-of: csi-driver-host-path
+      app.kubernetes.io/name: csi-hostpathplugin
+      app.kubernetes.io/component: plugin
   template:
     metadata:
       labels:
-        app: csi-hostpathplugin
+        app.kubernetes.io/instance: hostpath.csi.k8s.io
+        app.kubernetes.io/part-of: csi-driver-host-path
+        app.kubernetes.io/name: csi-hostpathplugin
+        app.kubernetes.io/component: plugin
     spec:
       serviceAccountName: csi-provisioner
       containers:

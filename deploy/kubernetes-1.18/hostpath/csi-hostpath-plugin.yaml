@@ -7,10 +7,16 @@ apiVersion: v1
 metadata:
   name: csi-hostpathplugin
   labels:
-    app: csi-hostpathplugin
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: plugin
 spec:
   selector:
-    app: csi-hostpathplugin
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: plugin
   ports:
     - name: dummy
       port: 12345
@@ -19,6 +25,11 @@ kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: csi-hostpathplugin
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: plugin
 spec:
   serviceName: "csi-hostpathplugin"
   # One replica only:
@@ -28,11 +39,17 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: csi-hostpathplugin
+      app.kubernetes.io/instance: hostpath.csi.k8s.io
+      app.kubernetes.io/part-of: csi-driver-host-path
+      app.kubernetes.io/name: csi-hostpathplugin
+      app.kubernetes.io/component: plugin
   template:
     metadata:
       labels:
-        app: csi-hostpathplugin
+        app.kubernetes.io/instance: hostpath.csi.k8s.io
+        app.kubernetes.io/part-of: csi-driver-host-path
+        app.kubernetes.io/name: csi-hostpathplugin
+        app.kubernetes.io/component: plugin
     spec:
       serviceAccountName: csi-external-health-monitor-controller
       containers:

@@ -27,6 +27,10 @@ set -o pipefail
 
 BASE_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
+TEMP_DIR="$( mktemp -d )"
+trap 'rm -rf ${TEMP_DIR}' EXIT
+
+
 # If set, the following env variables override image registry and/or tag for each of the images.
 # They are named after the image name, with hyphen replaced by underscore and in upper case.
 #
@@ -164,7 +168,28 @@ for component in CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER CSI_RESIZER CSI_EX
         echo "Using non-default RBAC rules for $component. Changes from $original to $current are:"
         diff -c <(wget --quiet -O - "$original") <(if [[ "$current" =~ ^http ]]; then wget --quiet -O - "$current"; else cat "$current"; fi) || true
     fi
-    run kubectl apply -f "${current}"
+
+    # using kustomize kubectl plugin to add labels to he rbac files.
+    # since we are deploying rbas directly with the url, the kustomize plugin only works with the local files
+    # we need to add the files locally in temp folder and using kustomize adding labels it will be applied
+    if [[ "${current}" =~ ^http:// ]] || [[ "${current}" =~ ^https:// ]]; then
+      run curl "${current}" --output "${TEMP_DIR}"/rbac.yaml --silent --location
+      current=./rbac.yaml
+    fi
+
+    cat <<- EOF > "${TEMP_DIR}"/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:
+  app.kubernetes.io/instance: hostpath.csi.k8s.io
+  app.kubernetes.io/part-of: csi-driver-host-path
+
+resources:
+- ${current}
+EOF
+
+    run kubectl apply --kustomize "${TEMP_DIR}"
 done
 
 # deploy hostpath plugin and registrar sidecar
