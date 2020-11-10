@@ -11,7 +11,7 @@
 set -e
 set -o pipefail
 
-BASE_DIR=$(dirname "$0")
+BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # If set, the following env variables override image registry and/or tag for each of the images.
 # They are named after the image name, with hyphen replaced by underscore and in upper case.
