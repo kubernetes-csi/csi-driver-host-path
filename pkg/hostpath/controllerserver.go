@@ -134,7 +134,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 			volumeSource := req.VolumeContentSource
 			switch volumeSource.Type.(type) {
 			case *csi.VolumeContentSource_Snapshot:
-				if volumeSource.GetSnapshot() != nil && exVol.ParentSnapID != volumeSource.GetSnapshot().GetSnapshotId() {
+				if volumeSource.GetSnapshot() != nil && exVol.ParentSnapID != "" && exVol.ParentSnapID != volumeSource.GetSnapshot().GetSnapshotId() {
 					return nil, status.Error(codes.AlreadyExists, "existing volume source snapshot id not matching")
 				}
 			case *csi.VolumeContentSource_Volume:

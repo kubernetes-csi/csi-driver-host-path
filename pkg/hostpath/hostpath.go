@@ -218,9 +218,16 @@ func createHostpathVolume(volID, name string, cap int64, volAccessType accessTyp
 		executor := utilexec.New()
 		size := fmt.Sprintf("%dM", cap/mib)
 		// Create a block file.
-		out, err := executor.Command("fallocate", "-l", size, path).CombinedOutput()
+		_, err := os.Stat(path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create block device: %v, %v", err, string(out))
+			if os.IsNotExist(err) {
+				out, err := executor.Command("fallocate", "-l", size, path).CombinedOutput()
+				if err != nil {
+					return nil, fmt.Errorf("failed to create block device: %v, %v", err, string(out))
+				}
+			} else {
+				return nil, fmt.Errorf("failed to stat block device: %v, %v", path, err)
+			}
 		}
 
 		// Associate block file with the loop device.
@@ -335,6 +342,7 @@ func loadFromSnapshot(size int64, snapshotId, destPath string, mode accessType) 
 	default:
 		return status.Errorf(codes.InvalidArgument, "unknown accessType: %d", mode)
 	}
+
 	executor := utilexec.New()
 	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	if err != nil {
