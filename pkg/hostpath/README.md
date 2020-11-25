@@ -4,12 +4,12 @@
 
 ### Build hostpathplugin
 ```
-$ make hostpath
+$ make
 ```
 
 ### Start Hostpath driver
 ```
-$ sudo ./_output/hostpathplugin --endpoint tcp://127.0.0.1:10000 --nodeid CSINode -v=5
+$ sudo ./bin/hostpathplugin --endpoint tcp://127.0.0.1:10000 --nodeid CSINode -v=5
 ```
 
 ### Test using csc
