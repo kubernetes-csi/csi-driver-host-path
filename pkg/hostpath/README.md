@@ -51,8 +51,8 @@ $ csc node unpublish --endpoint tcp://127.0.0.1:10000 --target-path /mnt/hostpat
 CSIVolumeID
 ```
 
-#### Get NodeID
+#### Get NodeInfo
 ```
-$ csc node get-id --endpoint tcp://127.0.0.1:10000
+$ csc node get-info --endpoint tcp://127.0.0.1:10000
 CSINode
 ```
