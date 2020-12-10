@@ -3,15 +3,19 @@ module github.com/kubernetes-csi/csi-driver-host-path
 go 1.12
 
 require (
-	github.com/container-storage-interface/spec v1.2.0
+	github.com/container-storage-interface/spec v1.3.0
+	github.com/go-logr/logr v0.3.0 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/protobuf v1.4.3
-	github.com/kubernetes-csi/csi-lib-utils v0.3.0
-	github.com/pborman/uuid v1.2.0
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
-	google.golang.org/grpc v1.27.1
+	github.com/kubernetes-csi/csi-lib-utils v0.9.0
+	github.com/pborman/uuid v1.2.1
+	golang.org/x/net v0.0.0-20201209123823-ac852fbbde11
+	golang.org/x/sys v0.0.0-20201207223542-d4d67f95c62d // indirect
+	google.golang.org/genproto v0.0.0-20201209185603-f92720507ed4 // indirect
+	google.golang.org/grpc v1.34.0
 	k8s.io/apimachinery v0.21.0-alpha.0 // indirect
 	k8s.io/kubernetes v1.20.0
+	k8s.io/mount-utils v0.20.0 // indirect
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 )
 
