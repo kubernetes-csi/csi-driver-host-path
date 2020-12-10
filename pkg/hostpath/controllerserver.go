@@ -312,7 +312,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 				Snapshot: &csi.Snapshot{
 					SnapshotId:     exSnap.Id,
 					SourceVolumeId: exSnap.VolID,
-					CreationTime:   &exSnap.CreationTime,
+					CreationTime:   exSnap.CreationTime,
 					SizeBytes:      exSnap.SizeBytes,
 					ReadyToUse:     exSnap.ReadyToUse,
 				},
@@ -352,7 +352,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	snapshot.Id = snapshotID
 	snapshot.VolID = volumeID
 	snapshot.Path = file
-	snapshot.CreationTime = *creationTime
+	snapshot.CreationTime = creationTime
 	snapshot.SizeBytes = hostPathVolume.VolSize
 	snapshot.ReadyToUse = true
 
@@ -362,7 +362,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		Snapshot: &csi.Snapshot{
 			SnapshotId:     snapshot.Id,
 			SourceVolumeId: snapshot.VolID,
-			CreationTime:   &snapshot.CreationTime,
+			CreationTime:   snapshot.CreationTime,
 			SizeBytes:      snapshot.SizeBytes,
 			ReadyToUse:     snapshot.ReadyToUse,
 		},
@@ -423,7 +423,7 @@ func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnap
 		snapshot := csi.Snapshot{
 			SnapshotId:     snap.Id,
 			SourceVolumeId: snap.VolID,
-			CreationTime:   &snap.CreationTime,
+			CreationTime:   snap.CreationTime,
 			SizeBytes:      snap.SizeBytes,
 			ReadyToUse:     snap.ReadyToUse,
 		}
@@ -531,7 +531,7 @@ func convertSnapshot(snap hostPathSnapshot) *csi.ListSnapshotsResponse {
 			Snapshot: &csi.Snapshot{
 				SnapshotId:     snap.Id,
 				SourceVolumeId: snap.VolID,
-				CreationTime:   &snap.CreationTime,
+				CreationTime:   snap.CreationTime,
 				SizeBytes:      snap.SizeBytes,
 				ReadyToUse:     snap.ReadyToUse,
 			},

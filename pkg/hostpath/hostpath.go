@@ -68,13 +68,13 @@ type hostPathVolume struct {
 }
 
 type hostPathSnapshot struct {
-	Name         string              `json:"name"`
-	Id           string              `json:"id"`
-	VolID        string              `json:"volID"`
-	Path         string              `json:"path"`
-	CreationTime timestamp.Timestamp `json:"creationTime"`
-	SizeBytes    int64               `json:"sizeBytes"`
-	ReadyToUse   bool                `json:"readyToUse"`
+	Name         string               `json:"name"`
+	Id           string               `json:"id"`
+	VolID        string               `json:"volID"`
+	Path         string               `json:"path"`
+	CreationTime *timestamp.Timestamp `json:"creationTime"`
+	SizeBytes    int64                `json:"sizeBytes"`
+	ReadyToUse   bool                 `json:"readyToUse"`
 }
 
 var (
