@@ -8,12 +8,11 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/kubernetes-csi/csi-lib-utils v0.3.0
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709
-	github.com/spf13/afero v1.2.2 // indirect
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	google.golang.org/grpc v1.27.0
 	k8s.io/apimachinery v0.21.0-alpha.0 // indirect
 	k8s.io/kubernetes v1.12.2
-	k8s.io/utils v0.0.0-20181102055113-1bd4f387aa67
+	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 )
 
 replace k8s.io/api => k8s.io/api v0.20.0

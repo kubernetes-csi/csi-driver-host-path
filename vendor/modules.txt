@@ -1,5 +1,7 @@
 # github.com/container-storage-interface/spec v1.2.0
 github.com/container-storage-interface/spec/lib/go/csi
+# github.com/go-logr/logr v0.2.0
+github.com/go-logr/logr
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
 # github.com/golang/protobuf v1.4.3
@@ -107,12 +109,12 @@ google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
 # k8s.io/apimachinery v0.21.0-alpha.0 => k8s.io/apimachinery v0.21.0-alpha.0
 k8s.io/apimachinery/pkg/types
-k8s.io/apimachinery/pkg/util/sets
+# k8s.io/klog/v2 v2.4.0
+k8s.io/klog/v2
 # k8s.io/kubernetes v1.12.2
-k8s.io/kubernetes/pkg/util/file
-k8s.io/kubernetes/pkg/util/io
-k8s.io/kubernetes/pkg/util/mount
-k8s.io/kubernetes/pkg/util/nsenter
 k8s.io/kubernetes/pkg/volume/util/volumepathhandler
-# k8s.io/utils v0.0.0-20181102055113-1bd4f387aa67
+# k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 k8s.io/utils/exec
+k8s.io/utils/io
+k8s.io/utils/keymutex
+k8s.io/utils/mount

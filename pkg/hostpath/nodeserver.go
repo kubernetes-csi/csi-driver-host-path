@@ -27,8 +27,8 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/kubernetes/pkg/util/mount"
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
+	"k8s.io/utils/mount"
 )
 
 const TopologyKeyNode = "topology.hostpath.csi/node"
@@ -104,7 +104,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		// Check if the target path exists. Create if not present.
 		_, err = os.Lstat(targetPath)
 		if os.IsNotExist(err) {
-			if err = mounter.MakeFile(targetPath); err != nil {
+			if err = makeFile(targetPath); err != nil {
 				return nil, status.Error(codes.Internal, fmt.Sprintf("failed to create target path: %s: %v", targetPath, err))
 			}
 		}
@@ -113,7 +113,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 
 		// Check if the target path is already mounted. Prevent remounting.
-		notMount, err := mounter.IsNotMountPoint(targetPath)
+		notMount, err := mount.IsNotMountPoint(mounter, targetPath)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				return nil, status.Errorf(codes.Internal, "error checking path %s for mount: %s", targetPath, err)
@@ -135,7 +135,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 			return nil, status.Error(codes.InvalidArgument, "cannot publish a non-mount volume as mount volume")
 		}
 
-		notMnt, err := mount.New("").IsNotMountPoint(targetPath)
+		notMnt, err := mount.IsNotMountPoint(mount.New(""), targetPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				if err = os.MkdirAll(targetPath, 0750); err != nil {
@@ -340,4 +340,17 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandV
 	}
 
 	return &csi.NodeExpandVolumeResponse{}, nil
+}
+
+// makeFile ensures that the file exists, creating it if necessary.
+// The parent directory must exist.
+func makeFile(pathname string) error {
+	f, err := os.OpenFile(pathname, os.O_CREATE, os.FileMode(0644))
+	defer f.Close()
+	if err != nil {
+		if !os.IsExist(err) {
+			return err
+		}
+	}
+	return nil
 }
