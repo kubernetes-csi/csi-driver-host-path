@@ -121,6 +121,10 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, maxStorageCapacity)
 	}
 
+	topologies := []*csi.Topology{&csi.Topology{
+		Segments: map[string]string{TopologyKeyNode: cs.nodeID},
+	}}
+
 	// Need to check for already existing volume name, and if found
 	// check for the requested capacity and already allocated capacity
 	if exVol, err := getVolumeByName(req.GetName()); err == nil {
@@ -148,10 +152,11 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		// TODO (sbezverk) Do I need to make sure that volume still exists?
 		return &csi.CreateVolumeResponse{
 			Volume: &csi.Volume{
-				VolumeId:      exVol.VolID,
-				CapacityBytes: int64(exVol.VolSize),
-				VolumeContext: req.GetParameters(),
-				ContentSource: req.GetVolumeContentSource(),
+				VolumeId:           exVol.VolID,
+				CapacityBytes:      int64(exVol.VolSize),
+				VolumeContext:      req.GetParameters(),
+				ContentSource:      req.GetVolumeContentSource(),
+				AccessibleTopology: topologies,
 			},
 		}, nil
 	}
@@ -189,10 +194,6 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		}
 		glog.V(4).Infof("successfully populated volume %s", vol.VolID)
 	}
-
-	topologies := []*csi.Topology{&csi.Topology{
-		Segments: map[string]string{TopologyKeyNode: cs.nodeID},
-	}}
 
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
