@@ -187,6 +187,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 			err = status.Errorf(codes.InvalidArgument, "%v not a proper volume source", volumeSource)
 		}
 		if err != nil {
+			glog.V(4).Infof("VolumeSource error: %v", err)
 			if delErr := deleteHostpathVolume(volumeID); delErr != nil {
 				glog.V(2).Infof("deleting hostpath volume %v failed: %v", volumeID, delErr)
 			}

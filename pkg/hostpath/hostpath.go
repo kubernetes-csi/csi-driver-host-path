@@ -344,7 +344,9 @@ func loadFromSnapshot(size int64, snapshotId, destPath string, mode accessType) 
 	}
 
 	executor := utilexec.New()
+	glog.V(4).Infof("Command Start: %v", cmd)
 	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
+	glog.V(4).Infof("Command Finish: %v", string(out))
 	if err != nil {
 		return status.Errorf(codes.Internal, "failed pre-populate data from snapshot %v: %v: %s", snapshotId, err, out)
 	}

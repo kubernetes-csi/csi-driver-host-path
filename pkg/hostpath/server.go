@@ -114,6 +114,9 @@ func parseEndpoint(ep string) (string, string, error) {
 }
 
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	if info.FullMethod == "/csi.v1.Identity/Probe" {
+		return handler(ctx, req)
+	}
 	glog.V(3).Infof("GRPC call: %s", info.FullMethod)
 	glog.V(5).Infof("GRPC request: %+v", protosanitizer.StripSecrets(req))
 	resp, err := handler(ctx, req)
