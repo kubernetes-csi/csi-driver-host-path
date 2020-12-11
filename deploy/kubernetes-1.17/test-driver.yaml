@@ -8,6 +8,8 @@ SnapshotClass:
   FromName: true
 DriverInfo:
   Name: hostpath.csi.k8s.io
+  SupportedSizeRange:
+    Min: 1Mi
   Capabilities:
     block: true
     controllerExpansion: true

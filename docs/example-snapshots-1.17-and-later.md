@@ -18,7 +18,7 @@ Ensure your volumesnapshotclass was created during hostpath deployment:
 > $ kubectl describe volumesnapshotclass
 > ```
 > Name:             csi-hostpath-snapclass
-> Namespace:        
+> Namespace:
 > Labels:           <none>
 > Annotations:      kubectl.kubernetes.io/last-applied-configuration:
 >                     {"apiVersion":"snapshot.storage.k8s.io/v1beta1","deletionPolicy":"Delete","driver":"hostpath.csi.k8s.io","kind":"VolumeSnapshotClass","met...
@@ -89,7 +89,7 @@ use the volume snapshot class to dynamically create a volume snapshot:
 > $ kubectl describe volumesnapshotcontent
 > ```
 > Name:         snapcontent-1b461d4e-6279-4f1d-9910-61d35d80c888
-> Namespace:    
+> Namespace:
 > Labels:       <none>
 > Annotations:  <none>
 > API Version:  snapshot.storage.k8s.io/v1beta1
@@ -126,6 +126,7 @@ use the volume snapshot class to dynamically create a volume snapshot:
 ## Restore volume from snapshot support
 
 Follow the following example to create a volume from a volume snapshot:
+Note that as the PVC size goes larger, the restore can be slower.
 
 > $ kubectl apply -f examples/csi-restore.yaml
 > `persistentvolumeclaim/hpvc-restore created`
