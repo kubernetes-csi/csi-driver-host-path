@@ -68,13 +68,13 @@ type hostPathVolume struct {
 }
 
 type hostPathSnapshot struct {
-	Name         string              `json:"name"`
-	Id           string              `json:"id"`
-	VolID        string              `json:"volID"`
-	Path         string              `json:"path"`
-	CreationTime timestamp.Timestamp `json:"creationTime"`
-	SizeBytes    int64               `json:"sizeBytes"`
-	ReadyToUse   bool                `json:"readyToUse"`
+	Name         string               `json:"name"`
+	Id           string               `json:"id"`
+	VolID        string               `json:"volID"`
+	Path         string               `json:"path"`
+	CreationTime *timestamp.Timestamp `json:"creationTime"`
+	SizeBytes    int64                `json:"sizeBytes"`
+	ReadyToUse   bool                 `json:"readyToUse"`
 }
 
 var (
@@ -280,18 +280,10 @@ func deleteHostpathVolume(volID string) error {
 
 	if vol.VolAccessType == blockAccess {
 		volPathHandler := volumepathhandler.VolumePathHandler{}
-		// Get the associated loop device.
-		device, err := volPathHandler.GetLoopDevice(getVolumePath(volID))
-		if err != nil {
-			return fmt.Errorf("failed to get the loop device: %v", err)
-		}
-
-		if device != "" {
-			// Remove any associated loop device.
-			glog.V(4).Infof("deleting loop device %s", device)
-			if err := volPathHandler.RemoveLoopDevice(device); err != nil {
-				return fmt.Errorf("failed to remove loop device %v: %v", device, err)
-			}
+		path := getVolumePath(volID)
+		glog.V(4).Infof("deleting loop device for file %s if it exists", path)
+		if err := volPathHandler.DetachFileDevice(path); err != nil {
+			return fmt.Errorf("failed to remove loop device for file %s: %v", path, err)
 		}
 	}
 
