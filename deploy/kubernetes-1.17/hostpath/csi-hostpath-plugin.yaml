@@ -34,7 +34,37 @@ spec:
       labels:
         app: csi-hostpathplugin
     spec:
+      serviceAccount: csi-external-health-monitor-controller
       containers:
+        - name: csi-external-health-monitor-agent
+          image: k8s.gcr.io/sig-storage/csi-external-health-monitor-agent:v0.2.0
+          args:
+            - "--v=5"
+            - "--csi-address=$(ADDRESS)"
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: ADDRESS
+              value: /csi/csi.sock
+          imagePullPolicy: "IfNotPresent"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+        - name: csi-external-health-monitor-controller
+          image: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.2.0
+          args:
+            - "--v=5"
+            - "--csi-address=$(ADDRESS)"
+            - "--leader-election"
+          env:
+            - name: ADDRESS
+              value: /csi/csi.sock
+          imagePullPolicy: "IfNotPresent"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
         - name: node-driver-registrar
           image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.0.1
           args:

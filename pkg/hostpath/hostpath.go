@@ -22,16 +22,19 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/golang/glog"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	fs "k8s.io/kubernetes/pkg/volume/util/fs"
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 	utilexec "k8s.io/utils/exec"
-
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 )
 
 const (
@@ -65,6 +68,7 @@ type hostPathVolume struct {
 	ParentVolID   string     `json:"parentVolID,omitempty"`
 	ParentSnapID  string     `json:"parentSnapID,omitempty"`
 	Ephemeral     bool       `json:"ephemeral"`
+	NodeID        string     `json:"nodeID"`
 }
 
 type hostPathSnapshot struct {
@@ -161,8 +165,56 @@ func discoverExistingSnapshots() {
 	}
 }
 
-func (hp *hostPath) Run() {
+func discoveryExistingVolumes() error {
+	cmdPath := locateCommandPath("findmnt")
+	out, err := exec.Command(cmdPath, "--json").CombinedOutput()
+	if err != nil {
+		glog.V(3).Infof("failed to execute command: %+v", cmdPath)
+		return err
+	}
+
+	if len(out) < 1 {
+		return fmt.Errorf("mount point info is nil")
+	}
+
+	mountInfos, err := parseMountInfo([]byte(out))
+	if err != nil {
+		return fmt.Errorf("failed to parse the mount infos: %+v", err)
+	}
+
+	mountInfosOfPod := MountPointInfo{}
+	for _, mountInfo := range mountInfos {
+		if mountInfo.Target == podVolumeTargetPath {
+			mountInfosOfPod = mountInfo
+			break
+		}
+	}
+
+	// getting existing volumes based on the mount point infos.
+	// It's a temporary solution to recall volumes.
+	for _, pv := range mountInfosOfPod.ContainerFileSystem {
+		if !strings.Contains(pv.Target, csiSignOfVolumeTargetPath) {
+			continue
+		}
+
+		hp, err := parseVolumeInfo(pv)
+		if err != nil {
+			return err
+		}
+
+		hostPathVolumes[hp.VolID] = *hp
+	}
+
+	glog.V(4).Infof("Existing Volumes: %+v", hostPathVolumes)
+	return nil
+}
+
+func (hp *hostPath) Run() error {
 	// Create GRPC servers
+	if err := discoveryExistingVolumes(); err != nil {
+		return err
+	}
+
 	hp.ids = NewIdentityServer(hp.name, hp.version)
 	hp.ns = NewNodeServer(hp.nodeID, hp.ephemeral, hp.maxVolumesPerNode)
 	hp.cs = NewControllerServer(hp.ephemeral, hp.nodeID)
@@ -171,6 +223,8 @@ func (hp *hostPath) Run() {
 	s := NewNonBlockingGRPCServer()
 	s.Start(hp.endpoint, hp.ids, hp.cs, hp.ns)
 	s.Wait()
+
+	return nil
 }
 
 func getVolumeByID(volumeID string) (hostPathVolume, error) {
@@ -396,4 +450,55 @@ func loadFromBlockVolume(hostPathVolume hostPathVolume, destPath string) error {
 		return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", hostPathVolume.VolID, err, out)
 	}
 	return nil
+}
+
+func getSortedVolumeIDs() []string {
+	ids := make([]string, len(hostPathVolumes))
+	index := 0
+	for volId := range hostPathVolumes {
+		ids[index] = volId
+		index += 1
+	}
+
+	sort.Strings(ids)
+	return ids
+}
+
+func filterVolumeName(targetPath string) string {
+	pathItems := strings.Split(targetPath, "kubernetes.io~csi/")
+	if len(pathItems) < 2 {
+		return ""
+	}
+
+	return strings.TrimSuffix(pathItems[1], "/mount")
+}
+
+func filterVolumeID(sourcePath string) string {
+	volumeSourcePathRegex := regexp.MustCompile(`\[(.*)\]`)
+	volumeSP := string(volumeSourcePathRegex.Find([]byte(sourcePath)))
+	if volumeSP == "" {
+		return ""
+	}
+
+	return strings.TrimSuffix(strings.TrimPrefix(volumeSP, "[/var/lib/csi-hostpath-data/"), "]")
+}
+
+func parseVolumeInfo(volume MountPointInfo) (*hostPathVolume, error) {
+	volumeName := filterVolumeName(volume.Target)
+	volumeID := filterVolumeID(volume.Source)
+	sourcePath := getSourcePath(volumeID)
+	_, fscapacity, _, _, _, _, err := fs.FsInfo(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get capacity info: %+v", err)
+	}
+
+	hp := hostPathVolume{
+		VolName:       volumeName,
+		VolID:         volumeID,
+		VolSize:       fscapacity,
+		VolPath:       getVolumePath(volumeID),
+		VolAccessType: mountAccess,
+	}
+
+	return &hp, nil
 }
