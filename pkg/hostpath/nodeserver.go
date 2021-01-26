@@ -21,10 +21,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/glog"
 	"golang.org/x/net/context"
-
-	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
@@ -185,6 +184,9 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 	}
 
+	volume := hostPathVolumes[req.GetVolumeId()]
+	volume.NodeID = ns.nodeID
+	hostPathVolumes[req.GetVolumeId()] = volume
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -294,12 +296,45 @@ func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetC
 					},
 				},
 			},
+			{
+				Type: &csi.NodeServiceCapability_Rpc{
+					Rpc: &csi.NodeServiceCapability_RPC{
+						Type: csi.NodeServiceCapability_RPC_VOLUME_CONDITION,
+					},
+				},
+			},
 		},
 	}, nil
 }
 
 func (ns *nodeServer) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	volume, ok := hostPathVolumes[in.GetVolumeId()]
+	if !ok {
+		return nil, status.Error(codes.NotFound, "The volume not found")
+	}
+
+	healthy, msg := doHealthCheckInNodeSide(in.GetVolumeId())
+	glog.V(3).Infof("Healthy state: %+v Volume: %+v", volume.VolName, healthy)
+	available, capacity, used, err := getPVCapacity(in.GetVolumeId())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Get volume capacity failed: %+v", err)
+	}
+
+	glog.V(3).Infof("Capacity: %+v Used: %+v Available: %+v", capacity, used, available)
+	return &csi.NodeGetVolumeStatsResponse{
+		Usage: []*csi.VolumeUsage{
+			{
+				Available: available,
+				Used:      used,
+				Total:     capacity,
+				Unit:      csi.VolumeUsage_BYTES,
+			},
+		},
+		VolumeCondition: &csi.VolumeCondition{
+			Abnormal: !healthy,
+			Message:  msg,
+		},
+	}, nil
 }
 
 // NodeExpandVolume is only implemented so the driver can be used for e2e testing.

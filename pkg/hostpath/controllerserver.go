@@ -61,10 +61,13 @@ func NewControllerServer(ephemeral bool, nodeID string) *controllerServer {
 		caps: getControllerServiceCapabilities(
 			[]csi.ControllerServiceCapability_RPC_Type{
 				csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+				csi.ControllerServiceCapability_RPC_GET_VOLUME,
 				csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
 				csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
+				csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
 				csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
 				csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
+				csi.ControllerServiceCapability_RPC_VOLUME_CONDITION,
 			}),
 		nodeID: nodeID,
 	}
@@ -279,7 +282,75 @@ func (cs *controllerServer) GetCapacity(ctx context.Context, req *csi.GetCapacit
 }
 
 func (cs *controllerServer) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	volumeRes := &csi.ListVolumesResponse{
+		Entries: []*csi.ListVolumesResponse_Entry{},
+	}
+
+	var (
+		startIdx, volumesLength, maxLength int64
+		hpVolume                           hostPathVolume
+	)
+	volumeIds := getSortedVolumeIDs()
+	if req.StartingToken == "" {
+		req.StartingToken = "1"
+	}
+
+	startIdx, err := strconv.ParseInt(req.StartingToken, 10, 32)
+	if err != nil {
+		return nil, status.Error(codes.Aborted, "The type of startingToken should be integer")
+	}
+
+	volumesLength = int64(len(volumeIds))
+	maxLength = int64(req.MaxEntries)
+
+	if maxLength > volumesLength || maxLength <= 0 {
+		maxLength = volumesLength
+	}
+
+	for index := startIdx - 1; index < volumesLength && index < maxLength; index++ {
+		hpVolume = hostPathVolumes[volumeIds[index]]
+		healthy, msg := doHealthCheckInControllerSide(volumeIds[index])
+		glog.V(3).Infof("Healthy state: %s Volume: %t", hpVolume.VolName, healthy)
+		volumeRes.Entries = append(volumeRes.Entries, &csi.ListVolumesResponse_Entry{
+			Volume: &csi.Volume{
+				VolumeId:      hpVolume.VolID,
+				CapacityBytes: hpVolume.VolSize,
+			},
+			Status: &csi.ListVolumesResponse_VolumeStatus{
+				PublishedNodeIds: []string{hpVolume.NodeID},
+				VolumeCondition: &csi.VolumeCondition{
+					Abnormal: !healthy,
+					Message:  msg,
+				},
+			},
+		})
+	}
+
+	glog.V(5).Infof("Volumes are: %+v", *volumeRes)
+	return volumeRes, nil
+}
+
+func (cs *controllerServer) ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+	volume, ok := hostPathVolumes[req.GetVolumeId()]
+	if !ok {
+		return nil, status.Error(codes.NotFound, "The volume not found")
+	}
+
+	healthy, msg := doHealthCheckInControllerSide(req.GetVolumeId())
+	glog.V(3).Infof("Healthy state: %s Volume: %t", volume.VolName, healthy)
+	return &csi.ControllerGetVolumeResponse{
+		Volume: &csi.Volume{
+			VolumeId:      volume.VolID,
+			CapacityBytes: volume.VolSize,
+		},
+		Status: &csi.ControllerGetVolumeResponse_VolumeStatus{
+			PublishedNodeIds: []string{volume.NodeID},
+			VolumeCondition: &csi.VolumeCondition{
+				Abnormal: !healthy,
+				Message:  msg,
+			},
+		},
+	}, nil
 }
 
 // getSnapshotPath returns the full path to where the snapshot is stored
@@ -525,10 +596,6 @@ func (cs *controllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 		CapacityBytes:         exVol.VolSize,
 		NodeExpansionRequired: true,
 	}, nil
-}
-
-func (cs *controllerServer) ControllerGetVolume(context.Context, *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
 }
 
 func convertSnapshot(snap hostPathSnapshot) *csi.ListSnapshotsResponse {
