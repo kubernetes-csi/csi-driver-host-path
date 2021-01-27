@@ -1,17 +1,17 @@
 kind: StatefulSet
 apiVersion: apps/v1
 metadata:
-  name: csi-hostpath-resizer
+  name: csi-hostpath-snapshotter
 spec:
-  serviceName: "csi-hostpath-resizer"
+  serviceName: "csi-hostpath-snapshotter"
   replicas: 1
   selector:
     matchLabels:
-      app: csi-hostpath-resizer
+      app: csi-hostpath-snapshotter
   template:
     metadata:
       labels:
-        app: csi-hostpath-resizer
+        app: csi-hostpath-snapshotter
     spec:
       affinity:
         podAffinity:
@@ -23,13 +23,13 @@ spec:
                 values:
                 - csi-hostpathplugin
             topologyKey: kubernetes.io/hostname
-      serviceAccountName: csi-resizer
+      serviceAccount: csi-snapshotter
       containers:
-        - name: csi-resizer
-          image: k8s.gcr.io/sig-storage/csi-resizer:v1.0.0
+        - name: csi-snapshotter
+          image: k8s.gcr.io/sig-storage/csi-snapshotter:v4.0.0
           args:
             - -v=5
-            - -csi-address=/csi/csi.sock
+            - --csi-address=/csi/csi.sock
           securityContext:
             # This is necessary only for systems with SELinux, where
             # non-privileged sidecar containers cannot access unix domain socket
