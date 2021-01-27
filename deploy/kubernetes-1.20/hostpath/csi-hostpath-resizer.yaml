@@ -1,17 +1,17 @@
 kind: StatefulSet
 apiVersion: apps/v1
 metadata:
-  name: csi-hostpath-provisioner
+  name: csi-hostpath-resizer
 spec:
-  serviceName: "csi-hostpath-provisioner"
+  serviceName: "csi-hostpath-resizer"
   replicas: 1
   selector:
     matchLabels:
-      app: csi-hostpath-provisioner
+      app: csi-hostpath-resizer
   template:
     metadata:
       labels:
-        app: csi-hostpath-provisioner
+        app: csi-hostpath-resizer
     spec:
       affinity:
         podAffinity:
@@ -23,14 +23,13 @@ spec:
                 values:
                 - csi-hostpathplugin
             topologyKey: kubernetes.io/hostname
-      serviceAccountName: csi-provisioner
+      serviceAccountName: csi-resizer
       containers:
-        - name: csi-provisioner
-          image: k8s.gcr.io/sig-storage/csi-provisioner:v2.0.2
+        - name: csi-resizer
+          image: k8s.gcr.io/sig-storage/csi-resizer:v1.1.0
           args:
             - -v=5
-            - --csi-address=/csi/csi.sock
-            - --feature-gates=Topology=true
+            - -csi-address=/csi/csi.sock
           securityContext:
             # This is necessary only for systems with SELinux, where
             # non-privileged sidecar containers cannot access unix domain socket
