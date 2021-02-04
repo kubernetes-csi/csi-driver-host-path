@@ -413,13 +413,8 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		glog.V(4).Infof("Creating snapshot of Filsystem Mode Volume")
 		cmd = []string{"tar", "czf", file, "-C", volPath, "."}
 	}
-	executor := utilexec.New()
-	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed create snapshot: %v: %s", err, out)
-	}
 
-	glog.V(4).Infof("create volume snapshot %s", file)
+	//since other process need check current snapshot id
 	snapshot := hostPathSnapshot{}
 	snapshot.Name = req.GetName()
 	snapshot.Id = snapshotID
@@ -427,6 +422,17 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	snapshot.Path = file
 	snapshot.CreationTime = creationTime
 	snapshot.SizeBytes = hostPathVolume.VolSize
+	snapshot.ReadyToUse = false
+	hostPathVolumeSnapshots[snapshotID] = snapshot
+
+	executor := utilexec.New()
+	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
+	if err != nil {
+		delete(hostPathVolumeSnapshots,snapshotID)
+		return nil, status.Errorf(codes.Internal, "failed create snapshot: %v: %s", err, out)
+	}
+
+	glog.V(4).Infof("create volume snapshot %s", file)
 	snapshot.ReadyToUse = true
 
 	hostPathVolumeSnapshots[snapshotID] = snapshot
