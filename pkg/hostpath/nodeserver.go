@@ -32,21 +32,7 @@ import (
 
 const TopologyKeyNode = "topology.hostpath.csi/node"
 
-type nodeServer struct {
-	nodeID            string
-	ephemeral         bool
-	maxVolumesPerNode int64
-}
-
-func NewNodeServer(nodeId string, ephemeral bool, maxVolumesPerNode int64) *nodeServer {
-	return &nodeServer{
-		nodeID:            nodeId,
-		ephemeral:         ephemeral,
-		maxVolumesPerNode: maxVolumesPerNode,
-	}
-}
-
-func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
@@ -61,12 +47,17 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	targetPath := req.GetTargetPath()
 	ephemeralVolume := req.GetVolumeContext()["csi.storage.k8s.io/ephemeral"] == "true" ||
-		req.GetVolumeContext()["csi.storage.k8s.io/ephemeral"] == "" && ns.ephemeral // Kubernetes 1.15 doesn't have csi.storage.k8s.io/ephemeral.
+		req.GetVolumeContext()["csi.storage.k8s.io/ephemeral"] == "" && hp.ephemeral // Kubernetes 1.15 doesn't have csi.storage.k8s.io/ephemeral.
 
 	if req.GetVolumeCapability().GetBlock() != nil &&
 		req.GetVolumeCapability().GetMount() != nil {
 		return nil, status.Error(codes.InvalidArgument, "cannot have both block and mount access type")
 	}
+
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
 
 	// if ephemeral is specified, create volume here to avoid errors
 	if ephemeralVolume {
@@ -80,7 +71,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		glog.V(4).Infof("ephemeral mode: created volume: %s", vol.VolPath)
 	}
 
-	vol, err := getVolumeByID(req.GetVolumeId())
+	vol, err := hp.getVolumeByID(req.GetVolumeId())
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -184,13 +175,12 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		}
 	}
 
-	volume := hostPathVolumes[req.GetVolumeId()]
-	volume.NodeID = ns.nodeID
-	hostPathVolumes[req.GetVolumeId()] = volume
+	vol.NodeID = hp.nodeID
+	hp.updateVolume(req.GetVolumeId(), vol)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (hp *hostPath) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -202,7 +192,12 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	targetPath := req.GetTargetPath()
 	volumeID := req.GetVolumeId()
 
-	vol, err := getVolumeByID(volumeID)
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	vol, err := hp.getVolumeByID(volumeID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -228,7 +223,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 
 	if vol.Ephemeral {
 		glog.V(4).Infof("deleting volume %s", volumeID)
-		if err := deleteHostpathVolume(volumeID); err != nil && !os.IsNotExist(err) {
+		if err := hp.deleteVolume(volumeID); err != nil && !os.IsNotExist(err) {
 			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to delete volume: %s", err))
 		}
 	}
@@ -236,7 +231,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
-func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+func (hp *hostPath) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
 
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -252,7 +247,7 @@ func (ns *nodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
-func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+func (hp *hostPath) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
 
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -265,20 +260,20 @@ func (ns *nodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstag
 	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-func (ns *nodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
+func (hp *hostPath) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 
 	topology := &csi.Topology{
-		Segments: map[string]string{TopologyKeyNode: ns.nodeID},
+		Segments: map[string]string{TopologyKeyNode: hp.nodeID},
 	}
 
 	return &csi.NodeGetInfoResponse{
-		NodeId:             ns.nodeID,
-		MaxVolumesPerNode:  ns.maxVolumesPerNode,
+		NodeId:             hp.nodeID,
+		MaxVolumesPerNode:  hp.maxVolumesPerNode,
 		AccessibleTopology: topology,
 	}, nil
 }
 
-func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+func (hp *hostPath) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 
 	return &csi.NodeGetCapabilitiesResponse{
 		Capabilities: []*csi.NodeServiceCapability{
@@ -307,7 +302,12 @@ func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetC
 	}, nil
 }
 
-func (ns *nodeServer) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
 	volume, ok := hostPathVolumes[in.GetVolumeId()]
 	if !ok {
 		return nil, status.Error(codes.NotFound, "The volume not found")
@@ -338,14 +338,19 @@ func (ns *nodeServer) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVol
 }
 
 // NodeExpandVolume is only implemented so the driver can be used for e2e testing.
-func (ns *nodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+func (hp *hostPath) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
 
 	volID := req.GetVolumeId()
 	if len(volID) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID not provided")
 	}
 
-	vol, err := getVolumeByID(volID)
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	vol, err := hp.getVolumeByID(volID)
 	if err != nil {
 		// Assume not found error
 		return nil, status.Errorf(codes.NotFound, "Could not get volume %s: %v", volID, err)

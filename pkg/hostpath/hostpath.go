@@ -27,6 +27,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/golang/glog"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
@@ -54,9 +55,12 @@ type hostPath struct {
 	ephemeral         bool
 	maxVolumesPerNode int64
 
-	ids *identityServer
-	ns  *nodeServer
-	cs  *controllerServer
+	// gRPC calls involving any of the fields below must be serialized
+	// by locking this mutex before starting. Internal helper
+	// functions assume that the mutex has been locked.
+	mutex     sync.Mutex
+	volumes   map[string]hostPathVolume
+	snapshots map[string]hostPathSnapshot
 }
 
 type hostPathVolume struct {
@@ -98,11 +102,6 @@ const (
 	snapshotExt = ".snap"
 )
 
-func init() {
-	hostPathVolumes = map[string]hostPathVolume{}
-	hostPathVolumeSnapshots = map[string]hostPathSnapshot{}
-}
-
 func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxVolumesPerNode int64, version string) (*hostPath, error) {
 	if driverName == "" {
 		return nil, errors.New("no driver name provided")
@@ -126,14 +125,22 @@ func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxV
 	glog.Infof("Driver: %v ", driverName)
 	glog.Infof("Version: %s", vendorVersion)
 
-	return &hostPath{
+	hp := &hostPath{
 		name:              driverName,
 		version:           vendorVersion,
 		nodeID:            nodeID,
 		endpoint:          endpoint,
 		ephemeral:         ephemeral,
 		maxVolumesPerNode: maxVolumesPerNode,
-	}, nil
+
+		volumes:   map[string]hostPathVolume{},
+		snapshots: map[string]hostPathSnapshot{},
+	}
+	hp.discoverExistingSnapshots()
+	if err := hp.discoveryExistingVolumes(); err != nil {
+		return nil, err
+	}
+	return hp, nil
 }
 
 func getSnapshotID(file string) (bool, string) {
@@ -146,7 +153,7 @@ func getSnapshotID(file string) (bool, string) {
 	return false, ""
 }
 
-func discoverExistingSnapshots() {
+func (h *hostPath) discoverExistingSnapshots() {
 	glog.V(4).Infof("discovering existing snapshots in %s", dataRoot)
 	files, err := ioutil.ReadDir(dataRoot)
 	if err != nil {
@@ -156,7 +163,7 @@ func discoverExistingSnapshots() {
 		isSnapshot, snapshotID := getSnapshotID(file.Name())
 		if isSnapshot {
 			glog.V(4).Infof("adding snapshot %s from file %s", snapshotID, getSnapshotPath(snapshotID))
-			hostPathVolumeSnapshots[snapshotID] = hostPathSnapshot{
+			h.snapshots[snapshotID] = hostPathSnapshot{
 				Id:         snapshotID,
 				Path:       getSnapshotPath(snapshotID),
 				ReadyToUse: true,
@@ -165,7 +172,7 @@ func discoverExistingSnapshots() {
 	}
 }
 
-func discoveryExistingVolumes() error {
+func (hp *hostPath) discoveryExistingVolumes() error {
 	cmdPath := locateCommandPath("findmnt")
 	out, err := exec.Command(cmdPath, "--json").CombinedOutput()
 	if err != nil {
@@ -197,45 +204,36 @@ func discoveryExistingVolumes() error {
 			continue
 		}
 
-		hp, err := parseVolumeInfo(pv)
+		hpv, err := parseVolumeInfo(pv)
 		if err != nil {
 			return err
 		}
 
-		hostPathVolumes[hp.VolID] = *hp
+		hp.volumes[hpv.VolID] = *hpv
 	}
 
-	glog.V(4).Infof("Existing Volumes: %+v", hostPathVolumes)
+	glog.V(4).Infof("Existing Volumes: %+v", hp.volumes)
 	return nil
 }
 
 func (hp *hostPath) Run() error {
-	// Create GRPC servers
-	if err := discoveryExistingVolumes(); err != nil {
-		return err
-	}
-
-	hp.ids = NewIdentityServer(hp.name, hp.version)
-	hp.ns = NewNodeServer(hp.nodeID, hp.ephemeral, hp.maxVolumesPerNode)
-	hp.cs = NewControllerServer(hp.ephemeral, hp.nodeID)
-
-	discoverExistingSnapshots()
 	s := NewNonBlockingGRPCServer()
-	s.Start(hp.endpoint, hp.ids, hp.cs, hp.ns)
+	// hp itself implements ControllerServer, NodeServer, and IdentityServer.
+	s.Start(hp.endpoint, hp, hp, hp)
 	s.Wait()
 
 	return nil
 }
 
-func getVolumeByID(volumeID string) (hostPathVolume, error) {
-	if hostPathVol, ok := hostPathVolumes[volumeID]; ok {
+func (hp *hostPath) getVolumeByID(volumeID string) (hostPathVolume, error) {
+	if hostPathVol, ok := hp.volumes[volumeID]; ok {
 		return hostPathVol, nil
 	}
 	return hostPathVolume{}, fmt.Errorf("volume id %s does not exist in the volumes list", volumeID)
 }
 
-func getVolumeByName(volName string) (hostPathVolume, error) {
-	for _, hostPathVol := range hostPathVolumes {
+func (hp *hostPath) getVolumeByName(volName string) (hostPathVolume, error) {
+	for _, hostPathVol := range hp.volumes {
 		if hostPathVol.VolName == volName {
 			return hostPathVol, nil
 		}
@@ -243,8 +241,8 @@ func getVolumeByName(volName string) (hostPathVolume, error) {
 	return hostPathVolume{}, fmt.Errorf("volume name %s does not exist in the volumes list", volName)
 }
 
-func getSnapshotByName(name string) (hostPathSnapshot, error) {
-	for _, snapshot := range hostPathVolumeSnapshots {
+func (hp *hostPath) getSnapshotByName(name string) (hostPathSnapshot, error) {
+	for _, snapshot := range hp.snapshots {
 		if snapshot.Name == name {
 			return snapshot, nil
 		}
@@ -311,22 +309,22 @@ func createHostpathVolume(volID, name string, cap int64, volAccessType accessTyp
 }
 
 // updateVolume updates the existing hostpath volume.
-func updateHostpathVolume(volID string, volume hostPathVolume) error {
+func (hp *hostPath) updateVolume(volID string, volume hostPathVolume) error {
 	glog.V(4).Infof("updating hostpath volume: %s", volID)
 
-	if _, err := getVolumeByID(volID); err != nil {
+	if _, err := hp.getVolumeByID(volID); err != nil {
 		return err
 	}
 
-	hostPathVolumes[volID] = volume
+	hp.volumes[volID] = volume
 	return nil
 }
 
 // deleteVolume deletes the directory for the hostpath volume.
-func deleteHostpathVolume(volID string) error {
+func (hp *hostPath) deleteVolume(volID string) error {
 	glog.V(4).Infof("deleting hostpath volume: %s", volID)
 
-	vol, err := getVolumeByID(volID)
+	vol, err := hp.getVolumeByID(volID)
 	if err != nil {
 		// Return OK if the volume is not found.
 		return nil
@@ -345,7 +343,8 @@ func deleteHostpathVolume(volID string) error {
 	if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	delete(hostPathVolumes, volID)
+	delete(hp.volumes, volID)
+	glog.V(4).Infof("deleted hostpath volume: %s = %+v", volID, vol)
 	return nil
 }
 

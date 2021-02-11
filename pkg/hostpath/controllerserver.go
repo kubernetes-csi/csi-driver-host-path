@@ -48,33 +48,8 @@ const (
 	blockAccess
 )
 
-type controllerServer struct {
-	caps   []*csi.ControllerServiceCapability
-	nodeID string
-}
-
-func NewControllerServer(ephemeral bool, nodeID string) *controllerServer {
-	if ephemeral {
-		return &controllerServer{caps: getControllerServiceCapabilities(nil), nodeID: nodeID}
-	}
-	return &controllerServer{
-		caps: getControllerServiceCapabilities(
-			[]csi.ControllerServiceCapability_RPC_Type{
-				csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-				csi.ControllerServiceCapability_RPC_GET_VOLUME,
-				csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
-				csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
-				csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
-				csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
-				csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
-				csi.ControllerServiceCapability_RPC_VOLUME_CONDITION,
-			}),
-		nodeID: nodeID,
-	}
-}
-
-func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	if err := cs.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
+func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (resp *csi.CreateVolumeResponse, finalErr error) {
+	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
 		glog.V(3).Infof("invalid create volume req: %v", req)
 		return nil, err
 	}
@@ -118,6 +93,11 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		requestedAccessType = mountAccess
 	}
 
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
 	// Check for maximum available capacity
 	capacity := int64(req.GetCapacityRange().GetRequiredBytes())
 	if capacity >= maxStorageCapacity {
@@ -125,12 +105,12 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	}
 
 	topologies := []*csi.Topology{&csi.Topology{
-		Segments: map[string]string{TopologyKeyNode: cs.nodeID},
+		Segments: map[string]string{TopologyKeyNode: hp.nodeID},
 	}}
 
 	// Need to check for already existing volume name, and if found
 	// check for the requested capacity and already allocated capacity
-	if exVol, err := getVolumeByName(req.GetName()); err == nil {
+	if exVol, err := hp.getVolumeByName(req.GetName()); err == nil {
 		// Since err is nil, it means the volume with the same name already exists
 		// need to check if the size of existing volume is the same as in new
 		// request
@@ -191,7 +171,7 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		}
 		if err != nil {
 			glog.V(4).Infof("VolumeSource error: %v", err)
-			if delErr := deleteHostpathVolume(volumeID); delErr != nil {
+			if delErr := hp.deleteVolume(volumeID); delErr != nil {
 				glog.V(2).Infof("deleting hostpath volume %v failed: %v", volumeID, delErr)
 			}
 			return nil, err
@@ -210,19 +190,24 @@ func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	}, nil
 }
 
-func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+func (hp *hostPath) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
 
-	if err := cs.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
+	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
 		glog.V(3).Infof("invalid delete volume req: %v", req)
 		return nil, err
 	}
 
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
 	volId := req.GetVolumeId()
-	if err := deleteHostpathVolume(volId); err != nil {
+	if err := hp.deleteVolume(volId); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to delete volume %v: %v", volId, err)
 	}
 
@@ -231,13 +216,13 @@ func (cs *controllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
-func (cs *controllerServer) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
+func (hp *hostPath) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
 	return &csi.ControllerGetCapabilitiesResponse{
-		Capabilities: cs.caps,
+		Capabilities: hp.getControllerServiceCapabilities(),
 	}, nil
 }
 
-func (cs *controllerServer) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+func (hp *hostPath) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
@@ -247,7 +232,12 @@ func (cs *controllerServer) ValidateVolumeCapabilities(ctx context.Context, req 
 		return nil, status.Error(codes.InvalidArgument, req.VolumeId)
 	}
 
-	if _, err := getVolumeByID(req.GetVolumeId()); err != nil {
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	if _, err := hp.getVolumeByID(req.GetVolumeId()); err != nil {
 		return nil, status.Error(codes.NotFound, req.GetVolumeId())
 	}
 
@@ -269,19 +259,19 @@ func (cs *controllerServer) ValidateVolumeCapabilities(ctx context.Context, req 
 	}, nil
 }
 
-func (cs *controllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (cs *controllerServer) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (cs *controllerServer) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+func (hp *hostPath) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (cs *controllerServer) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	volumeRes := &csi.ListVolumesResponse{
 		Entries: []*csi.ListVolumesResponse_Entry{},
 	}
@@ -290,6 +280,12 @@ func (cs *controllerServer) ListVolumes(ctx context.Context, req *csi.ListVolume
 		startIdx, volumesLength, maxLength int64
 		hpVolume                           hostPathVolume
 	)
+
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
 	volumeIds := getSortedVolumeIDs()
 	if req.StartingToken == "" {
 		req.StartingToken = "1"
@@ -308,7 +304,7 @@ func (cs *controllerServer) ListVolumes(ctx context.Context, req *csi.ListVolume
 	}
 
 	for index := startIdx - 1; index < volumesLength && index < maxLength; index++ {
-		hpVolume = hostPathVolumes[volumeIds[index]]
+		hpVolume = hp.volumes[volumeIds[index]]
 		healthy, msg := doHealthCheckInControllerSide(volumeIds[index])
 		glog.V(3).Infof("Healthy state: %s Volume: %t", hpVolume.VolName, healthy)
 		volumeRes.Entries = append(volumeRes.Entries, &csi.ListVolumesResponse_Entry{
@@ -330,8 +326,13 @@ func (cs *controllerServer) ListVolumes(ctx context.Context, req *csi.ListVolume
 	return volumeRes, nil
 }
 
-func (cs *controllerServer) ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
-	volume, ok := hostPathVolumes[req.GetVolumeId()]
+func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	volume, ok := hp.volumes[req.GetVolumeId()]
 	if !ok {
 		return nil, status.Error(codes.NotFound, "The volume not found")
 	}
@@ -360,8 +361,8 @@ func getSnapshotPath(snapshotID string) string {
 
 // CreateSnapshot uses tar command to create snapshot for hostpath volume. The tar command can quickly create
 // archives of entire directories. The host image must have "tar" binaries in /bin, /usr/sbin, or /usr/bin.
-func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
-	if err := cs.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT); err != nil {
+func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
+	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT); err != nil {
 		glog.V(3).Infof("invalid create snapshot req: %v", req)
 		return nil, err
 	}
@@ -374,9 +375,14 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 		return nil, status.Error(codes.InvalidArgument, "SourceVolumeId missing in request")
 	}
 
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
 	// Need to check for already existing snapshot name, and if found check for the
 	// requested sourceVolumeId and sourceVolumeId of snapshot that has been created.
-	if exSnap, err := getSnapshotByName(req.GetName()); err == nil {
+	if exSnap, err := hp.getSnapshotByName(req.GetName()); err == nil {
 		// Since err is nil, it means the snapshot with the same name already exists need
 		// to check if the sourceVolumeId of existing snapshot is the same as in new request.
 		if exSnap.VolID == req.GetSourceVolumeId() {
@@ -395,7 +401,7 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	}
 
 	volumeID := req.GetSourceVolumeId()
-	hostPathVolume, ok := hostPathVolumes[volumeID]
+	hostPathVolume, ok := hp.volumes[volumeID]
 	if !ok {
 		return nil, status.Error(codes.Internal, "volumeID is not exist")
 	}
@@ -442,17 +448,23 @@ func (cs *controllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 	}, nil
 }
 
-func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
+func (hp *hostPath) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
 	// Check arguments
 	if len(req.GetSnapshotId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Snapshot ID missing in request")
 	}
 
-	if err := cs.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT); err != nil {
+	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT); err != nil {
 		glog.V(3).Infof("invalid delete snapshot req: %v", req)
 		return nil, err
 	}
 	snapshotID := req.GetSnapshotId()
+
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
 	glog.V(4).Infof("deleting snapshot %s", snapshotID)
 	path := getSnapshotPath(snapshotID)
 	os.RemoveAll(path)
@@ -460,11 +472,16 @@ func (cs *controllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 	return &csi.DeleteSnapshotResponse{}, nil
 }
 
-func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
-	if err := cs.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS); err != nil {
+func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
+	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS); err != nil {
 		glog.V(3).Infof("invalid list snapshot req: %v", req)
 		return nil, err
 	}
+
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
 
 	// case 1: SnapshotId is not empty, return snapshots that match the snapshot id.
 	if len(req.GetSnapshotId()) != 0 {
@@ -562,7 +579,7 @@ func (cs *controllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnap
 	}, nil
 }
 
-func (cs *controllerServer) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+func (hp *hostPath) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 
 	volID := req.GetVolumeId()
 	if len(volID) == 0 {
@@ -579,7 +596,12 @@ func (cs *controllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, maxStorageCapacity)
 	}
 
-	exVol, err := getVolumeByID(volID)
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	exVol, err := hp.getVolumeByID(volID)
 	if err != nil {
 		// Assume not found error
 		return nil, status.Errorf(codes.NotFound, "Could not get volume %s: %v", volID, err)
@@ -587,7 +609,7 @@ func (cs *controllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 
 	if exVol.VolSize < capacity {
 		exVol.VolSize = capacity
-		if err := updateHostpathVolume(volID, exVol); err != nil {
+		if err := hp.updateVolume(volID, exVol); err != nil {
 			return nil, status.Errorf(codes.Internal, "Could not update volume %s: %v", volID, err)
 		}
 	}
@@ -618,12 +640,12 @@ func convertSnapshot(snap hostPathSnapshot) *csi.ListSnapshotsResponse {
 	return rsp
 }
 
-func (cs *controllerServer) validateControllerServiceRequest(c csi.ControllerServiceCapability_RPC_Type) error {
+func (hp *hostPath) validateControllerServiceRequest(c csi.ControllerServiceCapability_RPC_Type) error {
 	if c == csi.ControllerServiceCapability_RPC_UNKNOWN {
 		return nil
 	}
 
-	for _, cap := range cs.caps {
+	for _, cap := range hp.getControllerServiceCapabilities() {
 		if c == cap.GetRpc().GetType() {
 			return nil
 		}
@@ -631,11 +653,24 @@ func (cs *controllerServer) validateControllerServiceRequest(c csi.ControllerSer
 	return status.Errorf(codes.InvalidArgument, "unsupported capability %s", c)
 }
 
-func getControllerServiceCapabilities(cl []csi.ControllerServiceCapability_RPC_Type) []*csi.ControllerServiceCapability {
+func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceCapability {
+	var cl []csi.ControllerServiceCapability_RPC_Type
+	if !hp.ephemeral {
+		cl = []csi.ControllerServiceCapability_RPC_Type{
+			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+			csi.ControllerServiceCapability_RPC_GET_VOLUME,
+			csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
+			csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
+			csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
+			csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
+			csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
+			csi.ControllerServiceCapability_RPC_VOLUME_CONDITION,
+		}
+	}
+
 	var csc []*csi.ControllerServiceCapability
 
 	for _, cap := range cl {
-		glog.Infof("Enabling controller service capability: %v", cap.String())
 		csc = append(csc, &csi.ControllerServiceCapability{
 			Type: &csi.ControllerServiceCapability_Rpc{
 				Rpc: &csi.ControllerServiceCapability_RPC{
