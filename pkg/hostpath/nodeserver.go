@@ -63,10 +63,11 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 	if ephemeralVolume {
 		volID := req.GetVolumeId()
 		volName := fmt.Sprintf("ephemeral-%s", volID)
-		vol, err := createHostpathVolume(req.GetVolumeId(), volName, maxStorageCapacity, mountAccess, ephemeralVolume)
+		kind := req.GetVolumeContext()[storageKind]
+		vol, err := hp.createVolume(req.GetVolumeId(), volName, maxStorageCapacity, mountAccess, ephemeralVolume, kind)
 		if err != nil && !os.IsExist(err) {
 			glog.Error("ephemeral mode failed to create volume: ", err)
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, err
 		}
 		glog.V(4).Infof("ephemeral mode: created volume: %s", vol.VolPath)
 	}
@@ -308,7 +309,7 @@ func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolum
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
-	volume, ok := hostPathVolumes[in.GetVolumeId()]
+	volume, ok := hp.volumes[in.GetVolumeId()]
 	if !ok {
 		return nil, status.Error(codes.NotFound, "The volume not found")
 	}

@@ -1,0 +1,25 @@
+# This example Pod definition demonstrates
+# how to use generic ephemeral inline volumes
+# with a hostpath storage class.
+kind: Pod
+apiVersion: v1
+metadata:
+  name: my-csi-app-inline-volume
+spec:
+  containers:
+    - name: my-frontend
+      image: k8s.gcr.io/pause
+      volumeMounts:
+      - mountPath: "/data"
+        name: my-csi-volume
+  volumes:
+  - name: my-csi-volume
+    ephemeral:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 4Gi
+          storageClassName: csi-hostpath-fast

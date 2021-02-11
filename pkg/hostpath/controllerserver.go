@@ -98,12 +98,7 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
-	// Check for maximum available capacity
 	capacity := int64(req.GetCapacityRange().GetRequiredBytes())
-	if capacity >= maxStorageCapacity {
-		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, maxStorageCapacity)
-	}
-
 	topologies := []*csi.Topology{&csi.Topology{
 		Segments: map[string]string{TopologyKeyNode: hp.nodeID},
 	}}
@@ -145,8 +140,8 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	}
 
 	volumeID := uuid.NewUUID().String()
-
-	vol, err := createHostpathVolume(volumeID, req.GetName(), capacity, requestedAccessType, false /* ephemeral */)
+	kind := req.GetParameters()[storageKind]
+	vol, err := hp.createVolume(volumeID, req.GetName(), capacity, requestedAccessType, false /* ephemeral */, kind)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to create volume %v: %v", volumeID, err)
 	}
@@ -158,12 +153,12 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 		switch volumeSource.Type.(type) {
 		case *csi.VolumeContentSource_Snapshot:
 			if snapshot := volumeSource.GetSnapshot(); snapshot != nil {
-				err = loadFromSnapshot(capacity, snapshot.GetSnapshotId(), path, requestedAccessType)
+				err = hp.loadFromSnapshot(capacity, snapshot.GetSnapshotId(), path, requestedAccessType)
 				vol.ParentSnapID = snapshot.GetSnapshotId()
 			}
 		case *csi.VolumeContentSource_Volume:
 			if srcVolume := volumeSource.GetVolume(); srcVolume != nil {
-				err = loadFromVolume(capacity, srcVolume.GetVolumeId(), path, requestedAccessType)
+				err = hp.loadFromVolume(capacity, srcVolume.GetVolumeId(), path, requestedAccessType)
 				vol.ParentVolID = srcVolume.GetVolumeId()
 			}
 		default:
@@ -210,7 +205,6 @@ func (hp *hostPath) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeReque
 	if err := hp.deleteVolume(volId); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to delete volume %v: %v", volId, err)
 	}
-
 	glog.V(4).Infof("volume %v successfully deleted", volId)
 
 	return &csi.DeleteVolumeResponse{}, nil
@@ -268,7 +262,24 @@ func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.Cont
 }
 
 func (hp *hostPath) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	// Topology and capabilities are irrelevant. We only
+	// distinguish based on the "kind" parameter, if at all.
+	// Without configured capacity, we just have the maximum size.
+	available := maxStorageCapacity
+	if hp.capacity.Enabled() {
+		kind := req.GetParameters()[storageKind]
+		quantity := hp.capacity.Check(kind)
+		available = quantity.Value()
+	}
+
+	return &csi.GetCapacityResponse{
+		AvailableCapacity: available,
+	}, nil
 }
 
 func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
@@ -286,7 +297,7 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
-	volumeIds := getSortedVolumeIDs()
+	volumeIds := hp.getSortedVolumeIDs()
 	if req.StartingToken == "" {
 		req.StartingToken = "1"
 	}
@@ -305,7 +316,7 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 
 	for index := startIdx - 1; index < volumesLength && index < maxLength; index++ {
 		hpVolume = hp.volumes[volumeIds[index]]
-		healthy, msg := doHealthCheckInControllerSide(volumeIds[index])
+		healthy, msg := hp.doHealthCheckInControllerSide(volumeIds[index])
 		glog.V(3).Infof("Healthy state: %s Volume: %t", hpVolume.VolName, healthy)
 		volumeRes.Entries = append(volumeRes.Entries, &csi.ListVolumesResponse_Entry{
 			Volume: &csi.Volume{
@@ -337,7 +348,7 @@ func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.Controller
 		return nil, status.Error(codes.NotFound, "The volume not found")
 	}
 
-	healthy, msg := doHealthCheckInControllerSide(req.GetVolumeId())
+	healthy, msg := hp.doHealthCheckInControllerSide(req.GetVolumeId())
 	glog.V(3).Infof("Healthy state: %s Volume: %t", volume.VolName, healthy)
 	return &csi.ControllerGetVolumeResponse{
 		Volume: &csi.Volume{
@@ -435,7 +446,7 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 	snapshot.SizeBytes = hostPathVolume.VolSize
 	snapshot.ReadyToUse = true
 
-	hostPathVolumeSnapshots[snapshotID] = snapshot
+	hp.snapshots[snapshotID] = snapshot
 
 	return &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
@@ -468,7 +479,7 @@ func (hp *hostPath) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotR
 	glog.V(4).Infof("deleting snapshot %s", snapshotID)
 	path := getSnapshotPath(snapshotID)
 	os.RemoveAll(path)
-	delete(hostPathVolumeSnapshots, snapshotID)
+	delete(hp.snapshots, snapshotID)
 	return &csi.DeleteSnapshotResponse{}, nil
 }
 
@@ -486,14 +497,14 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 	// case 1: SnapshotId is not empty, return snapshots that match the snapshot id.
 	if len(req.GetSnapshotId()) != 0 {
 		snapshotID := req.SnapshotId
-		if snapshot, ok := hostPathVolumeSnapshots[snapshotID]; ok {
+		if snapshot, ok := hp.snapshots[snapshotID]; ok {
 			return convertSnapshot(snapshot), nil
 		}
 	}
 
 	// case 2: SourceVolumeId is not empty, return snapshots that match the source volume id.
 	if len(req.GetSourceVolumeId()) != 0 {
-		for _, snapshot := range hostPathVolumeSnapshots {
+		for _, snapshot := range hp.snapshots {
 			if snapshot.VolID == req.SourceVolumeId {
 				return convertSnapshot(snapshot), nil
 			}
@@ -503,13 +514,13 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 	var snapshots []csi.Snapshot
 	// case 3: no parameter is set, so we return all the snapshots.
 	sortedKeys := make([]string, 0)
-	for k := range hostPathVolumeSnapshots {
+	for k := range hp.snapshots {
 		sortedKeys = append(sortedKeys, k)
 	}
 	sort.Strings(sortedKeys)
 
 	for _, key := range sortedKeys {
-		snap := hostPathVolumeSnapshots[key]
+		snap := hp.snapshots[key]
 		snapshot := csi.Snapshot{
 			SnapshotId:     snap.Id,
 			SourceVolumeId: snap.VolID,
@@ -659,6 +670,7 @@ func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceC
 		cl = []csi.ControllerServiceCapability_RPC_Type{
 			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 			csi.ControllerServiceCapability_RPC_GET_VOLUME,
+			csi.ControllerServiceCapability_RPC_GET_CAPACITY,
 			csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
 			csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
 			csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
