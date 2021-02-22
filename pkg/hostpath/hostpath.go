@@ -286,6 +286,8 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType ac
 			}
 		}()
 		kind = actualKind
+	} else if kind != "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("capacity tracking disabled, specifying kind %q is invalid", kind))
 	}
 
 	path := getVolumePath(volID)
