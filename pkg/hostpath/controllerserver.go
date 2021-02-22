@@ -143,7 +143,7 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	kind := req.GetParameters()[storageKind]
 	vol, err := hp.createVolume(volumeID, req.GetName(), capacity, requestedAccessType, false /* ephemeral */, kind)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to create volume %v: %v", volumeID, err)
+		return nil, fmt.Errorf("failed to create volume %v: %w", volumeID, err)
 	}
 	glog.V(4).Infof("created volume %s at path %s", vol.VolID, vol.VolPath)
 
@@ -203,7 +203,7 @@ func (hp *hostPath) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeReque
 
 	volId := req.GetVolumeId()
 	if err := hp.deleteVolume(volId); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to delete volume %v: %v", volId, err)
+		return nil, fmt.Errorf("failed to delete volume %v: %w", volId, err)
 	}
 	glog.V(4).Infof("volume %v successfully deleted", volId)
 
@@ -232,7 +232,7 @@ func (hp *hostPath) ValidateVolumeCapabilities(ctx context.Context, req *csi.Val
 	defer hp.mutex.Unlock()
 
 	if _, err := hp.getVolumeByID(req.GetVolumeId()); err != nil {
-		return nil, status.Error(codes.NotFound, req.GetVolumeId())
+		return nil, err
 	}
 
 	for _, cap := range req.GetVolumeCapabilities() {
@@ -343,9 +343,9 @@ func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.Controller
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
-	volume, ok := hp.volumes[req.GetVolumeId()]
-	if !ok {
-		return nil, status.Error(codes.NotFound, "The volume not found")
+	volume, err := hp.getVolumeByID(req.GetVolumeId())
+	if err != nil {
+		return nil, err
 	}
 
 	healthy, msg := hp.doHealthCheckInControllerSide(req.GetVolumeId())
@@ -412,9 +412,9 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 	}
 
 	volumeID := req.GetSourceVolumeId()
-	hostPathVolume, ok := hp.volumes[volumeID]
-	if !ok {
-		return nil, status.Error(codes.Internal, "volumeID is not exist")
+	hostPathVolume, err := hp.getVolumeByID(volumeID)
+	if err != nil {
+		return nil, err
 	}
 
 	snapshotID := uuid.NewUUID().String()
@@ -433,7 +433,7 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 	executor := utilexec.New()
 	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed create snapshot: %v: %s", err, out)
+		return nil, fmt.Errorf("failed create snapshot: %w: %s", err, out)
 	}
 
 	glog.V(4).Infof("create volume snapshot %s", file)
@@ -614,14 +614,13 @@ func (hp *hostPath) ControllerExpandVolume(ctx context.Context, req *csi.Control
 
 	exVol, err := hp.getVolumeByID(volID)
 	if err != nil {
-		// Assume not found error
-		return nil, status.Errorf(codes.NotFound, "Could not get volume %s: %v", volID, err)
+		return nil, err
 	}
 
 	if exVol.VolSize < capacity {
 		exVol.VolSize = capacity
 		if err := hp.updateVolume(volID, exVol); err != nil {
-			return nil, status.Errorf(codes.Internal, "Could not update volume %s: %v", volID, err)
+			return nil, fmt.Errorf("could not update volume %s: %w", volID, err)
 		}
 	}
 

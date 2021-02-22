@@ -87,7 +87,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		// Get loop device from the volume path.
 		loopDevice, err := volPathHandler.GetLoopDevice(vol.VolPath)
 		if err != nil {
-			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to get the loop device: %v", err))
+			return nil, fmt.Errorf("failed to get the loop device: %w", err)
 		}
 
 		mounter := mount.New("")
@@ -96,18 +96,18 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		_, err = os.Lstat(targetPath)
 		if os.IsNotExist(err) {
 			if err = makeFile(targetPath); err != nil {
-				return nil, status.Error(codes.Internal, fmt.Sprintf("failed to create target path: %s: %v", targetPath, err))
+				return nil, fmt.Errorf("failed to create target path: %w", err)
 			}
 		}
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to check if the target block file exists: %v", err)
+			return nil, fmt.Errorf("failed to check if the target block file exists: %w", err)
 		}
 
 		// Check if the target path is already mounted. Prevent remounting.
 		notMount, err := mount.IsNotMountPoint(mounter, targetPath)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return nil, status.Errorf(codes.Internal, "error checking path %s for mount: %s", targetPath, err)
+				return nil, fmt.Errorf("error checking path %s for mount: %w", targetPath, err)
 			}
 			notMount = true
 		}
@@ -119,7 +119,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 
 		options := []string{"bind"}
 		if err := mount.New("").Mount(loopDevice, targetPath, "", options); err != nil {
-			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to mount block device: %s at %s: %v", loopDevice, targetPath, err))
+			return nil, fmt.Errorf("failed to mount block device: %s at %s: %w", loopDevice, targetPath, err)
 		}
 	} else if req.GetVolumeCapability().GetMount() != nil {
 		if vol.VolAccessType != mountAccess {
@@ -130,11 +130,11 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		if err != nil {
 			if os.IsNotExist(err) {
 				if err = os.MkdirAll(targetPath, 0750); err != nil {
-					return nil, status.Error(codes.Internal, err.Error())
+					return nil, fmt.Errorf("create target path: %w", err)
 				}
 				notMnt = true
 			} else {
-				return nil, status.Error(codes.Internal, err.Error())
+				return nil, fmt.Errorf("check target path: %w", err)
 			}
 		}
 
@@ -172,7 +172,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 					errList.WriteString(fmt.Sprintf(" :%s", rmErr.Error()))
 				}
 			}
-			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to mount device: %s at %s: %s", path, targetPath, errList.String()))
+			return nil, fmt.Errorf("failed to mount device: %s at %s: %s", path, targetPath, errList.String())
 		}
 	}
 
@@ -206,26 +206,26 @@ func (hp *hostPath) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpubl
 	// Unmount only if the target path is really a mount point.
 	if notMnt, err := mount.IsNotMountPoint(mount.New(""), targetPath); err != nil {
 		if !os.IsNotExist(err) {
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, fmt.Errorf("check target path: %w", err)
 		}
 	} else if !notMnt {
 		// Unmounting the image or filesystem.
 		err = mount.New("").Unmount(targetPath)
 		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, fmt.Errorf("unmount target path: %w", err)
 		}
 	}
 	// Delete the mount point.
 	// Does not return error for non-existent path, repeated calls OK for idempotency.
 	if err = os.RemoveAll(targetPath); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, fmt.Errorf("remove target path: %w", err)
 	}
 	glog.V(4).Infof("hostpath: volume %s has been unpublished.", targetPath)
 
 	if vol.Ephemeral {
 		glog.V(4).Infof("deleting volume %s", volumeID)
 		if err := hp.deleteVolume(volumeID); err != nil && !os.IsNotExist(err) {
-			return nil, status.Error(codes.Internal, fmt.Sprintf("failed to delete volume: %s", err))
+			return nil, fmt.Errorf("failed to delete volume: %w", err)
 		}
 	}
 
@@ -318,7 +318,7 @@ func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolum
 	glog.V(3).Infof("Healthy state: %+v Volume: %+v", volume.VolName, healthy)
 	available, capacity, used, err := getPVCapacity(in.GetVolumeId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Get volume capacity failed: %+v", err)
+		return nil, fmt.Errorf("get volume capacity failed: %w", err)
 	}
 
 	glog.V(3).Infof("Capacity: %+v Used: %+v Available: %+v", capacity, used, available)

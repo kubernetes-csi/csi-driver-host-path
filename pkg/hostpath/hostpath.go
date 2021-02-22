@@ -239,7 +239,7 @@ func (hp *hostPath) getVolumeByID(volumeID string) (hostPathVolume, error) {
 	if hostPathVol, ok := hp.volumes[volumeID]; ok {
 		return hostPathVol, nil
 	}
-	return hostPathVolume{}, fmt.Errorf("volume id %s does not exist in the volumes list", volumeID)
+	return hostPathVolume{}, status.Errorf(codes.NotFound, "volume id %s does not exist in the volumes list", volumeID)
 }
 
 func (hp *hostPath) getVolumeByName(volName string) (hostPathVolume, error) {
@@ -248,7 +248,7 @@ func (hp *hostPath) getVolumeByName(volName string) (hostPathVolume, error) {
 			return hostPathVol, nil
 		}
 	}
-	return hostPathVolume{}, fmt.Errorf("volume name %s does not exist in the volumes list", volName)
+	return hostPathVolume{}, status.Errorf(codes.NotFound, "volume name %s does not exist in the volumes list", volName)
 }
 
 func (hp *hostPath) getSnapshotByName(name string) (hostPathSnapshot, error) {
@@ -257,7 +257,7 @@ func (hp *hostPath) getSnapshotByName(name string) (hostPathSnapshot, error) {
 			return snapshot, nil
 		}
 	}
-	return hostPathSnapshot{}, fmt.Errorf("snapshot name %s does not exist in the snapshots list", name)
+	return hostPathSnapshot{}, status.Errorf(codes.NotFound, "snapshot name %s does not exist in the snapshots list", name)
 }
 
 // getVolumePath returns the canonical path for hostpath volume
@@ -406,7 +406,7 @@ func (hp *hostPath) loadFromSnapshot(size int64, snapshotId, destPath string, mo
 		return status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
 	}
 	if snapshot.ReadyToUse != true {
-		return status.Errorf(codes.Internal, "snapshot %v is not yet ready to use.", snapshotId)
+		return fmt.Errorf("snapshot %v is not yet ready to use", snapshotId)
 	}
 	if snapshot.SizeBytes > size {
 		return status.Errorf(codes.InvalidArgument, "snapshot %v size %v is greater than requested volume size %v", snapshotId, snapshot.SizeBytes, size)
@@ -428,7 +428,7 @@ func (hp *hostPath) loadFromSnapshot(size int64, snapshotId, destPath string, mo
 	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	glog.V(4).Infof("Command Finish: %v", string(out))
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed pre-populate data from snapshot %v: %v: %s", snapshotId, err, out)
+		return fmt.Errorf("failed pre-populate data from snapshot %v: %w: %s", snapshotId, err, out)
 	}
 	return nil
 }
@@ -460,7 +460,7 @@ func loadFromFilesystemVolume(hostPathVolume hostPathVolume, destPath string) er
 	srcPath := hostPathVolume.VolPath
 	isEmpty, err := hostPathIsEmpty(srcPath)
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed verification check of source hostpath volume %v: %v", hostPathVolume.VolID, err)
+		return fmt.Errorf("failed verification check of source hostpath volume %v: %w", hostPathVolume.VolID, err)
 	}
 
 	// If the source hostpath volume is empty it's a noop and we just move along, otherwise the cp call will fail with a a file stat error DNE
@@ -469,7 +469,7 @@ func loadFromFilesystemVolume(hostPathVolume hostPathVolume, destPath string) er
 		executor := utilexec.New()
 		out, err := executor.Command("cp", args...).CombinedOutput()
 		if err != nil {
-			return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", hostPathVolume.VolID, err, out)
+			return fmt.Errorf("failed pre-populate data from volume %v: %s: %w", hostPathVolume.VolID, out, err)
 		}
 	}
 	return nil
@@ -481,7 +481,7 @@ func loadFromBlockVolume(hostPathVolume hostPathVolume, destPath string) error {
 	executor := utilexec.New()
 	out, err := executor.Command("dd", args...).CombinedOutput()
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", hostPathVolume.VolID, err, out)
+		return fmt.Errorf("failed pre-populate data from volume %v: %w: %s", hostPathVolume.VolID, err, out)
 	}
 	return nil
 }
