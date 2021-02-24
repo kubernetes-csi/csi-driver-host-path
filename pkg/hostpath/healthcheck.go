@@ -144,14 +144,14 @@ func checkMountPointExist(sourcePath string) (bool, error) {
 	return false, nil
 }
 
-func checkPVCapacityValid(volumeHandle string) (bool, error) {
+func (hp *hostPath) checkPVCapacityValid(volumeHandle string) (bool, error) {
 	sourcePath := getSourcePath(volumeHandle)
 	_, fscapacity, _, _, _, _, err := fs.FsInfo(sourcePath)
 	if err != nil {
 		return false, fmt.Errorf("failed to get capacity info: %+v", err)
 	}
 
-	volumeCapacity := hostPathVolumes[volumeHandle].VolSize
+	volumeCapacity := hp.volumes[volumeHandle].VolSize
 	glog.V(3).Infof("volume capacity: %+v fs capacity:%+v", volumeCapacity, fscapacity)
 	return fscapacity >= volumeCapacity, nil
 }
@@ -173,7 +173,7 @@ func checkPVUsage(volumeHandle string) (bool, error) {
 	return fsavailable > 0, nil
 }
 
-func doHealthCheckInControllerSide(volumeHandle string) (bool, string) {
+func (hp *hostPath) doHealthCheckInControllerSide(volumeHandle string) (bool, string) {
 	spExist, err := checkSourcePathExist(volumeHandle)
 	if err != nil {
 		return false, err.Error()
@@ -183,7 +183,7 @@ func doHealthCheckInControllerSide(volumeHandle string) (bool, string) {
 		return false, "The source path of the volume doesn't exist"
 	}
 
-	capValid, err := checkPVCapacityValid(volumeHandle)
+	capValid, err := hp.checkPVCapacityValid(volumeHandle)
 	if err != nil {
 		return false, err.Error()
 	}

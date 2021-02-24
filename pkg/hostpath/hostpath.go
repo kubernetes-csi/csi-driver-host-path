@@ -27,6 +27,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/golang/glog"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
@@ -44,6 +45,10 @@ const (
 	gib100 int64 = gib * 100
 	tib    int64 = gib * 1024
 	tib100 int64 = tib * 100
+
+	// storageKind is the special parameter which requests
+	// storage of a certain kind (only affects capacity checks).
+	storageKind = "kind"
 )
 
 type hostPath struct {
@@ -54,9 +59,13 @@ type hostPath struct {
 	ephemeral         bool
 	maxVolumesPerNode int64
 
-	ids *identityServer
-	ns  *nodeServer
-	cs  *controllerServer
+	// gRPC calls involving any of the fields below must be serialized
+	// by locking this mutex before starting. Internal helper
+	// functions assume that the mutex has been locked.
+	mutex     sync.Mutex
+	volumes   map[string]hostPathVolume
+	snapshots map[string]hostPathSnapshot
+	capacity  Capacity
 }
 
 type hostPathVolume struct {
@@ -69,6 +78,7 @@ type hostPathVolume struct {
 	ParentSnapID  string     `json:"parentSnapID,omitempty"`
 	Ephemeral     bool       `json:"ephemeral"`
 	NodeID        string     `json:"nodeID"`
+	Kind          string     `json:"kind"`
 }
 
 type hostPathSnapshot struct {
@@ -83,9 +93,6 @@ type hostPathSnapshot struct {
 
 var (
 	vendorVersion = "dev"
-
-	hostPathVolumes         map[string]hostPathVolume
-	hostPathVolumeSnapshots map[string]hostPathSnapshot
 )
 
 const (
@@ -98,12 +105,7 @@ const (
 	snapshotExt = ".snap"
 )
 
-func init() {
-	hostPathVolumes = map[string]hostPathVolume{}
-	hostPathVolumeSnapshots = map[string]hostPathSnapshot{}
-}
-
-func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxVolumesPerNode int64, version string) (*hostPath, error) {
+func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxVolumesPerNode int64, version string, capacity Capacity) (*hostPath, error) {
 	if driverName == "" {
 		return nil, errors.New("no driver name provided")
 	}
@@ -126,14 +128,23 @@ func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxV
 	glog.Infof("Driver: %v ", driverName)
 	glog.Infof("Version: %s", vendorVersion)
 
-	return &hostPath{
+	hp := &hostPath{
 		name:              driverName,
 		version:           vendorVersion,
 		nodeID:            nodeID,
 		endpoint:          endpoint,
 		ephemeral:         ephemeral,
 		maxVolumesPerNode: maxVolumesPerNode,
-	}, nil
+		capacity:          capacity,
+
+		volumes:   map[string]hostPathVolume{},
+		snapshots: map[string]hostPathSnapshot{},
+	}
+	if err := hp.discoveryExistingVolumes(); err != nil {
+		return nil, err
+	}
+	hp.discoverExistingSnapshots()
+	return hp, nil
 }
 
 func getSnapshotID(file string) (bool, string) {
@@ -146,7 +157,7 @@ func getSnapshotID(file string) (bool, string) {
 	return false, ""
 }
 
-func discoverExistingSnapshots() {
+func (h *hostPath) discoverExistingSnapshots() {
 	glog.V(4).Infof("discovering existing snapshots in %s", dataRoot)
 	files, err := ioutil.ReadDir(dataRoot)
 	if err != nil {
@@ -156,7 +167,7 @@ func discoverExistingSnapshots() {
 		isSnapshot, snapshotID := getSnapshotID(file.Name())
 		if isSnapshot {
 			glog.V(4).Infof("adding snapshot %s from file %s", snapshotID, getSnapshotPath(snapshotID))
-			hostPathVolumeSnapshots[snapshotID] = hostPathSnapshot{
+			h.snapshots[snapshotID] = hostPathSnapshot{
 				Id:         snapshotID,
 				Path:       getSnapshotPath(snapshotID),
 				ReadyToUse: true,
@@ -165,7 +176,7 @@ func discoverExistingSnapshots() {
 	}
 }
 
-func discoveryExistingVolumes() error {
+func (hp *hostPath) discoveryExistingVolumes() error {
 	cmdPath := locateCommandPath("findmnt")
 	out, err := exec.Command(cmdPath, "--json").CombinedOutput()
 	if err != nil {
@@ -192,64 +203,61 @@ func discoveryExistingVolumes() error {
 
 	// getting existing volumes based on the mount point infos.
 	// It's a temporary solution to recall volumes.
+	// TODO: discover what kind of storage was used and the nominal size.
 	for _, pv := range mountInfosOfPod.ContainerFileSystem {
 		if !strings.Contains(pv.Target, csiSignOfVolumeTargetPath) {
 			continue
 		}
 
-		hp, err := parseVolumeInfo(pv)
+		hpv, err := parseVolumeInfo(pv)
 		if err != nil {
 			return err
 		}
 
-		hostPathVolumes[hp.VolID] = *hp
+		if hpv.Kind != "" && hp.capacity.Enabled() {
+			if _, err := hp.capacity.Alloc(hpv.Kind, hpv.VolSize); err != nil {
+				return fmt.Errorf("existing volume(s) do not match new capacity configuration: %v", err)
+			}
+		}
+		hp.volumes[hpv.VolID] = *hpv
 	}
 
-	glog.V(4).Infof("Existing Volumes: %+v", hostPathVolumes)
+	glog.V(4).Infof("Existing Volumes: %+v", hp.volumes)
 	return nil
 }
 
 func (hp *hostPath) Run() error {
-	// Create GRPC servers
-	if err := discoveryExistingVolumes(); err != nil {
-		return err
-	}
-
-	hp.ids = NewIdentityServer(hp.name, hp.version)
-	hp.ns = NewNodeServer(hp.nodeID, hp.ephemeral, hp.maxVolumesPerNode)
-	hp.cs = NewControllerServer(hp.ephemeral, hp.nodeID)
-
-	discoverExistingSnapshots()
 	s := NewNonBlockingGRPCServer()
-	s.Start(hp.endpoint, hp.ids, hp.cs, hp.ns)
+	// hp itself implements ControllerServer, NodeServer, and IdentityServer.
+	s.Start(hp.endpoint, hp, hp, hp)
 	s.Wait()
 
 	return nil
 }
 
-func getVolumeByID(volumeID string) (hostPathVolume, error) {
-	if hostPathVol, ok := hostPathVolumes[volumeID]; ok {
+func (hp *hostPath) getVolumeByID(volumeID string) (hostPathVolume, error) {
+	if hostPathVol, ok := hp.volumes[volumeID]; ok {
 		return hostPathVol, nil
 	}
-	return hostPathVolume{}, fmt.Errorf("volume id %s does not exist in the volumes list", volumeID)
+	return hostPathVolume{}, status.Errorf(codes.NotFound, "volume id %s does not exist in the volumes list", volumeID)
 }
 
-func getVolumeByName(volName string) (hostPathVolume, error) {
-	for _, hostPathVol := range hostPathVolumes {
+func (hp *hostPath) getVolumeByName(volName string) (hostPathVolume, error) {
+	for _, hostPathVol := range hp.volumes {
 		if hostPathVol.VolName == volName {
 			return hostPathVol, nil
 		}
 	}
-	return hostPathVolume{}, fmt.Errorf("volume name %s does not exist in the volumes list", volName)
+	return hostPathVolume{}, status.Errorf(codes.NotFound, "volume name %s does not exist in the volumes list", volName)
 }
 
-func getSnapshotByName(name string) (hostPathSnapshot, error) {
-	for _, snapshot := range hostPathVolumeSnapshots {
+func (hp *hostPath) getSnapshotByName(name string) (hostPathSnapshot, error) {
+	for _, snapshot := range hp.snapshots {
 		if snapshot.Name == name {
 			return snapshot, nil
 		}
 	}
-	return hostPathSnapshot{}, fmt.Errorf("snapshot name %s does not exist in the snapshots list", name)
+	return hostPathSnapshot{}, status.Errorf(codes.NotFound, "snapshot name %s does not exist in the snapshots list", name)
 }
 
 // getVolumePath returns the canonical path for hostpath volume
@@ -257,9 +265,31 @@ func getVolumePath(volID string) string {
 	return filepath.Join(dataRoot, volID)
 }
 
-// createVolume create the directory for the hostpath volume.
-// It returns the volume path or err if one occurs.
-func createHostpathVolume(volID, name string, cap int64, volAccessType accessType, ephemeral bool) (*hostPathVolume, error) {
+// createVolume allocates capacity, creates the directory for the hostpath volume, and
+// adds the volume to the list.
+//
+// It returns the volume path or err if one occurs. That error is suitable as result of a gRPC call.
+func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType accessType, ephemeral bool, kind string) (hpv *hostPathVolume, finalErr error) {
+	// Check for maximum available capacity
+	if cap >= maxStorageCapacity {
+		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", cap, maxStorageCapacity)
+	}
+	if hp.capacity.Enabled() {
+		actualKind, err := hp.capacity.Alloc(kind, cap)
+		if err != nil {
+			return nil, err
+		}
+		// Free the capacity in case of any error - either a volume gets created or it doesn't.
+		defer func() {
+			if finalErr != nil {
+				hp.capacity.Free(actualKind, cap)
+			}
+		}()
+		kind = actualKind
+	} else if kind != "" {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("capacity tracking disabled, specifying kind %q is invalid", kind))
+	}
+
 	path := getVolumePath(volID)
 
 	switch volAccessType {
@@ -305,28 +335,30 @@ func createHostpathVolume(volID, name string, cap int64, volAccessType accessTyp
 		VolPath:       path,
 		VolAccessType: volAccessType,
 		Ephemeral:     ephemeral,
+		Kind:          kind,
 	}
-	hostPathVolumes[volID] = hostpathVol
+	glog.V(4).Infof("adding hostpath volume: %s = %+v", volID, hostpathVol)
+	hp.volumes[volID] = hostpathVol
 	return &hostpathVol, nil
 }
 
 // updateVolume updates the existing hostpath volume.
-func updateHostpathVolume(volID string, volume hostPathVolume) error {
+func (hp *hostPath) updateVolume(volID string, volume hostPathVolume) error {
 	glog.V(4).Infof("updating hostpath volume: %s", volID)
 
-	if _, err := getVolumeByID(volID); err != nil {
+	if _, err := hp.getVolumeByID(volID); err != nil {
 		return err
 	}
 
-	hostPathVolumes[volID] = volume
+	hp.volumes[volID] = volume
 	return nil
 }
 
 // deleteVolume deletes the directory for the hostpath volume.
-func deleteHostpathVolume(volID string) error {
-	glog.V(4).Infof("deleting hostpath volume: %s", volID)
+func (hp *hostPath) deleteVolume(volID string) error {
+	glog.V(4).Infof("starting to delete hostpath volume: %s", volID)
 
-	vol, err := getVolumeByID(volID)
+	vol, err := hp.getVolumeByID(volID)
 	if err != nil {
 		// Return OK if the volume is not found.
 		return nil
@@ -345,7 +377,11 @@ func deleteHostpathVolume(volID string) error {
 	if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	delete(hostPathVolumes, volID)
+	if hp.capacity.Enabled() {
+		hp.capacity.Free(vol.Kind, vol.VolSize)
+	}
+	delete(hp.volumes, volID)
+	glog.V(4).Infof("deleted hostpath volume: %s = %+v", volID, vol)
 	return nil
 }
 
@@ -366,13 +402,13 @@ func hostPathIsEmpty(p string) (bool, error) {
 }
 
 // loadFromSnapshot populates the given destPath with data from the snapshotID
-func loadFromSnapshot(size int64, snapshotId, destPath string, mode accessType) error {
-	snapshot, ok := hostPathVolumeSnapshots[snapshotId]
+func (hp *hostPath) loadFromSnapshot(size int64, snapshotId, destPath string, mode accessType) error {
+	snapshot, ok := hp.snapshots[snapshotId]
 	if !ok {
 		return status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
 	}
 	if snapshot.ReadyToUse != true {
-		return status.Errorf(codes.Internal, "snapshot %v is not yet ready to use.", snapshotId)
+		return fmt.Errorf("snapshot %v is not yet ready to use", snapshotId)
 	}
 	if snapshot.SizeBytes > size {
 		return status.Errorf(codes.InvalidArgument, "snapshot %v size %v is greater than requested volume size %v", snapshotId, snapshot.SizeBytes, size)
@@ -394,14 +430,14 @@ func loadFromSnapshot(size int64, snapshotId, destPath string, mode accessType) 
 	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	glog.V(4).Infof("Command Finish: %v", string(out))
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed pre-populate data from snapshot %v: %v: %s", snapshotId, err, out)
+		return fmt.Errorf("failed pre-populate data from snapshot %v: %w: %s", snapshotId, err, out)
 	}
 	return nil
 }
 
 // loadFromVolume populates the given destPath with data from the srcVolumeID
-func loadFromVolume(size int64, srcVolumeId, destPath string, mode accessType) error {
-	hostPathVolume, ok := hostPathVolumes[srcVolumeId]
+func (hp *hostPath) loadFromVolume(size int64, srcVolumeId, destPath string, mode accessType) error {
+	hostPathVolume, ok := hp.volumes[srcVolumeId]
 	if !ok {
 		return status.Error(codes.NotFound, "source volumeId does not exist, are source/destination in the same storage class?")
 	}
@@ -426,7 +462,7 @@ func loadFromFilesystemVolume(hostPathVolume hostPathVolume, destPath string) er
 	srcPath := hostPathVolume.VolPath
 	isEmpty, err := hostPathIsEmpty(srcPath)
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed verification check of source hostpath volume %v: %v", hostPathVolume.VolID, err)
+		return fmt.Errorf("failed verification check of source hostpath volume %v: %w", hostPathVolume.VolID, err)
 	}
 
 	// If the source hostpath volume is empty it's a noop and we just move along, otherwise the cp call will fail with a a file stat error DNE
@@ -435,7 +471,7 @@ func loadFromFilesystemVolume(hostPathVolume hostPathVolume, destPath string) er
 		executor := utilexec.New()
 		out, err := executor.Command("cp", args...).CombinedOutput()
 		if err != nil {
-			return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", hostPathVolume.VolID, err, out)
+			return fmt.Errorf("failed pre-populate data from volume %v: %s: %w", hostPathVolume.VolID, out, err)
 		}
 	}
 	return nil
@@ -447,15 +483,15 @@ func loadFromBlockVolume(hostPathVolume hostPathVolume, destPath string) error {
 	executor := utilexec.New()
 	out, err := executor.Command("dd", args...).CombinedOutput()
 	if err != nil {
-		return status.Errorf(codes.Internal, "failed pre-populate data from volume %v: %v: %s", hostPathVolume.VolID, err, out)
+		return fmt.Errorf("failed pre-populate data from volume %v: %w: %s", hostPathVolume.VolID, err, out)
 	}
 	return nil
 }
 
-func getSortedVolumeIDs() []string {
-	ids := make([]string, len(hostPathVolumes))
+func (hp *hostPath) getSortedVolumeIDs() []string {
+	ids := make([]string, len(hp.volumes))
 	index := 0
-	for volId := range hostPathVolumes {
+	for volId := range hp.volumes {
 		ids[index] = volId
 		index += 1
 	}
