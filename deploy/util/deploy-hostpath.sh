@@ -245,4 +245,11 @@ fi
 # expects it?
 if [ "${CSI_PROW_TEST_DRIVER}" ]; then
     cp "${BASE_DIR}/test-driver.yaml" "${CSI_PROW_TEST_DRIVER}"
+
+    # When testing late binding, pods must be forced to run on the
+    # same node as the hostpath driver. external-provisioner currently
+    # doesn't handle the case when the "wrong" node is chosen and gets
+    # stuck permanently with:
+    # error generating accessibility requirements: no topology key found on CSINode csi-prow-worker2
+    echo >>"${CSI_PROW_TEST_DRIVER}" "ClientNodeName: $(kubectl get pods/csi-hostpath-provisioner-0  -o jsonpath='{.spec.nodeName}')"
 fi
