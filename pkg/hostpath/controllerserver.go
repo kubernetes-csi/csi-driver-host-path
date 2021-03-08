@@ -27,6 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/pborman/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
@@ -37,8 +38,7 @@ import (
 )
 
 const (
-	deviceID           = "deviceID"
-	maxStorageCapacity = tib
+	deviceID = "deviceID"
 )
 
 type accessType int
@@ -361,15 +361,24 @@ func (hp *hostPath) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest
 	// Topology and capabilities are irrelevant. We only
 	// distinguish based on the "kind" parameter, if at all.
 	// Without configured capacity, we just have the maximum size.
-	available := maxStorageCapacity
+	available := hp.config.MaxVolumeSize
 	if hp.config.Capacity.Enabled() {
 		kind := req.GetParameters()[storageKind]
 		quantity := hp.config.Capacity.Check(kind)
 		available = quantity.Value()
 	}
+	maxVolumeSize := hp.config.MaxVolumeSize
+	if maxVolumeSize > available {
+		maxVolumeSize = available
+	}
 
 	return &csi.GetCapacityResponse{
 		AvailableCapacity: available,
+		MaximumVolumeSize: &wrappers.Int64Value{Value: maxVolumeSize},
+
+		// We don't have a minimum volume size, so we might as well report that.
+		// Better explicit than implicit...
+		MinimumVolumeSize: &wrappers.Int64Value{Value: 0},
 	}, nil
 }
 
@@ -694,8 +703,8 @@ func (hp *hostPath) ControllerExpandVolume(ctx context.Context, req *csi.Control
 	}
 
 	capacity := int64(capRange.GetRequiredBytes())
-	if capacity >= maxStorageCapacity {
-		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, maxStorageCapacity)
+	if capacity > hp.config.MaxVolumeSize {
+		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, hp.config.MaxVolumeSize)
 	}
 
 	// Lock before acting on global state. A production-quality

@@ -96,6 +96,7 @@ type Config struct {
 	NodeID            string
 	VendorVersion     string
 	MaxVolumesPerNode int64
+	MaxVolumeSize     int64
 	Capacity          Capacity
 	Ephemeral         bool
 	ShowVersion       bool
@@ -276,8 +277,8 @@ func getVolumePath(volID string) string {
 // It returns the volume path or err if one occurs. That error is suitable as result of a gRPC call.
 func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType accessType, ephemeral bool, kind string) (hpv *hostPathVolume, finalErr error) {
 	// Check for maximum available capacity
-	if cap >= maxStorageCapacity {
-		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", cap, maxStorageCapacity)
+	if cap > hp.config.MaxVolumeSize {
+		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", cap, hp.config.MaxVolumeSize)
 	}
 	if hp.config.Capacity.Enabled() {
 		actualKind, err := hp.config.Capacity.Alloc(kind, cap)
