@@ -20,3 +20,5 @@ DriverInfo:
     singleNodeVolume: true
     snapshotDataSource: true
     topology: true
+InlineVolumes:
+- shared: true
