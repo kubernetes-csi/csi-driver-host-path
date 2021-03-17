@@ -18,10 +18,6 @@ package hostpath
 
 import (
 	"encoding/json"
-	"fmt"
-	"net"
-	"os"
-	"strings"
 	"sync"
 
 	"github.com/golang/glog"
@@ -29,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/kubernetes-csi/csi-driver-host-path/internal/endpoint"
 	"github.com/kubernetes-csi/csi-lib-utils/protosanitizer"
 )
 
@@ -38,8 +35,9 @@ func NewNonBlockingGRPCServer() *nonBlockingGRPCServer {
 
 // NonBlocking server
 type nonBlockingGRPCServer struct {
-	wg     sync.WaitGroup
-	server *grpc.Server
+	wg      sync.WaitGroup
+	server  *grpc.Server
+	cleanup func()
 }
 
 func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
@@ -57,27 +55,16 @@ func (s *nonBlockingGRPCServer) Wait() {
 
 func (s *nonBlockingGRPCServer) Stop() {
 	s.server.GracefulStop()
+	s.cleanup()
 }
 
 func (s *nonBlockingGRPCServer) ForceStop() {
 	s.server.Stop()
+	s.cleanup()
 }
 
-func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
-
-	proto, addr, err := parseEndpoint(endpoint)
-	if err != nil {
-		glog.Fatal(err.Error())
-	}
-
-	if proto == "unix" {
-		addr = "/" + addr
-		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) { //nolint: vetshadow
-			glog.Fatalf("Failed to remove %s, error: %s", addr, err.Error())
-		}
-	}
-
-	listener, err := net.Listen(proto, addr)
+func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
+	listener, cleanup, err := endpoint.Listen(ep)
 	if err != nil {
 		glog.Fatalf("Failed to listen: %v", err)
 	}
@@ -87,6 +74,7 @@ func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, c
 	}
 	server := grpc.NewServer(opts...)
 	s.server = server
+	s.cleanup = cleanup
 
 	if ids != nil {
 		csi.RegisterIdentityServer(server, ids)
@@ -102,16 +90,6 @@ func (s *nonBlockingGRPCServer) serve(endpoint string, ids csi.IdentityServer, c
 
 	server.Serve(listener)
 
-}
-
-func parseEndpoint(ep string) (string, string, error) {
-	if strings.HasPrefix(strings.ToLower(ep), "unix://") || strings.HasPrefix(strings.ToLower(ep), "tcp://") {
-		s := strings.SplitN(ep, "://", 2)
-		if s[1] != "" {
-			return s[0], s[1], nil
-		}
-	}
-	return "", "", fmt.Errorf("Invalid endpoint: %v", ep)
 }
 
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {

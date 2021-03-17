@@ -17,11 +17,16 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"path"
+	"syscall"
 
+	"github.com/golang/glog"
+	"github.com/kubernetes-csi/csi-driver-host-path/internal/proxy"
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/hostpath"
 )
 
@@ -30,7 +35,7 @@ func init() {
 }
 
 var (
-	endpoint          = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	csiEndpoint       = flag.String("endpoint", "unix://tmp/csi.sock", "CSI endpoint")
 	driverName        = flag.String("drivername", "hostpath.csi.k8s.io", "name of the driver")
 	nodeID            = flag.String("nodeid", "", "node id")
 	ephemeral         = flag.Bool("ephemeral", false, "publish volumes in ephemeral mode even if kubelet did not ask for it (only needed for Kubernetes 1.15)")
@@ -42,6 +47,9 @@ var (
 		return c
 	}()
 	enableAttach = flag.Bool("enable-attach", false, "Enables RPC_PUBLISH_UNPUBLISH_VOLUME capability.")
+	// The proxy-endpoint option is intended to used by the Kubernetes E2E test suite
+	// for proxying incoming calls to the embedded mock CSI driver.
+	proxyEndpoint = flag.String("proxy-endpoint", "", "Instead of running the CSI driver code, just proxy connections from csiEndpoint to the given listening socket.")
 	// Set by the build process
 	version = ""
 )
@@ -59,7 +67,30 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Deprecation warning: The ephemeral flag is deprecated and should only be used when deploying on Kubernetes 1.15. It will be removed in the future.")
 	}
 
-	driver, err := hostpath.NewHostPathDriver(*driverName, *nodeID, *endpoint, *ephemeral, *maxVolumesPerNode, version, capacity, *enableAttach)
+	if *proxyEndpoint != "" {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		closer, err := proxy.Run(ctx, *csiEndpoint, *proxyEndpoint)
+		if err != nil {
+			glog.Fatalf("failed to run proxy: %v", err)
+		}
+		defer closer.Close()
+
+		// Wait for signal
+		sigc := make(chan os.Signal, 1)
+		sigs := []os.Signal{
+			syscall.SIGTERM,
+			syscall.SIGHUP,
+			syscall.SIGINT,
+			syscall.SIGQUIT,
+		}
+		signal.Notify(sigc, sigs...)
+
+		<-sigc
+		return
+	}
+
+	driver, err := hostpath.NewHostPathDriver(*driverName, *nodeID, *csiEndpoint, *ephemeral, *maxVolumesPerNode, version, capacity, *enableAttach)
 	if err != nil {
 		fmt.Printf("Failed to initialize driver: %s", err.Error())
 		os.Exit(1)
