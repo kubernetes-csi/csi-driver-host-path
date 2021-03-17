@@ -62,23 +62,28 @@ type hostPath struct {
 	// gRPC calls involving any of the fields below must be serialized
 	// by locking this mutex before starting. Internal helper
 	// functions assume that the mutex has been locked.
-	mutex     sync.Mutex
-	volumes   map[string]hostPathVolume
-	snapshots map[string]hostPathSnapshot
-	capacity  Capacity
+	mutex        sync.Mutex
+	volumes      map[string]hostPathVolume
+	snapshots    map[string]hostPathSnapshot
+	capacity     Capacity
+	enableAttach bool
 }
 
 type hostPathVolume struct {
-	VolName       string     `json:"volName"`
-	VolID         string     `json:"volID"`
-	VolSize       int64      `json:"volSize"`
-	VolPath       string     `json:"volPath"`
-	VolAccessType accessType `json:"volAccessType"`
-	ParentVolID   string     `json:"parentVolID,omitempty"`
-	ParentSnapID  string     `json:"parentSnapID,omitempty"`
-	Ephemeral     bool       `json:"ephemeral"`
-	NodeID        string     `json:"nodeID"`
-	Kind          string     `json:"kind"`
+	VolName        string     `json:"volName"`
+	VolID          string     `json:"volID"`
+	VolSize        int64      `json:"volSize"`
+	VolPath        string     `json:"volPath"`
+	VolAccessType  accessType `json:"volAccessType"`
+	ParentVolID    string     `json:"parentVolID,omitempty"`
+	ParentSnapID   string     `json:"parentSnapID,omitempty"`
+	Ephemeral      bool       `json:"ephemeral"`
+	NodeID         string     `json:"nodeID"`
+	Kind           string     `json:"kind"`
+	ReadOnlyAttach bool       `json:"readOnlyAttach"`
+	IsAttached     bool       `json:"isAttached"`
+	IsStaged       bool       `json:"isStaged"`
+	IsPublished    bool       `json:"isPublished"`
 }
 
 type hostPathSnapshot struct {
@@ -105,7 +110,7 @@ const (
 	snapshotExt = ".snap"
 )
 
-func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxVolumesPerNode int64, version string, capacity Capacity) (*hostPath, error) {
+func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxVolumesPerNode int64, version string, capacity Capacity, enableAttach bool) (*hostPath, error) {
 	if driverName == "" {
 		return nil, errors.New("no driver name provided")
 	}
@@ -136,6 +141,7 @@ func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxV
 		ephemeral:         ephemeral,
 		maxVolumesPerNode: maxVolumesPerNode,
 		capacity:          capacity,
+		enableAttach:      enableAttach,
 
 		volumes:   map[string]hostPathVolume{},
 		snapshots: map[string]hostPathSnapshot{},

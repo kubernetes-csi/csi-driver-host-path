@@ -79,6 +79,10 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
+	if !ephemeralVolume && !vol.IsStaged {
+		return nil, status.Errorf(codes.FailedPrecondition, "Volume ('%s') must be staged before publishing.", vol.VolID)
+	}
+
 	if req.GetVolumeCapability().GetBlock() != nil {
 		if vol.VolAccessType != blockAccess {
 			return nil, status.Error(codes.InvalidArgument, "cannot publish a non-block volume as block volume")
@@ -179,6 +183,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 	}
 
 	vol.NodeID = hp.nodeID
+	vol.IsPublished = true
 	hp.updateVolume(req.GetVolumeId(), vol)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
@@ -229,6 +234,11 @@ func (hp *hostPath) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpubl
 		if err := hp.deleteVolume(volumeID); err != nil && !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to delete volume: %w", err)
 		}
+	} else {
+		vol.IsPublished = false
+		if err := hp.updateVolume(vol.VolID, vol); err != nil {
+			return nil, fmt.Errorf("could not update volume %s: %w", vol.VolID, err)
+		}
 	}
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
@@ -247,6 +257,21 @@ func (hp *hostPath) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolum
 		return nil, status.Error(codes.InvalidArgument, "Volume Capability missing in request")
 	}
 
+	vol, err := hp.getVolumeByID(req.VolumeId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	if hp.enableAttach && !vol.IsAttached {
+		return nil, status.Errorf(codes.Internal, "ControllerPublishVolume must be called on volume '%s' before staging on node",
+			vol.VolID)
+	}
+
+	vol.IsStaged = true
+	if err := hp.updateVolume(vol.VolID, vol); err != nil {
+		return nil, fmt.Errorf("could not update volume %s: %w", vol.VolID, err)
+	}
+
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
@@ -258,6 +283,19 @@ func (hp *hostPath) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageV
 	}
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
+	}
+
+	vol, err := hp.getVolumeByID(req.VolumeId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	if vol.IsPublished {
+		return nil, status.Errorf(codes.Internal, "Volume '%s' is still pulished on '%s' node", vol.VolID, vol.NodeID)
+	}
+	vol.IsStaged = false
+	if err := hp.updateVolume(vol.VolID, vol); err != nil {
+		return nil, fmt.Errorf("could not update volume %s: %w", vol.VolID, err)
 	}
 
 	return &csi.NodeUnstageVolumeResponse{}, nil
