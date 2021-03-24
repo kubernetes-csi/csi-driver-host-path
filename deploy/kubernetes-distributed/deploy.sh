@@ -144,13 +144,19 @@ case "$CSI_PROVISIONER_TAG" in
     "") csistoragecapacities_api=v1alpha1;; # unchanged, assume version from YAML
     *) csistoragecapacities_api=v1beta1;; # set, assume that it is more recent *and* a version that uses v1beta1 (https://github.com/kubernetes-csi/external-provisioner/pull/584)
 esac
-resources=$(kubectl api-resources)
-if echo "$resources" | grep -q "csistoragecapacities.*storage.k8s.io/$csistoragecapacities_api"; then
-    have_csistoragecapacity=true
-else
+get_csistoragecapacities=$(kubectl get csistoragecapacities.${csistoragecapacities_api}.storage.k8s.io 2>&1 || true)
+if  echo "$get_csistoragecapacities" | grep -q "the server doesn't have a resource type"; then
     have_csistoragecapacity=false
+else
+    have_csistoragecapacity=true
+    echo "csistoragecapacities.${csistoragecapacities_api}.storage.k8s.io:"
+    show_lines=4
+    echo "$get_csistoragecapacities" | head -n $show_lines | sed -e 's/^/   /'
+    if [ $(echo "$get_csistoragecapacities" | wc -l) -gt $show_lines ]; then
+        echo "   ..."
+    fi
 fi
-echo "deploying with CSIStorageCapacity: $have_csistoragecapacity"
+echo "deploying with CSIStorageCapacity $csistoragecapacities_api: $have_csistoragecapacity"
 
 # deploy hostpath plugin and registrar sidecar
 echo "deploying hostpath components"
