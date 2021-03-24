@@ -136,11 +136,21 @@ for component in CSI_PROVISIONER; do
     run kubectl apply -f "${current}"
 done
 
-if kubectl get csistoragecapacities 2>&1 | grep "the server doesn't have a resource type"; then
-    have_csistoragecapacity=false
-else
+# The cluster must support exactly the version that the external-provisioner supports.
+# The problem then becomes that the version of the external-provisioner might get
+# changed via CSI_PROVISIONER_TAG, so we cannot just check for the version currently
+# listed in the YAML file.
+case "$CSI_PROVISIONER_TAG" in
+    "") csistoragecapacities_api=v1alpha1;; # unchanged, assume version from YAML
+    *) csistoragecapacities_api=v1beta1;; # set, assume that it is more recent *and* a version that uses v1beta1 (https://github.com/kubernetes-csi/external-provisioner/pull/584)
+esac
+resources=$(kubectl api-resources)
+if echo "$resources" | grep -q "csistoragecapacities.*storage.k8s.io/$csistoragecapacities_api"; then
     have_csistoragecapacity=true
+else
+    have_csistoragecapacity=false
 fi
+echo "deploying with CSIStorageCapacity: $have_csistoragecapacity"
 
 # deploy hostpath plugin and registrar sidecar
 echo "deploying hostpath components"
