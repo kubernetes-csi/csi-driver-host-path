@@ -64,7 +64,9 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		volID := req.GetVolumeId()
 		volName := fmt.Sprintf("ephemeral-%s", volID)
 		kind := req.GetVolumeContext()[storageKind]
-		vol, err := hp.createVolume(req.GetVolumeId(), volName, maxStorageCapacity, mountAccess, ephemeralVolume, kind)
+		// Configurable size would be nice. For now we use a small, fixed volume size of 100Mi.
+		volSize := int64(100 * 1024 * 1024)
+		vol, err := hp.createVolume(req.GetVolumeId(), volName, volSize, mountAccess, ephemeralVolume, kind)
 		if err != nil && !os.IsExist(err) {
 			glog.Error("ephemeral mode failed to create volume: ", err)
 			return nil, err

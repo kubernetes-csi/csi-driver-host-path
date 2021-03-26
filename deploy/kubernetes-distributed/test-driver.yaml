@@ -16,3 +16,5 @@ DriverInfo:
     persistence: true
     singleNodeVolume: true
     topology: true
+InlineVolumes:
+- shared: true
