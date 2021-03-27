@@ -304,6 +304,11 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 		}, nil
 	}
 
+	// Check attach limit before publishing.
+	if hp.config.AttachLimit > 0 && hp.getAttachCount() >= hp.config.AttachLimit {
+		return nil, status.Errorf(codes.ResourceExhausted, "Cannot attach any more volumes to this node ('%s')", hp.config.NodeID)
+	}
+
 	vol.IsAttached = true
 	vol.ReadOnlyAttach = req.GetReadonly()
 	if err := hp.updateVolume(vol.VolID, vol); err != nil {

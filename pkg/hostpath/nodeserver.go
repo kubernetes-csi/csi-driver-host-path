@@ -313,6 +313,10 @@ func (hp *hostPath) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest
 		}
 	}
 
+	if hp.config.AttachLimit > 0 {
+		resp.MaxVolumesPerNode = hp.config.AttachLimit
+	}
+
 	return resp, nil
 }
 
