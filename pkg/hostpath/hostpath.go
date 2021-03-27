@@ -91,18 +91,19 @@ type hostPathSnapshot struct {
 }
 
 type Config struct {
-	DriverName        string
-	Endpoint          string
-	ProxyEndpoint     string
-	NodeID            string
-	VendorVersion     string
-	MaxVolumesPerNode int64
-	MaxVolumeSize     int64
-	Capacity          Capacity
-	Ephemeral         bool
-	ShowVersion       bool
-	EnableAttach      bool
-	EnableTopology    bool
+	DriverName            string
+	Endpoint              string
+	ProxyEndpoint         string
+	NodeID                string
+	VendorVersion         string
+	MaxVolumesPerNode     int64
+	MaxVolumeSize         int64
+	Capacity              Capacity
+	Ephemeral             bool
+	ShowVersion           bool
+	EnableAttach          bool
+	EnableTopology        bool
+	EnableVolumeExpansion bool
 }
 
 var (
