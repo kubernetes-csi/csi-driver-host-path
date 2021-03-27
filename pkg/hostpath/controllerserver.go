@@ -99,8 +99,9 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	defer hp.mutex.Unlock()
 
 	capacity := int64(req.GetCapacityRange().GetRequiredBytes())
-	topologies := []*csi.Topology{
-		{Segments: map[string]string{TopologyKeyNode: hp.config.NodeID}},
+	topologies := []*csi.Topology{}
+	if hp.config.EnableTopology {
+		topologies = append(topologies, &csi.Topology{Segments: map[string]string{TopologyKeyNode: hp.config.NodeID}})
 	}
 
 	// Need to check for already existing volume name, and if found

@@ -302,16 +302,18 @@ func (hp *hostPath) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageV
 }
 
 func (hp *hostPath) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
-
-	topology := &csi.Topology{
-		Segments: map[string]string{TopologyKeyNode: hp.config.NodeID},
+	resp := &csi.NodeGetInfoResponse{
+		NodeId:            hp.config.NodeID,
+		MaxVolumesPerNode: hp.config.MaxVolumesPerNode,
 	}
 
-	return &csi.NodeGetInfoResponse{
-		NodeId:             hp.config.NodeID,
-		MaxVolumesPerNode:  hp.config.MaxVolumesPerNode,
-		AccessibleTopology: topology,
-	}, nil
+	if hp.config.EnableTopology {
+		resp.AccessibleTopology = &csi.Topology{
+			Segments: map[string]string{TopologyKeyNode: hp.config.NodeID},
+		}
+	}
+
+	return resp, nil
 }
 
 func (hp *hostPath) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {

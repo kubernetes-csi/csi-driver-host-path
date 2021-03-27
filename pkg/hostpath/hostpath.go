@@ -102,6 +102,7 @@ type Config struct {
 	Ephemeral         bool
 	ShowVersion       bool
 	EnableAttach      bool
+	EnableTopology    bool
 }
 
 var (
