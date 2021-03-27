@@ -100,7 +100,7 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 
 	capacity := int64(req.GetCapacityRange().GetRequiredBytes())
 	topologies := []*csi.Topology{
-		{Segments: map[string]string{TopologyKeyNode: hp.nodeID}},
+		{Segments: map[string]string{TopologyKeyNode: hp.config.NodeID}},
 	}
 
 	// Need to check for already existing volume name, and if found
@@ -265,7 +265,7 @@ func (hp *hostPath) ValidateVolumeCapabilities(ctx context.Context, req *csi.Val
 }
 
 func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	if !hp.enableAttach {
+	if !hp.config.EnableAttach {
 		return nil, status.Error(codes.Unimplemented, "ControllerPublishVolume is not supported")
 	}
 
@@ -279,8 +279,8 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 		return nil, status.Error(codes.InvalidArgument, "Volume Capabilities cannot be empty")
 	}
 
-	if req.NodeId != hp.nodeID {
-		return nil, status.Errorf(codes.NotFound, "Not matching Node ID %s to hostpath Node ID %s", req.NodeId, hp.nodeID)
+	if req.NodeId != hp.config.NodeID {
+		return nil, status.Errorf(codes.NotFound, "Not matching Node ID %s to hostpath Node ID %s", req.NodeId, hp.config.NodeID)
 	}
 
 	hp.mutex.Lock()
@@ -315,7 +315,7 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 }
 
 func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	if !hp.enableAttach {
+	if !hp.config.EnableAttach {
 		return nil, status.Error(codes.Unimplemented, "ControllerUnpublishVolume is not supported")
 	}
 
@@ -324,8 +324,8 @@ func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.Cont
 	}
 
 	// Empty node id is not a failure as per Spec
-	if req.NodeId != "" && req.NodeId != hp.nodeID {
-		return nil, status.Errorf(codes.NotFound, "Node ID %s does not match to expected Node ID %s", req.NodeId, hp.nodeID)
+	if req.NodeId != "" && req.NodeId != hp.config.NodeID {
+		return nil, status.Errorf(codes.NotFound, "Node ID %s does not match to expected Node ID %s", req.NodeId, hp.config.NodeID)
 	}
 
 	hp.mutex.Lock()
@@ -362,9 +362,9 @@ func (hp *hostPath) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest
 	// distinguish based on the "kind" parameter, if at all.
 	// Without configured capacity, we just have the maximum size.
 	available := maxStorageCapacity
-	if hp.capacity.Enabled() {
+	if hp.config.Capacity.Enabled() {
 		kind := req.GetParameters()[storageKind]
-		quantity := hp.capacity.Check(kind)
+		quantity := hp.config.Capacity.Check(kind)
 		available = quantity.Value()
 	}
 
@@ -756,7 +756,7 @@ func (hp *hostPath) validateControllerServiceRequest(c csi.ControllerServiceCapa
 
 func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceCapability {
 	var cl []csi.ControllerServiceCapability_RPC_Type
-	if !hp.ephemeral {
+	if !hp.config.Ephemeral {
 		cl = []csi.ControllerServiceCapability_RPC_Type{
 			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 			csi.ControllerServiceCapability_RPC_GET_VOLUME,
@@ -768,7 +768,7 @@ func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceC
 			csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			csi.ControllerServiceCapability_RPC_VOLUME_CONDITION,
 		}
-		if hp.enableAttach {
+		if hp.config.EnableAttach {
 			cl = append(cl, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME)
 		}
 	}

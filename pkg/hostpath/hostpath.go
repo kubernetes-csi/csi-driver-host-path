@@ -52,21 +52,14 @@ const (
 )
 
 type hostPath struct {
-	name              string
-	nodeID            string
-	version           string
-	endpoint          string
-	ephemeral         bool
-	maxVolumesPerNode int64
+	config Config
 
 	// gRPC calls involving any of the fields below must be serialized
 	// by locking this mutex before starting. Internal helper
 	// functions assume that the mutex has been locked.
-	mutex        sync.Mutex
-	volumes      map[string]hostPathVolume
-	snapshots    map[string]hostPathSnapshot
-	capacity     Capacity
-	enableAttach bool
+	mutex     sync.Mutex
+	volumes   map[string]hostPathVolume
+	snapshots map[string]hostPathSnapshot
 }
 
 type hostPathVolume struct {
@@ -96,6 +89,19 @@ type hostPathSnapshot struct {
 	ReadyToUse   bool                 `json:"readyToUse"`
 }
 
+type Config struct {
+	DriverName        string
+	Endpoint          string
+	ProxyEndpoint     string
+	NodeID            string
+	VendorVersion     string
+	MaxVolumesPerNode int64
+	Capacity          Capacity
+	Ephemeral         bool
+	ShowVersion       bool
+	EnableAttach      bool
+}
+
 var (
 	vendorVersion = "dev"
 )
@@ -110,39 +116,28 @@ const (
 	snapshotExt = ".snap"
 )
 
-func NewHostPathDriver(driverName, nodeID, endpoint string, ephemeral bool, maxVolumesPerNode int64, version string, capacity Capacity, enableAttach bool) (*hostPath, error) {
-	if driverName == "" {
+func NewHostPathDriver(cfg Config) (*hostPath, error) {
+	if cfg.DriverName == "" {
 		return nil, errors.New("no driver name provided")
 	}
 
-	if nodeID == "" {
+	if cfg.NodeID == "" {
 		return nil, errors.New("no node id provided")
 	}
 
-	if endpoint == "" {
+	if cfg.Endpoint == "" {
 		return nil, errors.New("no driver endpoint provided")
-	}
-	if version != "" {
-		vendorVersion = version
 	}
 
 	if err := os.MkdirAll(dataRoot, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create dataRoot: %v", err)
 	}
 
-	glog.Infof("Driver: %v ", driverName)
-	glog.Infof("Version: %s", vendorVersion)
+	glog.Infof("Driver: %v ", cfg.DriverName)
+	glog.Infof("Version: %s", cfg.VendorVersion)
 
 	hp := &hostPath{
-		name:              driverName,
-		version:           vendorVersion,
-		nodeID:            nodeID,
-		endpoint:          endpoint,
-		ephemeral:         ephemeral,
-		maxVolumesPerNode: maxVolumesPerNode,
-		capacity:          capacity,
-		enableAttach:      enableAttach,
-
+		config:    cfg,
 		volumes:   map[string]hostPathVolume{},
 		snapshots: map[string]hostPathSnapshot{},
 	}
@@ -224,8 +219,8 @@ func (hp *hostPath) discoveryExistingVolumes() error {
 			return err
 		}
 
-		if hpv.Kind != "" && hp.capacity.Enabled() {
-			if _, err := hp.capacity.Alloc(hpv.Kind, hpv.VolSize); err != nil {
+		if hpv.Kind != "" && hp.config.Capacity.Enabled() {
+			if _, err := hp.config.Capacity.Alloc(hpv.Kind, hpv.VolSize); err != nil {
 				return fmt.Errorf("existing volume(s) do not match new capacity configuration: %v", err)
 			}
 		}
@@ -239,7 +234,7 @@ func (hp *hostPath) discoveryExistingVolumes() error {
 func (hp *hostPath) Run() error {
 	s := NewNonBlockingGRPCServer()
 	// hp itself implements ControllerServer, NodeServer, and IdentityServer.
-	s.Start(hp.endpoint, hp, hp, hp)
+	s.Start(hp.config.Endpoint, hp, hp, hp)
 	s.Wait()
 
 	return nil
@@ -284,15 +279,15 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType ac
 	if cap >= maxStorageCapacity {
 		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", cap, maxStorageCapacity)
 	}
-	if hp.capacity.Enabled() {
-		actualKind, err := hp.capacity.Alloc(kind, cap)
+	if hp.config.Capacity.Enabled() {
+		actualKind, err := hp.config.Capacity.Alloc(kind, cap)
 		if err != nil {
 			return nil, err
 		}
 		// Free the capacity in case of any error - either a volume gets created or it doesn't.
 		defer func() {
 			if finalErr != nil {
-				hp.capacity.Free(actualKind, cap)
+				hp.config.Capacity.Free(actualKind, cap)
 			}
 		}()
 		kind = actualKind
@@ -387,8 +382,8 @@ func (hp *hostPath) deleteVolume(volID string) error {
 	if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if hp.capacity.Enabled() {
-		hp.capacity.Free(vol.Kind, vol.VolSize)
+	if hp.config.Capacity.Enabled() {
+		hp.config.Capacity.Free(vol.Kind, vol.VolSize)
 	}
 	delete(hp.volumes, volID)
 	glog.V(4).Infof("deleted hostpath volume: %s = %+v", volID, vol)
