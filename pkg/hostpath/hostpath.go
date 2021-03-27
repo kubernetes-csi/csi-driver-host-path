@@ -423,7 +423,7 @@ func (hp *hostPath) loadFromSnapshot(size int64, snapshotId, destPath string, mo
 	if !ok {
 		return status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
 	}
-	if snapshot.ReadyToUse != true {
+	if !snapshot.ReadyToUse {
 		return fmt.Errorf("snapshot %v is not yet ready to use", snapshotId)
 	}
 	if snapshot.SizeBytes > size {
