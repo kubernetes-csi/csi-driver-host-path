@@ -1,6 +1,15 @@
-# Release notes for v1.6.1
+# Release notes for v1.6.2
 
 [Documentation](https://kubernetes-csi.github.io)
+
+# Changelog since v1.6.1
+
+## Changes by Kind
+
+### Bug or Regression
+ - The YAML files in v1.6.1 should have used the v1.6.1 image, but were still using v1.6.0. ([#266](https://github.com/kubernetes-csi/csi-driver-host-path/pull/266), [@pohly](https://github.com/pohly))
+
+# Release notes for v1.6.1
 
 # Changelog since v1.6.0
 
