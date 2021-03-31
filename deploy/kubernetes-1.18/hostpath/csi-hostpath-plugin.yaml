@@ -34,7 +34,7 @@ spec:
       labels:
         app: csi-hostpathplugin
     spec:
-      serviceAccount: csi-external-health-monitor-controller
+      serviceAccountName: csi-external-health-monitor-controller
       containers:
         - name: csi-external-health-monitor-agent
           image: k8s.gcr.io/sig-storage/csi-external-health-monitor-agent:v0.2.0

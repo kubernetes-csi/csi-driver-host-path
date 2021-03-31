@@ -23,7 +23,7 @@ spec:
                 values:
                 - csi-hostpathplugin
             topologyKey: kubernetes.io/hostname
-      serviceAccount: csi-snapshotter
+      serviceAccountName: csi-snapshotter
       containers:
         - name: csi-snapshotter
           image: k8s.gcr.io/sig-storage/csi-snapshotter:v4.0.0
