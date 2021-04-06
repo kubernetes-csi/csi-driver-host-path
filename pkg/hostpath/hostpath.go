@@ -183,7 +183,11 @@ func (h *hostPath) discoverExistingSnapshots() {
 }
 
 func (hp *hostPath) discoveryExistingVolumes() error {
-	cmdPath := locateCommandPath("findmnt")
+	cmdPath, err := exec.LookPath("findmnt")
+	if err != nil {
+		return fmt.Errorf("findmnt not found: %w", err)
+	}
+
 	out, err := exec.Command(cmdPath, "--json").CombinedOutput()
 	if err != nil {
 		glog.V(3).Infof("failed to execute command: %+v", cmdPath)
