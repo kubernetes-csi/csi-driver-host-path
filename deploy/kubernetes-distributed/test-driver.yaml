@@ -16,5 +16,8 @@ DriverInfo:
     persistence: true
     singleNodeVolume: true
     topology: true
+    capacity: true # will be adapted by deploy.sh based on cluster support for CSIStorageCapacity
+  TopologyKeys:
+  - topology.hostpath.csi/node
 InlineVolumes:
 - shared: true
