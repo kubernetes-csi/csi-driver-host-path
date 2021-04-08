@@ -40,7 +40,9 @@ var (
 )
 
 func main() {
-	var cfg hostpath.Config
+	cfg := hostpath.Config{
+		VendorVersion: version,
+	}
 
 	flag.StringVar(&cfg.Endpoint, "endpoint", "unix://tmp/csi.sock", "CSI endpoint")
 	flag.StringVar(&cfg.DriverName, "drivername", "hostpath.csi.k8s.io", "name of the driver")
@@ -87,10 +89,6 @@ func main() {
 
 		<-sigc
 		return
-	}
-
-	if version != "" {
-		cfg.VendorVersion = version
 	}
 
 	driver, err := hostpath.NewHostPathDriver(cfg)
