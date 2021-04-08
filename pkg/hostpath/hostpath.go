@@ -33,6 +33,7 @@ import (
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/api/resource"
 	fs "k8s.io/kubernetes/pkg/volume/util/fs"
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 	utilexec "k8s.io/utils/exec"
@@ -219,12 +220,6 @@ func (hp *hostPath) discoveryExistingVolumes() error {
 		if err != nil {
 			return err
 		}
-
-		if hpv.Kind != "" && hp.config.Capacity.Enabled() {
-			if _, err := hp.config.Capacity.Alloc(hpv.Kind, hpv.VolSize); err != nil {
-				return fmt.Errorf("existing volume(s) do not match new capacity configuration: %v", err)
-			}
-		}
 		hp.volumes[hpv.VolID] = *hpv
 	}
 
@@ -281,17 +276,26 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType ac
 		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", cap, hp.config.MaxVolumeSize)
 	}
 	if hp.config.Capacity.Enabled() {
-		actualKind, err := hp.config.Capacity.Alloc(kind, cap)
-		if err != nil {
-			return nil, err
-		}
-		// Free the capacity in case of any error - either a volume gets created or it doesn't.
-		defer func() {
-			if finalErr != nil {
-				hp.config.Capacity.Free(actualKind, cap)
+		if kind == "" {
+			// Pick some kind with sufficient remaining capacity.
+			for k, c := range hp.config.Capacity {
+				if hp.sumVolumeSizes(k)+cap <= c.Value() {
+					kind = k
+					break
+				}
 			}
-		}()
-		kind = actualKind
+		}
+		if kind == "" {
+			// Still nothing?!
+			return nil, status.Errorf(codes.OutOfRange, "requested capacity %d of arbitrary storage exceeds all remaining capacity", cap)
+		}
+		used := hp.sumVolumeSizes(kind)
+		available := hp.config.Capacity[kind]
+		if used+cap > available.Value() {
+
+			return nil, status.Errorf(codes.OutOfRange, "requested capacity %d exceeds remaining capacity for %q, %s out of %s already used",
+				cap, kind, resource.NewQuantity(used, resource.BinarySI).String(), available.String())
+		}
 	} else if kind != "" {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("capacity tracking disabled, specifying kind %q is invalid", kind))
 	}
@@ -383,12 +387,18 @@ func (hp *hostPath) deleteVolume(volID string) error {
 	if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if hp.config.Capacity.Enabled() {
-		hp.config.Capacity.Free(vol.Kind, vol.VolSize)
-	}
 	delete(hp.volumes, volID)
 	glog.V(4).Infof("deleted hostpath volume: %s = %+v", volID, vol)
 	return nil
+}
+
+func (hp *hostPath) sumVolumeSizes(kind string) (sum int64) {
+	for _, volume := range hp.volumes {
+		if volume.Kind == kind {
+			sum += volume.VolSize
+		}
+	}
+	return
 }
 
 // hostPathIsEmpty is a simple check to determine if the specified hostpath directory

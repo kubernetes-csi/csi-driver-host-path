@@ -363,9 +363,13 @@ func (hp *hostPath) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest
 	// Without configured capacity, we just have the maximum size.
 	available := hp.config.MaxVolumeSize
 	if hp.config.Capacity.Enabled() {
+		// Empty "kind" will return "zero capacity". There is no fallback
+		// to some arbitrary kind here because in practice it always should
+		// be set.
 		kind := req.GetParameters()[storageKind]
-		quantity := hp.config.Capacity.Check(kind)
-		available = quantity.Value()
+		quantity := hp.config.Capacity[kind]
+		allocated := hp.sumVolumeSizes(kind)
+		available = quantity.Value() - allocated
 	}
 	maxVolumeSize := hp.config.MaxVolumeSize
 	if maxVolumeSize > available {
