@@ -233,5 +233,5 @@ fi
 # Create a test driver configuration in the place where the prow job
 # expects it?
 if [ "${CSI_PROW_TEST_DRIVER}" ]; then
-    sed -e "s/capacity: true/capacity: ${have_csistoragecapacity}/" >"${BASE_DIR}/test-driver.yaml" "${CSI_PROW_TEST_DRIVER}"
+    sed -e "s/capacity: true/capacity: ${have_csistoragecapacity}/" "${BASE_DIR}/test-driver.yaml" >"${CSI_PROW_TEST_DRIVER}"
 fi
