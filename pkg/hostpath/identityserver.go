@@ -27,17 +27,17 @@ import (
 func (hp *hostPath) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
 	glog.V(5).Infof("Using default GetPluginInfo")
 
-	if hp.name == "" {
+	if hp.config.DriverName == "" {
 		return nil, status.Error(codes.Unavailable, "Driver name not configured")
 	}
 
-	if hp.version == "" {
+	if hp.config.VendorVersion == "" {
 		return nil, status.Error(codes.Unavailable, "Driver is missing version")
 	}
 
 	return &csi.GetPluginInfoResponse{
-		Name:          hp.name,
-		VendorVersion: hp.version,
+		Name:          hp.config.DriverName,
+		VendorVersion: hp.config.VendorVersion,
 	}, nil
 }
 

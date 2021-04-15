@@ -27,6 +27,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/pborman/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
@@ -37,8 +38,7 @@ import (
 )
 
 const (
-	deviceID           = "deviceID"
-	maxStorageCapacity = tib
+	deviceID = "deviceID"
 )
 
 type accessType int
@@ -100,7 +100,7 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 
 	capacity := int64(req.GetCapacityRange().GetRequiredBytes())
 	topologies := []*csi.Topology{
-		{Segments: map[string]string{TopologyKeyNode: hp.nodeID}},
+		{Segments: map[string]string{TopologyKeyNode: hp.config.NodeID}},
 	}
 
 	// Need to check for already existing volume name, and if found
@@ -265,7 +265,7 @@ func (hp *hostPath) ValidateVolumeCapabilities(ctx context.Context, req *csi.Val
 }
 
 func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	if !hp.enableAttach {
+	if !hp.config.EnableAttach {
 		return nil, status.Error(codes.Unimplemented, "ControllerPublishVolume is not supported")
 	}
 
@@ -279,8 +279,8 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 		return nil, status.Error(codes.InvalidArgument, "Volume Capabilities cannot be empty")
 	}
 
-	if req.NodeId != hp.nodeID {
-		return nil, status.Errorf(codes.NotFound, "Not matching Node ID %s to hostpath Node ID %s", req.NodeId, hp.nodeID)
+	if req.NodeId != hp.config.NodeID {
+		return nil, status.Errorf(codes.NotFound, "Not matching Node ID %s to hostpath Node ID %s", req.NodeId, hp.config.NodeID)
 	}
 
 	hp.mutex.Lock()
@@ -315,7 +315,7 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 }
 
 func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	if !hp.enableAttach {
+	if !hp.config.EnableAttach {
 		return nil, status.Error(codes.Unimplemented, "ControllerUnpublishVolume is not supported")
 	}
 
@@ -324,8 +324,8 @@ func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.Cont
 	}
 
 	// Empty node id is not a failure as per Spec
-	if req.NodeId != "" && req.NodeId != hp.nodeID {
-		return nil, status.Errorf(codes.NotFound, "Node ID %s does not match to expected Node ID %s", req.NodeId, hp.nodeID)
+	if req.NodeId != "" && req.NodeId != hp.config.NodeID {
+		return nil, status.Errorf(codes.NotFound, "Node ID %s does not match to expected Node ID %s", req.NodeId, hp.config.NodeID)
 	}
 
 	hp.mutex.Lock()
@@ -361,15 +361,28 @@ func (hp *hostPath) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest
 	// Topology and capabilities are irrelevant. We only
 	// distinguish based on the "kind" parameter, if at all.
 	// Without configured capacity, we just have the maximum size.
-	available := maxStorageCapacity
-	if hp.capacity.Enabled() {
+	available := hp.config.MaxVolumeSize
+	if hp.config.Capacity.Enabled() {
+		// Empty "kind" will return "zero capacity". There is no fallback
+		// to some arbitrary kind here because in practice it always should
+		// be set.
 		kind := req.GetParameters()[storageKind]
-		quantity := hp.capacity.Check(kind)
-		available = quantity.Value()
+		quantity := hp.config.Capacity[kind]
+		allocated := hp.sumVolumeSizes(kind)
+		available = quantity.Value() - allocated
+	}
+	maxVolumeSize := hp.config.MaxVolumeSize
+	if maxVolumeSize > available {
+		maxVolumeSize = available
 	}
 
 	return &csi.GetCapacityResponse{
 		AvailableCapacity: available,
+		MaximumVolumeSize: &wrappers.Int64Value{Value: maxVolumeSize},
+
+		// We don't have a minimum volume size, so we might as well report that.
+		// Better explicit than implicit...
+		MinimumVolumeSize: &wrappers.Int64Value{Value: 0},
 	}, nil
 }
 
@@ -694,8 +707,8 @@ func (hp *hostPath) ControllerExpandVolume(ctx context.Context, req *csi.Control
 	}
 
 	capacity := int64(capRange.GetRequiredBytes())
-	if capacity >= maxStorageCapacity {
-		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, maxStorageCapacity)
+	if capacity > hp.config.MaxVolumeSize {
+		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, hp.config.MaxVolumeSize)
 	}
 
 	// Lock before acting on global state. A production-quality
@@ -756,7 +769,7 @@ func (hp *hostPath) validateControllerServiceRequest(c csi.ControllerServiceCapa
 
 func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceCapability {
 	var cl []csi.ControllerServiceCapability_RPC_Type
-	if !hp.ephemeral {
+	if !hp.config.Ephemeral {
 		cl = []csi.ControllerServiceCapability_RPC_Type{
 			csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 			csi.ControllerServiceCapability_RPC_GET_VOLUME,
@@ -768,7 +781,7 @@ func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceC
 			csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			csi.ControllerServiceCapability_RPC_VOLUME_CONDITION,
 		}
-		if hp.enableAttach {
+		if hp.config.EnableAttach {
 			cl = append(cl, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME)
 		}
 	}

@@ -22,24 +22,26 @@ import (
 	"fmt"
 	"strings"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // Capacity simulates linear storage of certain types ("fast",
-// "slow"). When volumes of those types get created, they must
-// allocate storage (which can fail!) and that storage must
-// be freed again when volumes get destroyed.
+// "slow"). To calculate the amount of allocated space, the size of
+// all currently existing volumes of the same kind is summed up.
 //
 // Available capacity is configurable with a command line flag
 // -capacity <type>=<size> where <type> is a string and <size>
 // is a quantity (1T, 1Gi). More than one of those
 // flags can be used.
+//
+// The underlying map will be initialized if needed by Set,
+// which makes it possible to define and use a Capacity instance
+// without explicit initialization (`var capacity Capacity` or as
+// member in a struct).
 type Capacity map[string]resource.Quantity
 
 // Set is an implementation of flag.Value.Set.
-func (c Capacity) Set(arg string) error {
+func (c *Capacity) Set(arg string) error {
 	parts := strings.SplitN(arg, "=", 2)
 	if len(parts) != 2 {
 		return errors.New("must be of format <type>=<size>")
@@ -50,74 +52,20 @@ func (c Capacity) Set(arg string) error {
 	}
 
 	// We overwrite any previous value.
-	c[parts[0]] = quantity
+	if *c == nil {
+		*c = Capacity{}
+	}
+	(*c)[parts[0]] = quantity
 	return nil
 }
 
-func (c Capacity) String() string {
-	return fmt.Sprintf("%v", map[string]resource.Quantity(c))
+func (c *Capacity) String() string {
+	return fmt.Sprintf("%v", map[string]resource.Quantity(*c))
 }
 
 var _ flag.Value = &Capacity{}
 
-// Alloc reserves a certain amount of bytes. Errors are
-// usable as result of gRPC calls. Empty kind means
-// that any large enough one is fine.
-func (c Capacity) Alloc(kind string, size int64) (actualKind string, err error) {
-	requested := *resource.NewQuantity(size, resource.BinarySI)
-
-	if kind == "" {
-		for k, quantity := range c {
-			if quantity.Value() >= size {
-				kind = k
-				break
-			}
-		}
-		// Still nothing?
-		if kind == "" {
-			available := c.Check("")
-			return "", status.Error(codes.ResourceExhausted,
-				fmt.Sprintf("not enough capacity: have %s, need %s", available.String(), requested.String()))
-		}
-	}
-
-	available, ok := c[kind]
-	if !ok {
-		return "", status.Error(codes.InvalidArgument, fmt.Sprintf("unknown capacity kind: %q", kind))
-	}
-	if available.Cmp(requested) < 0 {
-		return "", status.Error(codes.ResourceExhausted,
-			fmt.Sprintf("not enough capacity of kind %q: have %s, need %s", kind, available.String(), requested.String()))
-	}
-	available.Sub(requested)
-	c[kind] = available
-	return kind, nil
-}
-
-// Free returns capacity reserved earlier with Alloc.
-func (c Capacity) Free(kind string, size int64) {
-	available := c[kind]
-	available.Add(*resource.NewQuantity(size, resource.BinarySI))
-	c[kind] = available
-}
-
-// Check reports available capacity for a certain kind.
-// If empty, it reports the maximum capacity.
-func (c Capacity) Check(kind string) resource.Quantity {
-	if kind != "" {
-		quantity := c[kind]
-		return quantity
-	}
-	available := resource.Quantity{}
-	for _, q := range c {
-		if q.Cmp(available) >= 0 {
-			available = q
-		}
-	}
-	return available
-}
-
 // Enabled returns true if capacities are configured.
-func (c Capacity) Enabled() bool {
-	return len(c) > 0
+func (c *Capacity) Enabled() bool {
+	return len(*c) > 0
 }

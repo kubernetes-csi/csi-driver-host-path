@@ -47,7 +47,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 
 	targetPath := req.GetTargetPath()
 	ephemeralVolume := req.GetVolumeContext()["csi.storage.k8s.io/ephemeral"] == "true" ||
-		req.GetVolumeContext()["csi.storage.k8s.io/ephemeral"] == "" && hp.ephemeral // Kubernetes 1.15 doesn't have csi.storage.k8s.io/ephemeral.
+		req.GetVolumeContext()["csi.storage.k8s.io/ephemeral"] == "" && hp.config.Ephemeral // Kubernetes 1.15 doesn't have csi.storage.k8s.io/ephemeral.
 
 	if req.GetVolumeCapability().GetBlock() != nil &&
 		req.GetVolumeCapability().GetMount() != nil {
@@ -182,7 +182,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		}
 	}
 
-	vol.NodeID = hp.nodeID
+	vol.NodeID = hp.config.NodeID
 	vol.IsPublished = true
 	hp.updateVolume(req.GetVolumeId(), vol)
 	return &csi.NodePublishVolumeResponse{}, nil
@@ -262,7 +262,7 @@ func (hp *hostPath) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolum
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	if hp.enableAttach && !vol.IsAttached {
+	if hp.config.EnableAttach && !vol.IsAttached {
 		return nil, status.Errorf(codes.Internal, "ControllerPublishVolume must be called on volume '%s' before staging on node",
 			vol.VolID)
 	}
@@ -304,12 +304,12 @@ func (hp *hostPath) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageV
 func (hp *hostPath) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 
 	topology := &csi.Topology{
-		Segments: map[string]string{TopologyKeyNode: hp.nodeID},
+		Segments: map[string]string{TopologyKeyNode: hp.config.NodeID},
 	}
 
 	return &csi.NodeGetInfoResponse{
-		NodeId:             hp.nodeID,
-		MaxVolumesPerNode:  hp.maxVolumesPerNode,
+		NodeId:             hp.config.NodeID,
+		MaxVolumesPerNode:  hp.config.MaxVolumesPerNode,
 		AccessibleTopology: topology,
 	}, nil
 }
