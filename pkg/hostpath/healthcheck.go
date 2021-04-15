@@ -144,10 +144,8 @@ func (hp *hostPath) checkPVCapacityValid(volumeHandle string) (bool, error) {
 	return fscapacity >= volumeCapacity, nil
 }
 
-func getPVCapacity(volumeHandle string) (int64, int64, int64, error) {
-	sourcePath := getSourcePath(volumeHandle)
-	fsavailable, fscapacity, fsused, _, _, _, err := fs.FsInfo(sourcePath)
-	return fscapacity, fsused, fsavailable, err
+func getPVStats(volumePath string) (available int64, capacity int64, used int64, inodes int64, inodesFree int64, inodesUsed int64, err error) {
+	return fs.FsInfo(volumePath)
 }
 
 func checkPVUsage(volumeHandle string) (bool, error) {

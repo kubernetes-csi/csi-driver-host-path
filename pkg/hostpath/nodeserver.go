@@ -335,6 +335,12 @@ func (hp *hostPath) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCap
 			{
 				Type: &csi.NodeServiceCapability_Rpc{
 					Rpc: &csi.NodeServiceCapability_RPC{
+						Type: csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
+					},
+				},
+			}, {
+				Type: &csi.NodeServiceCapability_Rpc{
+					Rpc: &csi.NodeServiceCapability_RPC{
 						Type: csi.NodeServiceCapability_RPC_VOLUME_CONDITION,
 					},
 				},
@@ -344,6 +350,13 @@ func (hp *hostPath) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCap
 }
 
 func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+	if len(in.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID not provided")
+	}
+	if len(in.GetVolumePath()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume Path not provided")
+	}
+
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
 	hp.mutex.Lock()
@@ -354,14 +367,19 @@ func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolum
 		return nil, status.Error(codes.NotFound, "The volume not found")
 	}
 
-	healthy, msg := doHealthCheckInNodeSide(in.GetVolumeId())
-	glog.V(3).Infof("Healthy state: %+v Volume: %+v", volume.VolName, healthy)
-	available, capacity, used, err := getPVCapacity(in.GetVolumeId())
+	_, err := os.Stat(in.GetVolumePath())
 	if err != nil {
-		return nil, fmt.Errorf("get volume capacity failed: %w", err)
+		return nil, status.Errorf(codes.NotFound, "Could not get file information from %s: %+v", in.GetVolumePath(), err)
 	}
 
-	glog.V(3).Infof("Capacity: %+v Used: %+v Available: %+v", capacity, used, available)
+	healthy, msg := doHealthCheckInNodeSide(in.GetVolumeId())
+	glog.V(3).Infof("Healthy state: %+v Volume: %+v", volume.VolName, healthy)
+	available, capacity, used, inodes, inodesFree, inodesUsed, err := getPVStats(in.GetVolumePath())
+	if err != nil {
+		return nil, fmt.Errorf("get volume stats failed: %w", err)
+	}
+
+	glog.V(3).Infof("Capacity: %+v Used: %+v Available: %+v Inodes: %+v Free inodes: %+v Used inodes: %+v", capacity, used, available, inodes, inodesFree, inodesUsed)
 	return &csi.NodeGetVolumeStatsResponse{
 		Usage: []*csi.VolumeUsage{
 			{
@@ -369,6 +387,11 @@ func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolum
 				Used:      used,
 				Total:     capacity,
 				Unit:      csi.VolumeUsage_BYTES,
+			}, {
+				Available: inodesFree,
+				Used:      inodesUsed,
+				Total:     inodes,
+				Unit:      csi.VolumeUsage_INODES,
 			},
 		},
 		VolumeCondition: &csi.VolumeCondition{
