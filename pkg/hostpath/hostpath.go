@@ -91,17 +91,20 @@ type hostPathSnapshot struct {
 }
 
 type Config struct {
-	DriverName        string
-	Endpoint          string
-	ProxyEndpoint     string
-	NodeID            string
-	VendorVersion     string
-	MaxVolumesPerNode int64
-	MaxVolumeSize     int64
-	Capacity          Capacity
-	Ephemeral         bool
-	ShowVersion       bool
-	EnableAttach      bool
+	DriverName            string
+	Endpoint              string
+	ProxyEndpoint         string
+	NodeID                string
+	VendorVersion         string
+	MaxVolumesPerNode     int64
+	MaxVolumeSize         int64
+	AttachLimit           int64
+	Capacity              Capacity
+	Ephemeral             bool
+	ShowVersion           bool
+	EnableAttach          bool
+	EnableTopology        bool
+	EnableVolumeExpansion bool
 }
 
 var (
@@ -423,7 +426,7 @@ func (hp *hostPath) loadFromSnapshot(size int64, snapshotId, destPath string, mo
 	if !ok {
 		return status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
 	}
-	if snapshot.ReadyToUse != true {
+	if !snapshot.ReadyToUse {
 		return fmt.Errorf("snapshot %v is not yet ready to use", snapshotId)
 	}
 	if snapshot.SizeBytes > size {
@@ -514,6 +517,16 @@ func (hp *hostPath) getSortedVolumeIDs() []string {
 
 	sort.Strings(ids)
 	return ids
+}
+
+func (hp *hostPath) getAttachCount() int64 {
+	count := int64(0)
+	for _, vol := range hp.volumes {
+		if vol.IsAttached {
+			count++
+		}
+	}
+	return count
 }
 
 func filterVolumeName(targetPath string) string {

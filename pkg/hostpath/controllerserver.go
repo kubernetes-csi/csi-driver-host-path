@@ -99,8 +99,9 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	defer hp.mutex.Unlock()
 
 	capacity := int64(req.GetCapacityRange().GetRequiredBytes())
-	topologies := []*csi.Topology{
-		{Segments: map[string]string{TopologyKeyNode: hp.config.NodeID}},
+	topologies := []*csi.Topology{}
+	if hp.config.EnableTopology {
+		topologies = append(topologies, &csi.Topology{Segments: map[string]string{TopologyKeyNode: hp.config.NodeID}})
 	}
 
 	// Need to check for already existing volume name, and if found
@@ -301,6 +302,11 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 		return &csi.ControllerPublishVolumeResponse{
 			PublishContext: map[string]string{},
 		}, nil
+	}
+
+	// Check attach limit before publishing.
+	if hp.config.AttachLimit > 0 && hp.getAttachCount() >= hp.config.AttachLimit {
+		return nil, status.Errorf(codes.ResourceExhausted, "Cannot attach any more volumes to this node ('%s')", hp.config.NodeID)
 	}
 
 	vol.IsAttached = true
@@ -695,6 +701,9 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 }
 
 func (hp *hostPath) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+	if !hp.config.EnableVolumeExpansion {
+		return nil, status.Error(codes.Unimplemented, "ControllerExpandVolume is not supported")
+	}
 
 	volID := req.GetVolumeId()
 	if len(volID) == 0 {
@@ -778,8 +787,10 @@ func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceC
 			csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
 			csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
 			csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
-			csi.ControllerServiceCapability_RPC_EXPAND_VOLUME,
 			csi.ControllerServiceCapability_RPC_VOLUME_CONDITION,
+		}
+		if hp.config.EnableVolumeExpansion {
+			cl = append(cl, csi.ControllerServiceCapability_RPC_EXPAND_VOLUME)
 		}
 		if hp.config.EnableAttach {
 			cl = append(cl, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME)
