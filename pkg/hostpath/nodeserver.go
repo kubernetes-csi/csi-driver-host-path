@@ -23,6 +23,7 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/glog"
+	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -56,17 +57,17 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().Unlock()
 
 	// if ephemeral is specified, create volume here to avoid errors
 	if ephemeralVolume {
 		volID := req.GetVolumeId()
 		volName := fmt.Sprintf("ephemeral-%s", volID)
-		kind := req.GetVolumeContext()[storageKind]
+		kind := req.GetVolumeContext()[state.StorageKind]
 		// Configurable size would be nice. For now we use a small, fixed volume size of 100Mi.
 		volSize := int64(100 * 1024 * 1024)
-		vol, err := hp.createVolume(req.GetVolumeId(), volName, volSize, mountAccess, ephemeralVolume, kind)
+		vol, err := hp.hostPathDriverState.CreateVolume(req.GetVolumeId(), volName, volSize, state.MountAccess, ephemeralVolume, kind, hp.config.MaxVolumeSize, hp.config.Capacity)
 		if err != nil && !os.IsExist(err) {
 			glog.Error("ephemeral mode failed to create volume: ", err)
 			return nil, err
@@ -74,7 +75,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		glog.V(4).Infof("ephemeral mode: created volume: %s", vol.VolPath)
 	}
 
-	vol, err := hp.getVolumeByID(req.GetVolumeId())
+	vol, err := hp.hostPathDriverState.GetVolumeByID(req.GetVolumeId())
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -84,7 +85,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 	}
 
 	if req.GetVolumeCapability().GetBlock() != nil {
-		if vol.VolAccessType != blockAccess {
+		if vol.VolAccessType != state.BlockAccess {
 			return nil, status.Error(codes.InvalidArgument, "cannot publish a non-block volume as block volume")
 		}
 
@@ -128,7 +129,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 			return nil, fmt.Errorf("failed to mount block device: %s at %s: %w", loopDevice, targetPath, err)
 		}
 	} else if req.GetVolumeCapability().GetMount() != nil {
-		if vol.VolAccessType != mountAccess {
+		if vol.VolAccessType != state.MountAccess {
 			return nil, status.Error(codes.InvalidArgument, "cannot publish a non-mount volume as mount volume")
 		}
 
@@ -168,7 +169,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 			options = append(options, "ro")
 		}
 		mounter := mount.New("")
-		path := getVolumePath(volumeId)
+		path := state.GetVolumePath(volumeId, hp.config.DataRoot)
 
 		if err := mounter.Mount(path, targetPath, "", options); err != nil {
 			var errList strings.Builder
@@ -184,7 +185,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 
 	vol.NodeID = hp.config.NodeID
 	vol.IsPublished = true
-	hp.updateVolume(req.GetVolumeId(), vol)
+	hp.hostPathDriverState.UpdateVolume(req.GetVolumeId(), vol)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -202,10 +203,10 @@ func (hp *hostPath) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpubl
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().Unlock()
 
-	vol, err := hp.getVolumeByID(volumeID)
+	vol, err := hp.hostPathDriverState.GetVolumeByID(volumeID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -231,12 +232,12 @@ func (hp *hostPath) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpubl
 
 	if vol.Ephemeral {
 		glog.V(4).Infof("deleting volume %s", volumeID)
-		if err := hp.deleteVolume(volumeID); err != nil && !os.IsNotExist(err) {
+		if err := hp.hostPathDriverState.DeleteVolume(volumeID, hp.config.Capacity); err != nil && !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to delete volume: %w", err)
 		}
 	} else {
 		vol.IsPublished = false
-		if err := hp.updateVolume(vol.VolID, vol); err != nil {
+		if err := hp.hostPathDriverState.UpdateVolume(vol.VolID, vol); err != nil {
 			return nil, fmt.Errorf("could not update volume %s: %w", vol.VolID, err)
 		}
 	}
@@ -245,7 +246,6 @@ func (hp *hostPath) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpubl
 }
 
 func (hp *hostPath) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -257,7 +257,12 @@ func (hp *hostPath) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolum
 		return nil, status.Error(codes.InvalidArgument, "Volume Capability missing in request")
 	}
 
-	vol, err := hp.getVolumeByID(req.VolumeId)
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.hostPathDriverState.GetVolumeLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().Unlock()
+
+	vol, err := hp.hostPathDriverState.GetVolumeByID(req.VolumeId)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -268,7 +273,7 @@ func (hp *hostPath) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolum
 	}
 
 	vol.IsStaged = true
-	if err := hp.updateVolume(vol.VolID, vol); err != nil {
+	if err := hp.hostPathDriverState.UpdateVolume(vol.VolID, vol); err != nil {
 		return nil, fmt.Errorf("could not update volume %s: %w", vol.VolID, err)
 	}
 
@@ -285,7 +290,12 @@ func (hp *hostPath) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageV
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
 
-	vol, err := hp.getVolumeByID(req.VolumeId)
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.hostPathDriverState.GetVolumeLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().Unlock()
+
+	vol, err := hp.hostPathDriverState.GetVolumeByID(req.VolumeId)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -294,7 +304,7 @@ func (hp *hostPath) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageV
 		return nil, status.Errorf(codes.Internal, "Volume '%s' is still pulished on '%s' node", vol.VolID, vol.NodeID)
 	}
 	vol.IsStaged = false
-	if err := hp.updateVolume(vol.VolID, vol); err != nil {
+	if err := hp.hostPathDriverState.UpdateVolume(vol.VolID, vol); err != nil {
 		return nil, fmt.Errorf("could not update volume %s: %w", vol.VolID, err)
 	}
 
@@ -359,15 +369,20 @@ func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolum
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().RLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().RLocker().Unlock()
 
-	volume, ok := hp.volumes[in.GetVolumeId()]
+	volumes, err := hp.hostPathDriverState.ListVolumes()
+	if err != nil {
+		return nil, err
+	}
+
+	volume, ok := volumes[in.GetVolumeId()]
 	if !ok {
 		return nil, status.Error(codes.NotFound, "The volume not found")
 	}
 
-	_, err := os.Stat(in.GetVolumePath())
+	_, err = os.Stat(in.GetVolumePath())
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "Could not get file information from %s: %+v", in.GetVolumePath(), err)
 	}
@@ -411,10 +426,10 @@ func (hp *hostPath) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVol
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().RLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().RLocker().Unlock()
 
-	vol, err := hp.getVolumeByID(volID)
+	vol, err := hp.hostPathDriverState.GetVolumeByID(volID)
 	if err != nil {
 		// Assume not found error
 		return nil, status.Errorf(codes.NotFound, "Could not get volume %s: %v", volID, err)
@@ -432,11 +447,11 @@ func (hp *hostPath) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVol
 
 	switch m := info.Mode(); {
 	case m.IsDir():
-		if vol.VolAccessType != mountAccess {
+		if vol.VolAccessType != state.MountAccess {
 			return nil, status.Errorf(codes.InvalidArgument, "Volume %s is not a directory", volID)
 		}
 	case m&os.ModeDevice != 0:
-		if vol.VolAccessType != blockAccess {
+		if vol.VolAccessType != state.BlockAccess {
 			return nil, status.Errorf(codes.InvalidArgument, "Volume %s is not a block device", volID)
 		}
 	default:

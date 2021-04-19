@@ -52,6 +52,7 @@ func main() {
 	flag.Var(&cfg.Capacity, "capacity", "Simulate storage capacity. The parameter is <kind>=<quantity> where <kind> is the value of a 'kind' storage class parameter and <quantity> is the total amount of bytes for that kind. The flag may be used multiple times to configure different kinds.")
 	flag.BoolVar(&cfg.EnableAttach, "enable-attach", false, "Enables RPC_PUBLISH_UNPUBLISH_VOLUME capability.")
 	flag.Int64Var(&cfg.MaxVolumeSize, "max-volume-size", 1024*1024*1024*1024, "maximum size of volumes in bytes (inclusive)")
+	flag.StringVar(&cfg.DataRoot, "dataRoot", "/csi-data-dir", "the directory where persist volume and snapshot data are stored here")
 
 	showVersion := flag.Bool("version", false, "Show version.")
 	// The proxy-endpoint option is intended to used by the Kubernetes E2E test suite

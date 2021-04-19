@@ -139,7 +139,11 @@ func (hp *hostPath) checkPVCapacityValid(volumeHandle string) (bool, error) {
 		return false, fmt.Errorf("failed to get capacity info: %+v", err)
 	}
 
-	volumeCapacity := hp.volumes[volumeHandle].VolSize
+	volume, err := hp.hostPathDriverState.GetVolumeByID(volumeHandle)
+	if err != nil {
+		return false, err
+	}
+	volumeCapacity := volume.VolSize
 	glog.V(3).Infof("volume capacity: %+v fs capacity:%+v", volumeCapacity, fscapacity)
 	return fscapacity >= volumeCapacity, nil
 }

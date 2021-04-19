@@ -19,12 +19,12 @@ package hostpath
 import (
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -39,13 +39,6 @@ import (
 
 const (
 	deviceID = "deviceID"
-)
-
-type accessType int
-
-const (
-	mountAccess accessType = iota
-	blockAccess
 )
 
 func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (resp *csi.CreateVolumeResponse, finalErr error) {
@@ -84,19 +77,19 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 		return nil, status.Error(codes.InvalidArgument, "cannot have both block and mount access type")
 	}
 
-	var requestedAccessType accessType
+	var requestedAccessType state.AccessType
 
 	if accessTypeBlock {
-		requestedAccessType = blockAccess
+		requestedAccessType = state.BlockAccess
 	} else {
 		// Default to mount.
-		requestedAccessType = mountAccess
+		requestedAccessType = state.MountAccess
 	}
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().Unlock()
 
 	capacity := int64(req.GetCapacityRange().GetRequiredBytes())
 	topologies := []*csi.Topology{
@@ -105,7 +98,7 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 
 	// Need to check for already existing volume name, and if found
 	// check for the requested capacity and already allocated capacity
-	if exVol, err := hp.getVolumeByName(req.GetName()); err == nil {
+	if exVol, err := hp.hostPathDriverState.GetVolumeByName(req.GetName()); err == nil {
 		// Since err is nil, it means the volume with the same name already exists
 		// need to check if the size of existing volume is the same as in new
 		// request
@@ -140,15 +133,15 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	}
 
 	volumeID := uuid.NewUUID().String()
-	kind := req.GetParameters()[storageKind]
-	vol, err := hp.createVolume(volumeID, req.GetName(), capacity, requestedAccessType, false /* ephemeral */, kind)
+	kind := req.GetParameters()[state.StorageKind]
+	vol, err := hp.hostPathDriverState.CreateVolume(volumeID, req.GetName(), capacity, requestedAccessType, false /* ephemeral */, kind, hp.config.MaxVolumeSize, hp.config.Capacity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create volume %v: %w", volumeID, err)
 	}
 	glog.V(4).Infof("created volume %s at path %s", vol.VolID, vol.VolPath)
 
 	if req.GetVolumeContentSource() != nil {
-		path := getVolumePath(volumeID)
+		path := state.GetVolumePath(volumeID, hp.config.DataRoot)
 		volumeSource := req.VolumeContentSource
 		switch volumeSource.Type.(type) {
 		case *csi.VolumeContentSource_Snapshot:
@@ -166,7 +159,7 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 		}
 		if err != nil {
 			glog.V(4).Infof("VolumeSource error: %v", err)
-			if delErr := hp.deleteVolume(volumeID); delErr != nil {
+			if delErr := hp.hostPathDriverState.DeleteVolume(volumeID, hp.config.Capacity); delErr != nil {
 				glog.V(2).Infof("deleting hostpath volume %v failed: %v", volumeID, delErr)
 			}
 			return nil, err
@@ -198,11 +191,11 @@ func (hp *hostPath) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeReque
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().Unlock()
 
 	volId := req.GetVolumeId()
-	vol, err := hp.getVolumeByID(volId)
+	vol, err := hp.hostPathDriverState.GetVolumeByID(volId)
 	if err != nil {
 		// Volume not found: might have already deleted
 		return &csi.DeleteVolumeResponse{}, nil
@@ -213,7 +206,7 @@ func (hp *hostPath) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeReque
 			vol.VolID, vol.IsAttached, vol.IsStaged, vol.IsPublished, vol.NodeID)
 	}
 
-	if err := hp.deleteVolume(volId); err != nil {
+	if err := hp.hostPathDriverState.DeleteVolume(volId, hp.config.Capacity); err != nil {
 		return nil, fmt.Errorf("failed to delete volume %v: %w", volId, err)
 	}
 	glog.V(4).Infof("volume %v successfully deleted", volId)
@@ -239,10 +232,10 @@ func (hp *hostPath) ValidateVolumeCapabilities(ctx context.Context, req *csi.Val
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().RLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().RLocker().Unlock()
 
-	if _, err := hp.getVolumeByID(req.GetVolumeId()); err != nil {
+	if _, err := hp.hostPathDriverState.GetVolumeByID(req.GetVolumeId()); err != nil {
 		return nil, err
 	}
 
@@ -283,10 +276,10 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 		return nil, status.Errorf(codes.NotFound, "Not matching Node ID %s to hostpath Node ID %s", req.NodeId, hp.config.NodeID)
 	}
 
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().Unlock()
 
-	vol, err := hp.getVolumeByID(req.VolumeId)
+	vol, err := hp.hostPathDriverState.GetVolumeByID(req.VolumeId)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -305,7 +298,7 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 
 	vol.IsAttached = true
 	vol.ReadOnlyAttach = req.GetReadonly()
-	if err := hp.updateVolume(vol.VolID, vol); err != nil {
+	if err := hp.hostPathDriverState.UpdateVolume(vol.VolID, vol); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to update volume %s: %v", vol.VolID, err)
 	}
 
@@ -328,10 +321,10 @@ func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.Cont
 		return nil, status.Errorf(codes.NotFound, "Node ID %s does not match to expected Node ID %s", req.NodeId, hp.config.NodeID)
 	}
 
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().Unlock()
 
-	vol, err := hp.getVolumeByID(req.VolumeId)
+	vol, err := hp.hostPathDriverState.GetVolumeByID(req.VolumeId)
 	if err != nil {
 		// Not an error: a non-existent volume is not published.
 		// See also https://github.com/kubernetes-csi/external-attacher/pull/165
@@ -345,7 +338,7 @@ func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.Cont
 	}
 
 	vol.IsAttached = false
-	if err := hp.updateVolume(vol.VolID, vol); err != nil {
+	if err := hp.hostPathDriverState.UpdateVolume(vol.VolID, vol); err != nil {
 		return nil, status.Errorf(codes.Internal, "could not update volume %s: %v", vol.VolID, err)
 	}
 
@@ -355,8 +348,8 @@ func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.Cont
 func (hp *hostPath) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().RLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().RLocker().Lock()
 
 	// Topology and capabilities are irrelevant. We only
 	// distinguish based on the "kind" parameter, if at all.
@@ -366,9 +359,9 @@ func (hp *hostPath) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest
 		// Empty "kind" will return "zero capacity". There is no fallback
 		// to some arbitrary kind here because in practice it always should
 		// be set.
-		kind := req.GetParameters()[storageKind]
+		kind := req.GetParameters()[state.StorageKind]
 		quantity := hp.config.Capacity[kind]
-		allocated := hp.sumVolumeSizes(kind)
+		allocated := hp.hostPathDriverState.SumVolumeSizes(kind)
 		available = quantity.Value() - allocated
 	}
 	maxVolumeSize := hp.config.MaxVolumeSize
@@ -393,15 +386,15 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 
 	var (
 		startIdx, volumesLength, maxLength int64
-		hpVolume                           hostPathVolume
+		hpVolume                           state.HostPathVolume
 	)
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().RLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().RLocker().Unlock()
 
-	volumeIds := hp.getSortedVolumeIDs()
+	volumeIds := hp.hostPathDriverState.GetSortedVolumeIDs()
 	if req.StartingToken == "" {
 		req.StartingToken = "1"
 	}
@@ -418,8 +411,13 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 		maxLength = volumesLength
 	}
 
+	volumes, err := hp.hostPathDriverState.ListVolumes()
+	if err != nil {
+		return nil, err
+	}
+
 	for index := startIdx - 1; index < volumesLength && index < maxLength; index++ {
-		hpVolume = hp.volumes[volumeIds[index]]
+		hpVolume = volumes[volumeIds[index]]
 		healthy, msg := hp.doHealthCheckInControllerSide(volumeIds[index])
 		glog.V(3).Infof("Healthy state: %s Volume: %t", hpVolume.VolName, healthy)
 		volumeRes.Entries = append(volumeRes.Entries, &csi.ListVolumesResponse_Entry{
@@ -444,10 +442,10 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().RLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().RLocker().Unlock()
 
-	volume, err := hp.getVolumeByID(req.GetVolumeId())
+	volume, err := hp.hostPathDriverState.GetVolumeByID(req.GetVolumeId())
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +469,7 @@ func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.Controller
 
 // getSnapshotPath returns the full path to where the snapshot is stored
 func getSnapshotPath(snapshotID string) string {
-	return filepath.Join(dataRoot, fmt.Sprintf("%s%s", snapshotID, snapshotExt))
+	return filepath.Join(dataRoot, fmt.Sprintf("%s%s", snapshotID, state.SnapshotExt))
 }
 
 // CreateSnapshot uses tar command to create snapshot for hostpath volume. The tar command can quickly create
@@ -492,12 +490,12 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetSnapshotLocker().Lock()
+	defer hp.hostPathDriverState.GetSnapshotLocker().Unlock()
 
 	// Need to check for already existing snapshot name, and if found check for the
 	// requested sourceVolumeId and sourceVolumeId of snapshot that has been created.
-	if exSnap, err := hp.getSnapshotByName(req.GetName()); err == nil {
+	if exSnap, err := hp.hostPathDriverState.GetSnapshotByName(req.GetName()); err == nil {
 		// Since err is nil, it means the snapshot with the same name already exists need
 		// to check if the sourceVolumeId of existing snapshot is the same as in new request.
 		if exSnap.VolID == req.GetSourceVolumeId() {
@@ -515,8 +513,13 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 		return nil, status.Errorf(codes.AlreadyExists, "snapshot with the same name: %s but with different SourceVolumeId already exist", req.GetName())
 	}
 
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.hostPathDriverState.GetVolumeLocker().RLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().RLocker().Lock()
+
 	volumeID := req.GetSourceVolumeId()
-	hostPathVolume, err := hp.getVolumeByID(volumeID)
+	hostPathVolume, err := hp.hostPathDriverState.GetVolumeByID(volumeID)
 	if err != nil {
 		return nil, err
 	}
@@ -527,7 +530,7 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 	file := getSnapshotPath(snapshotID)
 
 	var cmd []string
-	if hostPathVolume.VolAccessType == blockAccess {
+	if hostPathVolume.VolAccessType == state.BlockAccess {
 		glog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
 		cmd = []string{"cp", volPath, file}
 	} else {
@@ -541,16 +544,10 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 	}
 
 	glog.V(4).Infof("create volume snapshot %s", file)
-	snapshot := hostPathSnapshot{}
-	snapshot.Name = req.GetName()
-	snapshot.Id = snapshotID
-	snapshot.VolID = volumeID
-	snapshot.Path = file
-	snapshot.CreationTime = creationTime
-	snapshot.SizeBytes = hostPathVolume.VolSize
-	snapshot.ReadyToUse = true
-
-	hp.snapshots[snapshotID] = snapshot
+	snapshot, err := hp.hostPathDriverState.CreateSnapshot(req.GetName(), snapshotID, volumeID, file, creationTime, hostPathVolume.VolSize, true)
+	if err != nil {
+		return nil, err
+	}
 
 	return &csi.CreateSnapshotResponse{
 		Snapshot: &csi.Snapshot{
@@ -577,54 +574,60 @@ func (hp *hostPath) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotR
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetSnapshotLocker().Lock()
+	defer hp.hostPathDriverState.GetSnapshotLocker().Unlock()
 
 	glog.V(4).Infof("deleting snapshot %s", snapshotID)
-	path := getSnapshotPath(snapshotID)
-	os.RemoveAll(path)
-	delete(hp.snapshots, snapshotID)
+	err := hp.hostPathDriverState.DeleteSnapshot(snapshotID)
+	if err != nil {
+		return nil, err
+	}
+
 	return &csi.DeleteSnapshotResponse{}, nil
 }
 
 func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.hostPathDriverState.GetSnapshotLocker().RLocker().Unlock()
+	defer hp.hostPathDriverState.GetSnapshotLocker().RLocker().Unlock()
 	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS); err != nil {
 		glog.V(3).Infof("invalid list snapshot req: %v", req)
 		return nil, err
 	}
 
-	// Lock before acting on global state. A production-quality
-	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	snapshots, err := hp.hostPathDriverState.ListSnapshots()
+	if err != nil {
+		return nil, err
+	}
 
 	// case 1: SnapshotId is not empty, return snapshots that match the snapshot id.
 	if len(req.GetSnapshotId()) != 0 {
 		snapshotID := req.SnapshotId
-		if snapshot, ok := hp.snapshots[snapshotID]; ok {
+		if snapshot, ok := snapshots[snapshotID]; ok {
 			return convertSnapshot(snapshot), nil
 		}
 	}
 
 	// case 2: SourceVolumeId is not empty, return snapshots that match the source volume id.
 	if len(req.GetSourceVolumeId()) != 0 {
-		for _, snapshot := range hp.snapshots {
+		for _, snapshot := range snapshots {
 			if snapshot.VolID == req.SourceVolumeId {
 				return convertSnapshot(snapshot), nil
 			}
 		}
 	}
 
-	var snapshots []csi.Snapshot
+	var snapshotList []csi.Snapshot
 	// case 3: no parameter is set, so we return all the snapshots.
 	sortedKeys := make([]string, 0)
-	for k := range hp.snapshots {
+	for k := range snapshots {
 		sortedKeys = append(sortedKeys, k)
 	}
 	sort.Strings(sortedKeys)
 
 	for _, key := range sortedKeys {
-		snap := hp.snapshots[key]
+		snap := snapshots[key]
 		snapshot := csi.Snapshot{
 			SnapshotId:     snap.Id,
 			SourceVolumeId: snap.VolID,
@@ -632,11 +635,11 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 			SizeBytes:      snap.SizeBytes,
 			ReadyToUse:     snap.ReadyToUse,
 		}
-		snapshots = append(snapshots, snapshot)
+		snapshotList = append(snapshotList, snapshot)
 	}
 
 	var (
-		ulenSnapshots = int32(len(snapshots))
+		ulenSnapshots = int32(len(snapshotList))
 		maxEntries    = req.MaxEntries
 		startingToken int32
 	)
@@ -678,7 +681,7 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 
 	for i = 0; i < len(entries); i++ {
 		entries[i] = &csi.ListSnapshotsResponse_Entry{
-			Snapshot: &snapshots[j],
+			Snapshot: &snapshotList[j],
 		}
 		j++
 	}
@@ -713,17 +716,17 @@ func (hp *hostPath) ControllerExpandVolume(ctx context.Context, req *csi.Control
 
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
-	hp.mutex.Lock()
-	defer hp.mutex.Unlock()
+	hp.hostPathDriverState.GetVolumeLocker().Lock()
+	defer hp.hostPathDriverState.GetVolumeLocker().Unlock()
 
-	exVol, err := hp.getVolumeByID(volID)
+	exVol, err := hp.hostPathDriverState.GetVolumeByID(volID)
 	if err != nil {
 		return nil, err
 	}
 
 	if exVol.VolSize < capacity {
 		exVol.VolSize = capacity
-		if err := hp.updateVolume(volID, exVol); err != nil {
+		if err := hp.hostPathDriverState.UpdateVolume(volID, exVol); err != nil {
 			return nil, fmt.Errorf("could not update volume %s: %w", volID, err)
 		}
 	}
@@ -734,7 +737,7 @@ func (hp *hostPath) ControllerExpandVolume(ctx context.Context, req *csi.Control
 	}, nil
 }
 
-func convertSnapshot(snap hostPathSnapshot) *csi.ListSnapshotsResponse {
+func convertSnapshot(snap state.HostPathSnapshot) *csi.ListSnapshotsResponse {
 	entries := []*csi.ListSnapshotsResponse_Entry{
 		{
 			Snapshot: &csi.Snapshot{

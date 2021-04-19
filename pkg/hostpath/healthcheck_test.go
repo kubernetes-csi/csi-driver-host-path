@@ -346,15 +346,3 @@ func TestParseMountInfo(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, containerFileSystems)
 }
-
-func TestFilterVolumeName(t *testing.T) {
-	targetPath := "/var/lib/kubelet/pods/3440e8ee-10de-11eb-8895-fa163feebd84/volumes/kubernetes.io~csi/pvc-33d023c7-10de-11eb-8895-fa163feebd84/mount"
-	volumeName := filterVolumeName(targetPath)
-	assert.Equal(t, "pvc-33d023c7-10de-11eb-8895-fa163feebd84", volumeName)
-}
-
-func TestFilterVolumeID(t *testing.T) {
-	sourcePath := "/dev/vda2[/var/lib/csi-hostpath-data/39267558-10de-11eb-8fb9-0a58ac120605]"
-	volumeID := filterVolumeID(sourcePath)
-	assert.Equal(t, "39267558-10de-11eb-8fb9-0a58ac120605", volumeID)
-}
