@@ -33,9 +33,10 @@ github.com/pborman/uuid
 github.com/pmezard/go-difflib/difflib
 # github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
-# github.com/stretchr/testify v1.6.1
+# github.com/stretchr/testify v1.7.0
 ## explicit
 github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
 # golang.org/x/net v0.0.0-20201209123823-ac852fbbde11
 ## explicit
 golang.org/x/net/context
