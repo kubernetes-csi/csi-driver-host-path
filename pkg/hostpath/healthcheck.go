@@ -48,8 +48,8 @@ type FileSystems struct {
 	Filsystem []ContainerFileSystem `json:"filesystems"`
 }
 
-func checkSourcePathExist(sourcePath string) (bool, error) {
-	_, err := os.Stat(sourcePath)
+func checkPathExist(path string) (bool, error) {
+	_, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
@@ -77,7 +77,7 @@ func parseMountInfo(originalMountInfo []byte) ([]MountPointInfo, error) {
 	return fs.Filsystem[0].Children, nil
 }
 
-func checkMountPointExist(sourcePath string) (bool, error) {
+func checkMountPointExist(volumePath string) (bool, error) {
 	cmdPath, err := exec.LookPath("findmnt")
 	if err != nil {
 		return false, fmt.Errorf("findmnt not found: %w", err)
@@ -107,7 +107,7 @@ func checkMountPointExist(sourcePath string) (bool, error) {
 	}
 
 	for _, mountInfo := range mountInfosOfPod.ContainerFileSystem {
-		if !strings.Contains(mountInfo.Source, sourcePath) {
+		if !strings.Contains(mountInfo.Source, volumePath) {
 			continue
 		}
 
@@ -127,8 +127,8 @@ func checkMountPointExist(sourcePath string) (bool, error) {
 }
 
 func (hp *hostPath) checkPVCapacityValid(volID string) (bool, error) {
-	sourcePath := hp.getVolumePath(volID)
-	_, fscapacity, _, _, _, _, err := fs.FsInfo(sourcePath)
+	volumePath := hp.getVolumePath(volID)
+	_, fscapacity, _, _, _, _, err := fs.FsInfo(volumePath)
 	if err != nil {
 		return false, fmt.Errorf("failed to get capacity info: %+v", err)
 	}
@@ -147,8 +147,8 @@ func getPVStats(volumePath string) (available int64, capacity int64, used int64,
 }
 
 func (hp *hostPath) checkPVUsage(volID string) (bool, error) {
-	sourcePath := hp.getVolumePath(volID)
-	fsavailable, _, _, _, _, _, err := fs.FsInfo(sourcePath)
+	volumePath := hp.getVolumePath(volID)
+	fsavailable, _, _, _, _, _, err := fs.FsInfo(volumePath)
 	if err != nil {
 		return false, err
 	}
@@ -158,9 +158,9 @@ func (hp *hostPath) checkPVUsage(volID string) (bool, error) {
 }
 
 func (hp *hostPath) doHealthCheckInControllerSide(volID string) (bool, string) {
-	sourcePath := hp.getVolumePath(volID)
-	glog.V(3).Infof("Volume: %s Source path is: %s", volID, sourcePath)
-	spExist, err := checkSourcePathExist(sourcePath)
+	volumePath := hp.getVolumePath(volID)
+	glog.V(3).Infof("Volume with ID %s has path %s.", volID, volumePath)
+	spExist, err := checkPathExist(volumePath)
 	if err != nil {
 		return false, err.Error()
 	}
@@ -191,8 +191,8 @@ func (hp *hostPath) doHealthCheckInControllerSide(volID string) (bool, string) {
 }
 
 func (hp *hostPath) doHealthCheckInNodeSide(volID string) (bool, string) {
-	sourcePath := hp.getVolumePath(volID)
-	mpExist, err := checkMountPointExist(sourcePath)
+	volumePath := hp.getVolumePath(volID)
+	mpExist, err := checkMountPointExist(volumePath)
 	if err != nil {
 		return false, err.Error()
 	}
