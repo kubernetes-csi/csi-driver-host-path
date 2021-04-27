@@ -17,6 +17,8 @@ limitations under the License.
 package hostpath
 
 import (
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -357,4 +359,23 @@ func TestFilterVolumeID(t *testing.T) {
 	sourcePath := "/dev/vda2[/var/lib/csi-hostpath-data/39267558-10de-11eb-8fb9-0a58ac120605]"
 	volumeID := filterVolumeID(sourcePath)
 	assert.Equal(t, "39267558-10de-11eb-8fb9-0a58ac120605", volumeID)
+}
+
+func filterVolumeName(targetPath string) string {
+	pathItems := strings.Split(targetPath, "kubernetes.io~csi/")
+	if len(pathItems) < 2 {
+		return ""
+	}
+
+	return strings.TrimSuffix(pathItems[1], "/mount")
+}
+
+func filterVolumeID(sourcePath string) string {
+	volumeSourcePathRegex := regexp.MustCompile(`\[(.*)\]`)
+	volumeSP := string(volumeSourcePathRegex.Find([]byte(sourcePath)))
+	if volumeSP == "" {
+		return ""
+	}
+
+	return strings.TrimSuffix(strings.TrimPrefix(volumeSP, "[/var/lib/csi-hostpath-data/"), "]")
 }

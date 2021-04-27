@@ -20,23 +20,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"os/exec"
+	"path"
 	"path/filepath"
-	"regexp"
-	"sort"
-	"strings"
 	"sync"
 
 	"github.com/golang/glog"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/resource"
-	fs "k8s.io/kubernetes/pkg/volume/util/fs"
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 	utilexec "k8s.io/utils/exec"
+
+	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
 )
 
 const (
@@ -58,36 +54,8 @@ type hostPath struct {
 	// gRPC calls involving any of the fields below must be serialized
 	// by locking this mutex before starting. Internal helper
 	// functions assume that the mutex has been locked.
-	mutex     sync.Mutex
-	volumes   map[string]hostPathVolume
-	snapshots map[string]hostPathSnapshot
-}
-
-type hostPathVolume struct {
-	VolName        string     `json:"volName"`
-	VolID          string     `json:"volID"`
-	VolSize        int64      `json:"volSize"`
-	VolPath        string     `json:"volPath"`
-	VolAccessType  accessType `json:"volAccessType"`
-	ParentVolID    string     `json:"parentVolID,omitempty"`
-	ParentSnapID   string     `json:"parentSnapID,omitempty"`
-	Ephemeral      bool       `json:"ephemeral"`
-	NodeID         string     `json:"nodeID"`
-	Kind           string     `json:"kind"`
-	ReadOnlyAttach bool       `json:"readOnlyAttach"`
-	IsAttached     bool       `json:"isAttached"`
-	IsStaged       bool       `json:"isStaged"`
-	IsPublished    bool       `json:"isPublished"`
-}
-
-type hostPathSnapshot struct {
-	Name         string               `json:"name"`
-	Id           string               `json:"id"`
-	VolID        string               `json:"volID"`
-	Path         string               `json:"path"`
-	CreationTime *timestamp.Timestamp `json:"creationTime"`
-	SizeBytes    int64                `json:"sizeBytes"`
-	ReadyToUse   bool                 `json:"readyToUse"`
+	mutex sync.Mutex
+	state state.State
 }
 
 type Config struct {
@@ -96,6 +64,7 @@ type Config struct {
 	ProxyEndpoint         string
 	NodeID                string
 	VendorVersion         string
+	StateDir              string
 	MaxVolumesPerNode     int64
 	MaxVolumeSize         int64
 	AttachLimit           int64
@@ -112,11 +81,6 @@ var (
 )
 
 const (
-	// Directory where data for volumes and snapshots are persisted.
-	// This can be ephemeral within the container or persisted if
-	// backed by a Pod volume.
-	dataRoot = "/csi-data-dir"
-
 	// Extension with which snapshot files will be saved.
 	snapshotExt = ".snap"
 )
@@ -134,100 +98,22 @@ func NewHostPathDriver(cfg Config) (*hostPath, error) {
 		return nil, errors.New("no driver endpoint provided")
 	}
 
-	if err := os.MkdirAll(dataRoot, 0750); err != nil {
+	if err := os.MkdirAll(cfg.StateDir, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create dataRoot: %v", err)
 	}
 
 	glog.Infof("Driver: %v ", cfg.DriverName)
 	glog.Infof("Version: %s", cfg.VendorVersion)
 
-	hp := &hostPath{
-		config:    cfg,
-		volumes:   map[string]hostPathVolume{},
-		snapshots: map[string]hostPathSnapshot{},
-	}
-	if err := hp.discoveryExistingVolumes(); err != nil {
+	s, err := state.New(path.Join(cfg.StateDir, "state.json"))
+	if err != nil {
 		return nil, err
 	}
-	hp.discoverExistingSnapshots()
+	hp := &hostPath{
+		config: cfg,
+		state:  s,
+	}
 	return hp, nil
-}
-
-func getSnapshotID(file string) (bool, string) {
-	glog.V(4).Infof("file: %s", file)
-	// Files with .snap extension are volumesnapshot files.
-	// e.g. foo.snap, foo.bar.snap
-	if filepath.Ext(file) == snapshotExt {
-		return true, strings.TrimSuffix(file, snapshotExt)
-	}
-	return false, ""
-}
-
-func (h *hostPath) discoverExistingSnapshots() {
-	glog.V(4).Infof("discovering existing snapshots in %s", dataRoot)
-	files, err := ioutil.ReadDir(dataRoot)
-	if err != nil {
-		glog.Errorf("failed to discover snapshots under %s: %v", dataRoot, err)
-	}
-	for _, file := range files {
-		isSnapshot, snapshotID := getSnapshotID(file.Name())
-		if isSnapshot {
-			glog.V(4).Infof("adding snapshot %s from file %s", snapshotID, getSnapshotPath(snapshotID))
-			h.snapshots[snapshotID] = hostPathSnapshot{
-				Id:         snapshotID,
-				Path:       getSnapshotPath(snapshotID),
-				ReadyToUse: true,
-			}
-		}
-	}
-}
-
-func (hp *hostPath) discoveryExistingVolumes() error {
-	cmdPath, err := exec.LookPath("findmnt")
-	if err != nil {
-		return fmt.Errorf("findmnt not found: %w", err)
-	}
-
-	out, err := exec.Command(cmdPath, "--json").CombinedOutput()
-	if err != nil {
-		glog.V(3).Infof("failed to execute command: %+v", cmdPath)
-		return err
-	}
-
-	if len(out) < 1 {
-		return fmt.Errorf("mount point info is nil")
-	}
-
-	mountInfos, err := parseMountInfo([]byte(out))
-	if err != nil {
-		return fmt.Errorf("failed to parse the mount infos: %+v", err)
-	}
-
-	mountInfosOfPod := MountPointInfo{}
-	for _, mountInfo := range mountInfos {
-		if mountInfo.Target == podVolumeTargetPath {
-			mountInfosOfPod = mountInfo
-			break
-		}
-	}
-
-	// getting existing volumes based on the mount point infos.
-	// It's a temporary solution to recall volumes.
-	// TODO: discover what kind of storage was used and the nominal size.
-	for _, pv := range mountInfosOfPod.ContainerFileSystem {
-		if !strings.Contains(pv.Target, csiSignOfVolumeTargetPath) {
-			continue
-		}
-
-		hpv, err := parseVolumeInfo(pv)
-		if err != nil {
-			return err
-		}
-		hp.volumes[hpv.VolID] = *hpv
-	}
-
-	glog.V(4).Infof("Existing Volumes: %+v", hp.volumes)
-	return nil
 }
 
 func (hp *hostPath) Run() error {
@@ -239,41 +125,21 @@ func (hp *hostPath) Run() error {
 	return nil
 }
 
-func (hp *hostPath) getVolumeByID(volumeID string) (hostPathVolume, error) {
-	if hostPathVol, ok := hp.volumes[volumeID]; ok {
-		return hostPathVol, nil
-	}
-	return hostPathVolume{}, status.Errorf(codes.NotFound, "volume id %s does not exist in the volumes list", volumeID)
-}
-
-func (hp *hostPath) getVolumeByName(volName string) (hostPathVolume, error) {
-	for _, hostPathVol := range hp.volumes {
-		if hostPathVol.VolName == volName {
-			return hostPathVol, nil
-		}
-	}
-	return hostPathVolume{}, status.Errorf(codes.NotFound, "volume name %s does not exist in the volumes list", volName)
-}
-
-func (hp *hostPath) getSnapshotByName(name string) (hostPathSnapshot, error) {
-	for _, snapshot := range hp.snapshots {
-		if snapshot.Name == name {
-			return snapshot, nil
-		}
-	}
-	return hostPathSnapshot{}, status.Errorf(codes.NotFound, "snapshot name %s does not exist in the snapshots list", name)
-}
-
 // getVolumePath returns the canonical path for hostpath volume
-func getVolumePath(volID string) string {
-	return filepath.Join(dataRoot, volID)
+func (hp *hostPath) getVolumePath(volID string) string {
+	return filepath.Join(hp.config.StateDir, volID)
+}
+
+// getSnapshotPath returns the full path to where the snapshot is stored
+func (hp *hostPath) getSnapshotPath(snapshotID string) string {
+	return filepath.Join(hp.config.StateDir, fmt.Sprintf("%s%s", snapshotID, snapshotExt))
 }
 
 // createVolume allocates capacity, creates the directory for the hostpath volume, and
 // adds the volume to the list.
 //
 // It returns the volume path or err if one occurs. That error is suitable as result of a gRPC call.
-func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType accessType, ephemeral bool, kind string) (hpv *hostPathVolume, finalErr error) {
+func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType state.AccessType, ephemeral bool, kind string) (*state.Volume, error) {
 	// Check for maximum available capacity
 	if cap > hp.config.MaxVolumeSize {
 		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", cap, hp.config.MaxVolumeSize)
@@ -303,15 +169,15 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType ac
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("capacity tracking disabled, specifying kind %q is invalid", kind))
 	}
 
-	path := getVolumePath(volID)
+	path := hp.getVolumePath(volID)
 
 	switch volAccessType {
-	case mountAccess:
+	case state.MountAccess:
 		err := os.MkdirAll(path, 0777)
 		if err != nil {
 			return nil, err
 		}
-	case blockAccess:
+	case state.BlockAccess:
 		executor := utilexec.New()
 		size := fmt.Sprintf("%dM", cap/mib)
 		// Create a block file.
@@ -341,7 +207,7 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType ac
 		return nil, fmt.Errorf("unsupported access type %v", volAccessType)
 	}
 
-	hostpathVol := hostPathVolume{
+	volume := state.Volume{
 		VolID:         volID,
 		VolName:       name,
 		VolSize:       cap,
@@ -350,53 +216,45 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType ac
 		Ephemeral:     ephemeral,
 		Kind:          kind,
 	}
-	glog.V(4).Infof("adding hostpath volume: %s = %+v", volID, hostpathVol)
-	hp.volumes[volID] = hostpathVol
-	return &hostpathVol, nil
-}
-
-// updateVolume updates the existing hostpath volume.
-func (hp *hostPath) updateVolume(volID string, volume hostPathVolume) error {
-	glog.V(4).Infof("updating hostpath volume: %s", volID)
-
-	if _, err := hp.getVolumeByID(volID); err != nil {
-		return err
+	glog.V(4).Infof("adding hostpath volume: %s = %+v", volID, volume)
+	if err := hp.state.UpdateVolume(volume); err != nil {
+		return nil, err
 	}
-
-	hp.volumes[volID] = volume
-	return nil
+	return &volume, nil
 }
 
 // deleteVolume deletes the directory for the hostpath volume.
 func (hp *hostPath) deleteVolume(volID string) error {
 	glog.V(4).Infof("starting to delete hostpath volume: %s", volID)
 
-	vol, err := hp.getVolumeByID(volID)
+	vol, err := hp.state.GetVolumeByID(volID)
 	if err != nil {
 		// Return OK if the volume is not found.
 		return nil
 	}
 
-	if vol.VolAccessType == blockAccess {
+	if vol.VolAccessType == state.BlockAccess {
 		volPathHandler := volumepathhandler.VolumePathHandler{}
-		path := getVolumePath(volID)
+		path := hp.getVolumePath(volID)
 		glog.V(4).Infof("deleting loop device for file %s if it exists", path)
 		if err := volPathHandler.DetachFileDevice(path); err != nil {
 			return fmt.Errorf("failed to remove loop device for file %s: %v", path, err)
 		}
 	}
 
-	path := getVolumePath(volID)
+	path := hp.getVolumePath(volID)
 	if err := os.RemoveAll(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	delete(hp.volumes, volID)
+	if err := hp.state.DeleteVolume(volID); err != nil {
+		return err
+	}
 	glog.V(4).Infof("deleted hostpath volume: %s = %+v", volID, vol)
 	return nil
 }
 
 func (hp *hostPath) sumVolumeSizes(kind string) (sum int64) {
-	for _, volume := range hp.volumes {
+	for _, volume := range hp.state.GetVolumes() {
 		if volume.Kind == kind {
 			sum += volume.VolSize
 		}
@@ -421,10 +279,10 @@ func hostPathIsEmpty(p string) (bool, error) {
 }
 
 // loadFromSnapshot populates the given destPath with data from the snapshotID
-func (hp *hostPath) loadFromSnapshot(size int64, snapshotId, destPath string, mode accessType) error {
-	snapshot, ok := hp.snapshots[snapshotId]
-	if !ok {
-		return status.Errorf(codes.NotFound, "cannot find snapshot %v", snapshotId)
+func (hp *hostPath) loadFromSnapshot(size int64, snapshotId, destPath string, mode state.AccessType) error {
+	snapshot, err := hp.state.GetSnapshotByID(snapshotId)
+	if err != nil {
+		return err
 	}
 	if !snapshot.ReadyToUse {
 		return fmt.Errorf("snapshot %v is not yet ready to use", snapshotId)
@@ -436,9 +294,9 @@ func (hp *hostPath) loadFromSnapshot(size int64, snapshotId, destPath string, mo
 
 	var cmd []string
 	switch mode {
-	case mountAccess:
+	case state.MountAccess:
 		cmd = []string{"tar", "zxvf", snapshotPath, "-C", destPath}
-	case blockAccess:
+	case state.BlockAccess:
 		cmd = []string{"dd", "if=" + snapshotPath, "of=" + destPath}
 	default:
 		return status.Errorf(codes.InvalidArgument, "unknown accessType: %d", mode)
@@ -455,10 +313,10 @@ func (hp *hostPath) loadFromSnapshot(size int64, snapshotId, destPath string, mo
 }
 
 // loadFromVolume populates the given destPath with data from the srcVolumeID
-func (hp *hostPath) loadFromVolume(size int64, srcVolumeId, destPath string, mode accessType) error {
-	hostPathVolume, ok := hp.volumes[srcVolumeId]
-	if !ok {
-		return status.Error(codes.NotFound, "source volumeId does not exist, are source/destination in the same storage class?")
+func (hp *hostPath) loadFromVolume(size int64, srcVolumeId, destPath string, mode state.AccessType) error {
+	hostPathVolume, err := hp.state.GetVolumeByID(srcVolumeId)
+	if err != nil {
+		return err
 	}
 	if hostPathVolume.VolSize > size {
 		return status.Errorf(codes.InvalidArgument, "volume %v size %v is greater than requested volume size %v", srcVolumeId, hostPathVolume.VolSize, size)
@@ -468,16 +326,16 @@ func (hp *hostPath) loadFromVolume(size int64, srcVolumeId, destPath string, mod
 	}
 
 	switch mode {
-	case mountAccess:
+	case state.MountAccess:
 		return loadFromFilesystemVolume(hostPathVolume, destPath)
-	case blockAccess:
+	case state.BlockAccess:
 		return loadFromBlockVolume(hostPathVolume, destPath)
 	default:
 		return status.Errorf(codes.InvalidArgument, "unknown accessType: %d", mode)
 	}
 }
 
-func loadFromFilesystemVolume(hostPathVolume hostPathVolume, destPath string) error {
+func loadFromFilesystemVolume(hostPathVolume state.Volume, destPath string) error {
 	srcPath := hostPathVolume.VolPath
 	isEmpty, err := hostPathIsEmpty(srcPath)
 	if err != nil {
@@ -496,7 +354,7 @@ func loadFromFilesystemVolume(hostPathVolume hostPathVolume, destPath string) er
 	return nil
 }
 
-func loadFromBlockVolume(hostPathVolume hostPathVolume, destPath string) error {
+func loadFromBlockVolume(hostPathVolume state.Volume, destPath string) error {
 	srcPath := hostPathVolume.VolPath
 	args := []string{"if=" + srcPath, "of=" + destPath}
 	executor := utilexec.New()
@@ -507,63 +365,12 @@ func loadFromBlockVolume(hostPathVolume hostPathVolume, destPath string) error {
 	return nil
 }
 
-func (hp *hostPath) getSortedVolumeIDs() []string {
-	ids := make([]string, len(hp.volumes))
-	index := 0
-	for volId := range hp.volumes {
-		ids[index] = volId
-		index += 1
-	}
-
-	sort.Strings(ids)
-	return ids
-}
-
 func (hp *hostPath) getAttachCount() int64 {
 	count := int64(0)
-	for _, vol := range hp.volumes {
+	for _, vol := range hp.state.GetVolumes() {
 		if vol.IsAttached {
 			count++
 		}
 	}
 	return count
-}
-
-func filterVolumeName(targetPath string) string {
-	pathItems := strings.Split(targetPath, "kubernetes.io~csi/")
-	if len(pathItems) < 2 {
-		return ""
-	}
-
-	return strings.TrimSuffix(pathItems[1], "/mount")
-}
-
-func filterVolumeID(sourcePath string) string {
-	volumeSourcePathRegex := regexp.MustCompile(`\[(.*)\]`)
-	volumeSP := string(volumeSourcePathRegex.Find([]byte(sourcePath)))
-	if volumeSP == "" {
-		return ""
-	}
-
-	return strings.TrimSuffix(strings.TrimPrefix(volumeSP, "[/var/lib/csi-hostpath-data/"), "]")
-}
-
-func parseVolumeInfo(volume MountPointInfo) (*hostPathVolume, error) {
-	volumeName := filterVolumeName(volume.Target)
-	volumeID := filterVolumeID(volume.Source)
-	sourcePath := getSourcePath(volumeID)
-	_, fscapacity, _, _, _, _, err := fs.FsInfo(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get capacity info: %+v", err)
-	}
-
-	hp := hostPathVolume{
-		VolName:       volumeName,
-		VolID:         volumeID,
-		VolSize:       fscapacity,
-		VolPath:       getVolumePath(volumeID),
-		VolAccessType: mountAccess,
-	}
-
-	return &hp, nil
 }
