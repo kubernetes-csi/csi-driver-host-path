@@ -2,26 +2,37 @@ kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: csi-hostpath-attacher
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpath-attacher
+    app.kubernetes.io/component: attacher
 spec:
   serviceName: "csi-hostpath-attacher"
   replicas: 1
   selector:
     matchLabels:
-      app: csi-hostpath-attacher
+      app.kubernetes.io/instance: hostpath.csi.k8s.io
+      app.kubernetes.io/part-of: csi-driver-host-path
+      app.kubernetes.io/name: csi-hostpath-attacher
+      app.kubernetes.io/component: attacher
   template:
     metadata:
       labels:
-        app: csi-hostpath-attacher
+        app.kubernetes.io/instance: hostpath.csi.k8s.io
+        app.kubernetes.io/part-of: csi-driver-host-path
+        app.kubernetes.io/name: csi-hostpath-attacher
+        app.kubernetes.io/component: attacher
     spec:
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: app
+              - key: app.kubernetes.io/instance
                 operator: In
                 values:
-                - csi-hostpathplugin
+                  - hostpath.csi.k8s.io
             topologyKey: kubernetes.io/hostname
       serviceAccountName: csi-attacher
       containers:

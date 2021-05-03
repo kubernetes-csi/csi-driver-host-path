@@ -2,23 +2,34 @@ kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: csi-hostpath-snapshotter
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpath-snapshotter
+    app.kubernetes.io/component: snapshotter
 spec:
   serviceName: "csi-hostpath-snapshotter"
   replicas: 1
   selector:
     matchLabels:
-      app: csi-hostpath-snapshotter
+      app.kubernetes.io/instance: hostpath.csi.k8s.io
+      app.kubernetes.io/part-of: csi-driver-host-path
+      app.kubernetes.io/name: csi-hostpath-snapshotter
+      app.kubernetes.io/component: snapshotter
   template:
     metadata:
       labels:
-        app: csi-hostpath-snapshotter
+        app.kubernetes.io/instance: hostpath.csi.k8s.io
+        app.kubernetes.io/part-of: csi-driver-host-path
+        app.kubernetes.io/name: csi-hostpath-snapshotter
+        app.kubernetes.io/component: snapshotter
     spec:
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: app
+              - key: app.kubernetes.io/name
                 operator: In
                 values:
                 - csi-hostpathplugin

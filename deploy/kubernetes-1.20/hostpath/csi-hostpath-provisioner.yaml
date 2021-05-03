@@ -2,26 +2,37 @@ kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: csi-hostpath-provisioner
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpath-provisioner
+    app.kubernetes.io/component: provisioner
 spec:
   serviceName: "csi-hostpath-provisioner"
   replicas: 1
   selector:
     matchLabels:
-      app: csi-hostpath-provisioner
+      app.kubernetes.io/instance: hostpath.csi.k8s.io
+      app.kubernetes.io/part-of: csi-driver-host-path
+      app.kubernetes.io/name: csi-hostpath-provisioner
+      app.kubernetes.io/component: provisioner
   template:
     metadata:
       labels:
-        app: csi-hostpath-provisioner
+        app.kubernetes.io/instance: hostpath.csi.k8s.io
+        app.kubernetes.io/part-of: csi-driver-host-path
+        app.kubernetes.io/name: csi-hostpath-provisioner
+        app.kubernetes.io/component: provisioner
     spec:
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: app
+              - key: app.kubernetes.io/instance
                 operator: In
                 values:
-                - csi-hostpathplugin
+                  - hostpath.csi.k8s.io
             topologyKey: kubernetes.io/hostname
       serviceAccountName: csi-provisioner
       containers:

@@ -2,26 +2,37 @@ kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: csi-hostpath-resizer
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpath-resizer
+    app.kubernetes.io/component: resizer
 spec:
   serviceName: "csi-hostpath-resizer"
   replicas: 1
   selector:
     matchLabels:
-      app: csi-hostpath-resizer
+      app.kubernetes.io/instance: hostpath.csi.k8s.io
+      app.kubernetes.io/part-of: csi-driver-host-path
+      app.kubernetes.io/name: csi-hostpath-resizer
+      app.kubernetes.io/component: resizer
   template:
     metadata:
       labels:
-        app: csi-hostpath-resizer
+        app.kubernetes.io/instance: hostpath.csi.k8s.io
+        app.kubernetes.io/part-of: csi-driver-host-path
+        app.kubernetes.io/name: csi-hostpath-resizer
+        app.kubernetes.io/component: resizer
     spec:
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: app
+              - key: app.kubernetes.io/instance
                 operator: In
                 values:
-                - csi-hostpathplugin
+                  - hostpath.csi.k8s.io
             topologyKey: kubernetes.io/hostname
       serviceAccountName: csi-resizer
       containers:

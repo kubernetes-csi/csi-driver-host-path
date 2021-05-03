@@ -5,6 +5,11 @@ kind: Pod
 apiVersion: v1
 metadata:
   name: my-csi-app-inline-volume
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpath-ephemral-inline-volume
+    app.kubernetes.io/component: ephemeral-volume
 spec:
   containers:
     - name: my-frontend
