@@ -250,8 +250,18 @@ wait_for_daemonset () {
 
 # Wait until the DaemonSet is running on all nodes.
 if ! wait_for_daemonset default csi-hostpathplugin; then
+    echo
     echo "driver not ready"
-    kubectl describe daemonsets/csi-hostpathplugin
+    echo "Deployment:"
+    (set +e; set -x; kubectl describe all,role,clusterrole,rolebinding,clusterrolebinding,serviceaccount,storageclass,csidriver --all-namespaces -l app.kubernetes.io/instance=hostpath.csi.k8s.io)
+    echo
+    echo "Pod logs:"
+    kubectl get pods -l app.kubernetes.io/instance=hostpath.csi.k8s.io --all-namespaces -o=jsonpath='{range .items[*]}{.metadata.name}{" "}{range .spec.containers[*]}{.name}{" "}{end}{"\n"}{end}' | while read -r pod containers; do
+        for c in $containers; do
+            echo
+            (set +e; set -x; kubectl logs $pod $c)
+        done
+    done
     exit 1
 fi
 
