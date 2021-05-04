@@ -267,14 +267,6 @@ while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l
     sleep 10
 done
 
-# deploy snapshotclass
-echo "deploying snapshotclass based on snapshotter version"
-snapshotter_version="$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter false)"
-driver_version="$(basename "${BASE_DIR}")"
-if version_gt "$driver_version" "1.16"; then
-    kubectl apply -f "${BASE_DIR}/snapshotter/csi-hostpath-snapshotclass.yaml" 
-fi
-
 # Create a test driver configuration in the place where the prow job
 # expects it?
 if [ "${CSI_PROW_TEST_DRIVER}" ]; then
