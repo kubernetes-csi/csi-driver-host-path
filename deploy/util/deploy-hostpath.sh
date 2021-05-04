@@ -247,10 +247,19 @@ expected_running_pods=6
 cnt=0
 while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) -lt ${expected_running_pods} ]; do
     if [ $cnt -gt 30 ]; then
-        echo "$(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) running pods:"
-        kubectl describe pods
-
-        echo >&2 "ERROR: hostpath deployment not ready after over 5min"
+        echo "Expecting $expected_running_pods, have $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l)."
+        echo "Deployment:"
+        (set +e; set -x; kubectl describe all,role,clusterrole,rolebinding,clusterrolebinding,serviceaccount,storageclass,csidriver --all-namespaces -l app.kubernetes.io/instance=hostpath.csi.k8s.io)
+        echo
+        echo "Pod logs:"
+        kubectl get pods -l app.kubernetes.io/instance=hostpath.csi.k8s.io --all-namespaces -o=jsonpath='{range .items[*]}{.metadata.name}{" "}{range .spec.containers[*]}{.name}{" "}{end}{"\n"}{end}' | while read -r pod containers; do
+            for c in $containers; do
+                echo
+                (set +e; set -x; kubectl logs $pod $c)
+            done
+        done
+        echo
+        echo "ERROR: hostpath deployment not ready after over 5min"
         exit 1
     fi
     echo $(date +%H:%M:%S) "waiting for hostpath deployment to complete, attempt #$cnt"

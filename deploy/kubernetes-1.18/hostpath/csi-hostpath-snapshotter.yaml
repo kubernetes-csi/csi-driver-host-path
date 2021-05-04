@@ -29,10 +29,10 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
-              - key: app.kubernetes.io/name
+              - key: app.kubernetes.io/instance
                 operator: In
                 values:
-                - csi-hostpathplugin
+                  - hostpath.csi.k8s.io
             topologyKey: kubernetes.io/hostname
       serviceAccountName: csi-snapshotter
       containers:
