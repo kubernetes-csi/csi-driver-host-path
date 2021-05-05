@@ -16,6 +16,10 @@ BASE_DIR=$(dirname "$0")
 TEMP_DIR="$( mktemp -d )"
 trap 'rm -rf ${TEMP_DIR}' EXIT
 
+# KUBELET_DATA_DIR can be set to replace the default /var/lib/kubelet.
+# All nodes must use the same directory.
+default_kubelet_data_dir=/var/lib/kubelet
+: ${KUBELET_DATA_DIR:=${default_kubelet_data_dir}}
 
 # If set, the following env variables override image registry and/or tag for each of the images.
 # They are named after the image name, with hyphen replaced by underscore and in upper case.
@@ -52,6 +56,7 @@ trap 'rm -rf ${TEMP_DIR}' EXIT
 # implies that refreshing that image has to be done manually.
 #
 # As a special case, 'none' as registry removes the registry name.
+
 
 # The default is to use the RBAC rules that match the image that is
 # being used, also in the case that the image gets overridden. This
@@ -187,7 +192,7 @@ echo "deploying with CSIStorageCapacity $csistoragecapacities_api: $have_csistor
 echo "deploying hostpath components"
 for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
     echo "   $i"
-    modified="$(cat "$i" | while IFS= read -r line; do
+    modified="$(cat "$i" | sed -e "s;${default_kubelet_data_dir}/;${KUBELET_DATA_DIR}/;" | while IFS= read -r line; do
         nocomments="$(echo "$line" | sed -e 's/ *#.*$//')"
         if echo "$nocomments" | grep -q '^[[:space:]]*image:[[:space:]]*'; then
             # Split 'image: quay.io/k8scsi/csi-attacher:v1.0.1'
