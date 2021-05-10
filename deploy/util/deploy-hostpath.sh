@@ -82,6 +82,12 @@ function rbac_version () {
     image="$2"
     update_rbac="$3"
 
+    if ! [ -f "$yaml" ]; then
+        # Fall back to csi-hostpath-plugin.yaml for those deployments which do not
+        # have individual pods for the sidecars.
+        yaml="$(dirname "$yaml")/csi-hostpath-plugin.yaml"
+    fi
+
     # get version from `image: quay.io/k8scsi/csi-attacher:v1.0.1`, ignoring comments
     version="$(sed -e 's/ *#.*$//' "$yaml" | grep "image:.*$image" | sed -e 's/ *#.*//' -e 's/.*://')"
 
@@ -239,15 +245,30 @@ for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
     fi
 done
 
-# Wait until all pods are running. We have to make some assumptions
-# about the deployment here, otherwise we wouldn't know what to wait
-# for: the expectation is that we run attacher, provisioner,
-# snapshotter, resizer, socat and hostpath plugin in the default namespace.
-expected_running_pods=6
+check_statefulset () (
+    ready=$(kubectl get "statefulset/$1" -o jsonpath="{.status.readyReplicas}")
+    if [ "$ready" ] && [ "$ready" -gt 0 ]; then
+        return 0
+    fi
+    return 1
+)
+
+check_statefulsets () (
+    while [ "$#" -gt 0 ]; do
+        if ! check_statefulset "$1"; then
+            return 1
+        fi
+        shift
+    done
+    return 0
+)
+
+# Wait until all StatefulSets of the deployment are ready.
+# The assumption is that we use one or more of those.
+statefulsets="$(kubectl get statefulsets -l app.kubernetes.io/instance=hostpath.csi.k8s.io -o jsonpath='{range .items[*]}{" "}{.metadata.name}{end}')"
 cnt=0
-while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l) -lt ${expected_running_pods} ]; do
+while ! check_statefulsets $statefulsets; do
     if [ $cnt -gt 30 ]; then
-        echo "Expecting $expected_running_pods, have $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l)."
         echo "Deployment:"
         (set +e; set -x; kubectl describe all,role,clusterrole,rolebinding,clusterrolebinding,serviceaccount,storageclass,csidriver --all-namespaces -l app.kubernetes.io/instance=hostpath.csi.k8s.io)
         echo
@@ -267,14 +288,6 @@ while [ $(kubectl get pods 2>/dev/null | grep '^csi-hostpath.* Running ' | wc -l
     sleep 10
 done
 
-# deploy snapshotclass
-echo "deploying snapshotclass based on snapshotter version"
-snapshotter_version="$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter false)"
-driver_version="$(basename "${BASE_DIR}")"
-if version_gt "$driver_version" "1.16"; then
-    kubectl apply -f "${BASE_DIR}/snapshotter/csi-hostpath-snapshotclass.yaml" 
-fi
-
 # Create a test driver configuration in the place where the prow job
 # expects it?
 if [ "${CSI_PROW_TEST_DRIVER}" ]; then
@@ -285,5 +298,6 @@ if [ "${CSI_PROW_TEST_DRIVER}" ]; then
     # doesn't handle the case when the "wrong" node is chosen and gets
     # stuck permanently with:
     # error generating accessibility requirements: no topology key found on CSINode csi-prow-worker2
-    echo >>"${CSI_PROW_TEST_DRIVER}" "ClientNodeName: $(kubectl get pods/csi-hostpath-provisioner-0  -o jsonpath='{.spec.nodeName}')"
+    node="$(kubectl get pods/csi-hostpathplugin-0 -o jsonpath='{.spec.nodeName}')"
+    echo >>"${CSI_PROW_TEST_DRIVER}" "ClientNodeName: $node"
 fi
