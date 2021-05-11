@@ -35,6 +35,64 @@ trap 'rm -rf ${TEMP_DIR}' EXIT
 default_kubelet_data_dir=/var/lib/kubelet
 : ${KUBELET_DATA_DIR:=${default_kubelet_data_dir}}
 
+# DRIVER_NODENAME can be set to a specific node on which the driver
+# is meant to run. The default is to pick a node which is ready, schedulable
+# and has no taints.
+schedulable_nodes () {
+    # List schedulable nodes as in
+    # https://github.com/kubernetes/kubernetes/blob/347730b6b49849a3b8501a2b09caf4aec738c9e4/test/e2e/framework/node/wait.go#L179-L181
+    kubectl get nodes -o go-template='{{range .items}}{{if not .spec.unschedulable}}{{.metadata.name}}
+{{end}}{{end}}'
+}
+list_node_conditions () {
+    local node="$1"
+    kubectl get node/$node -o go-template='{{range .status.conditions}}{{.type}}={{.status}}
+{{end}}'
+}
+list_node_taints () {
+    local node="$1"
+    kubectl get node/$node -o go-template='{{range .spec.taints}}{{.effect}}
+{{end}}'
+}
+is_node_ready () {
+    local node="$1"
+    # Check readiness as in
+    # https://github.com/kubernetes/kubernetes/blob/20b0f6b2a6ab9b1f0df821044150539ffc2c5503/test/e2e/framework/node/resource.go#L482-L490
+    conditions=$(list_node_conditions $node)
+    if echo "$conditions" | grep '^Ready=True$' >/dev/null &&
+        ( ! (echo "$conditions" | grep '^NetworkUnavailable' >/dev/null) ||
+              echo "$conditions" | grep '^NetworkUnavailable=False$' >/dev/null ); then
+        return 0
+    else
+        return 1
+    fi
+}
+is_node_tainted () {
+    local node="$1"
+    # Same as
+    # https://github.com/kubernetes/kubernetes/blob/347730b6b49849a3b8501a2b09caf4aec738c9e4/test/e2e/framework/node/resource.go#L445-L470
+    # without any tolerated taints.
+    if list_node_taints "$node" | grep -e '^NoSchedule$' -e '^NoExecute$' >/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+ready_schedulable_nodes () {
+    schedulable_nodes | while read -r node; do
+        if is_node_ready "$node" && ! is_node_tainted "$node"; then
+            echo "$node"
+        fi
+    done
+}
+ready_schedulable_node () {
+    # Choosing randomly would be nicer to spread the load. But picking
+    # the first one is simpler and deterministic.
+    nodes="$(ready_schedulable_nodes)"
+    (echo "$nodes" || true) | head -n 1
+}
+DRIVER_NODENAME=${DRIVER_NODENAME:-$(ready_schedulable_node)}
+
 # If set, the following env variables override image registry and/or tag for each of the images.
 # They are named after the image name, with hyphen replaced by underscore and in upper case.
 #
@@ -207,8 +265,12 @@ done
 echo "deploying hostpath components"
 for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
     echo "   $i"
-    modified="$(cat "$i" | sed -e "s;${default_kubelet_data_dir}/;${KUBELET_DATA_DIR}/;" | while IFS= read -r line; do
-        nocomments="$(echo "$line" | sed -e 's/ *#.*$//')"
+    modified="$(cat "$i" | while IFS= read -r line; do
+        patched_line=$(echo "$line" | sed \
+           -e "s;${default_kubelet_data_dir}/;${KUBELET_DATA_DIR}/;" \
+           -e "s;kubernetes.io/hostname: my-node-name;kubernetes.io/hostname: ${DRIVER_NODENAME};" \
+        )
+        nocomments="$(echo "$patched_line" | sed -e 's/ *#.*$//')"
         if echo "$nocomments" | grep -q '^[[:space:]]*image:[[:space:]]*'; then
             # Split 'image: quay.io/k8scsi/csi-attacher:v1.0.1'
             # into image (quay.io/k8scsi/csi-attacher:v1.0.1),
@@ -240,6 +302,9 @@ for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
                 line="$(echo "$nocomments" | sed -e "s;$image;${prefix}${name}${suffix};")"
             fi
             echo "        using $line" >&2
+        elif [ "$line" != "$patched_line" ]; then
+            line="$patched_line"
+            echo "        patched $line" >&2
         fi
         echo "$line"
     done)"

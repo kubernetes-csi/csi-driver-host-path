@@ -186,7 +186,11 @@ subjects:
 - kind: ServiceAccount
   name: csi-hostpathplugin-sa
 ---
-kind: StatefulSet
+# The driver gets deployed as a DaemonSet because that works better with "kubectl drain":
+# "kubectl drain --ignore-daemonsets" will keep the driver pods running while evicting
+# everything else. This is important because the driver pod is needed while shutting down
+# pods that use its volumes.
+kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: csi-hostpathplugin
@@ -196,11 +200,6 @@ metadata:
     app.kubernetes.io/name: csi-hostpathplugin
     app.kubernetes.io/component: plugin
 spec:
-  serviceName: "csi-hostpathplugin"
-  # One replica only:
-  # Host path driver only works when everything runs
-  # on a single node.
-  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/instance: hostpath.csi.k8s.io
@@ -215,6 +214,10 @@ spec:
         app.kubernetes.io/name: csi-hostpathplugin
         app.kubernetes.io/component: plugin
     spec:
+      nodeSelector:
+        # This node name must be replaced with the actual name
+        # of the node on which the driver is supposed to run.
+        kubernetes.io/hostname: my-node-name
       serviceAccountName: csi-hostpathplugin-sa
       containers:
         - name: hostpath
