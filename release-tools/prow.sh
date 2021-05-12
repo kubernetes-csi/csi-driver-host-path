@@ -614,7 +614,7 @@ nodes:
     kind: JoinConfiguration
     nodeRegistration:
       kubeletExtraArgs:
-        v: "4"
+        v: "5"
         vmodule: "*csi*=5"
 - role: worker
   kubeadmConfigPatches:
@@ -622,7 +622,7 @@ nodes:
     kind: JoinConfiguration
     nodeRegistration:
       kubeletExtraArgs:
-        v: "4"
+        v: "5"
         vmodule: "*csi*=5"
 featureGates:
 $(list_gates "$gates")
