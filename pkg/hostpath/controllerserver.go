@@ -203,9 +203,9 @@ func (hp *hostPath) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeReque
 		return &csi.DeleteVolumeResponse{}, nil
 	}
 
-	if vol.IsAttached || vol.IsPublished || vol.IsStaged {
+	if vol.Attached || !vol.Published.Empty() || !vol.Staged.Empty() {
 		return nil, status.Errorf(codes.Internal, "Volume '%s' is still used (attached: %v, staged: %v, published: %v) by '%s' node",
-			vol.VolID, vol.IsAttached, vol.IsStaged, vol.IsPublished, vol.NodeID)
+			vol.VolID, vol.Attached, vol.Staged, vol.Published, vol.NodeID)
 	}
 
 	if err := hp.deleteVolume(volId); err != nil {
@@ -287,7 +287,7 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 	}
 
 	// Check to see if the volume is already published.
-	if vol.IsAttached {
+	if vol.Attached {
 		// Check if readonly flag is compatible with the publish request.
 		if req.GetReadonly() != vol.ReadOnlyAttach {
 			return nil, status.Error(codes.AlreadyExists, "Volume published but has incompatible readonly flag")
@@ -303,7 +303,7 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 		return nil, status.Errorf(codes.ResourceExhausted, "Cannot attach any more volumes to this node ('%s')", hp.config.NodeID)
 	}
 
-	vol.IsAttached = true
+	vol.Attached = true
 	vol.ReadOnlyAttach = req.GetReadonly()
 	if err := hp.state.UpdateVolume(vol); err != nil {
 		return nil, err
@@ -339,12 +339,12 @@ func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.Cont
 	}
 
 	// Check to see if the volume is staged/published on a node
-	if vol.IsPublished || vol.IsStaged {
+	if !vol.Published.Empty() || !vol.Staged.Empty() {
 		return nil, status.Errorf(codes.Internal, "Volume '%s' is still used (staged: %v, published: %v) by '%s' node",
-			vol.VolID, vol.IsStaged, vol.IsPublished, vol.NodeID)
+			vol.VolID, vol.Staged, vol.Published, vol.NodeID)
 	}
 
-	vol.IsAttached = false
+	vol.Attached = false
 	if err := hp.state.UpdateVolume(vol); err != nil {
 		return nil, status.Errorf(codes.Internal, "could not update volume %s: %v", vol.VolID, err)
 	}

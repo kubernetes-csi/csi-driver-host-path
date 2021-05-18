@@ -48,9 +48,14 @@ type Volume struct {
 	NodeID         string
 	Kind           string
 	ReadOnlyAttach bool
-	IsAttached     bool
-	IsStaged       bool
-	IsPublished    bool
+	Attached       bool
+	// Staged contains the staging target path at which the volume
+	// was staged. A set of paths is used for consistency
+	// with Published.
+	Staged Strings
+	// Published contains the target paths where the volume
+	// was published.
+	Published Strings
 }
 
 type Snapshot struct {

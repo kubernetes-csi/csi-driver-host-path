@@ -368,7 +368,7 @@ func loadFromBlockVolume(hostPathVolume state.Volume, destPath string) error {
 func (hp *hostPath) getAttachCount() int64 {
 	count := int64(0)
 	for _, vol := range hp.state.GetVolumes() {
-		if vol.IsAttached {
+		if vol.Attached {
 			count++
 		}
 	}
