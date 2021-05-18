@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"k8s.io/klog/v2"
 	utilexec "k8s.io/utils/exec"
 
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
@@ -204,8 +205,12 @@ func (hp *hostPath) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeReque
 	}
 
 	if vol.Attached || !vol.Published.Empty() || !vol.Staged.Empty() {
-		return nil, status.Errorf(codes.Internal, "Volume '%s' is still used (attached: %v, staged: %v, published: %v) by '%s' node",
+		msg := fmt.Sprintf("Volume '%s' is still used (attached: %v, staged: %v, published: %v) by '%s' node",
 			vol.VolID, vol.Attached, vol.Staged, vol.Published, vol.NodeID)
+		if hp.config.CheckVolumeLifecycle {
+			return nil, status.Error(codes.Internal, msg)
+		}
+		klog.Warning(msg)
 	}
 
 	if err := hp.deleteVolume(volId); err != nil {
@@ -340,8 +345,12 @@ func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.Cont
 
 	// Check to see if the volume is staged/published on a node
 	if !vol.Published.Empty() || !vol.Staged.Empty() {
-		return nil, status.Errorf(codes.Internal, "Volume '%s' is still used (staged: %v, published: %v) by '%s' node",
+		msg := fmt.Sprintf("Volume '%s' is still used (staged: %v, published: %v) by '%s' node",
 			vol.VolID, vol.Staged, vol.Published, vol.NodeID)
+		if hp.config.CheckVolumeLifecycle {
+			return nil, status.Error(codes.Internal, msg)
+		}
+		klog.Warning(msg)
 	}
 
 	vol.Attached = false

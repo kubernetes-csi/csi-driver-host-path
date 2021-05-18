@@ -15,6 +15,7 @@ require (
 	google.golang.org/genproto v0.0.0-20201209185603-f92720507ed4 // indirect
 	google.golang.org/grpc v1.34.0
 	k8s.io/apimachinery v0.21.0-alpha.0
+	k8s.io/klog/v2 v2.4.0
 	k8s.io/kubernetes v1.20.0
 	k8s.io/mount-utils v0.20.0 // indirect
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
