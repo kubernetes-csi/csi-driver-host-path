@@ -77,7 +77,7 @@ spec:
           volumeMounts:
           - mountPath: /csi
             name: socket-dir
-          image: k8s.gcr.io/sig-storage/livenessprobe:v2.2.0
+          image: k8s.gcr.io/sig-storage/livenessprobe:v2.3.0
           args:
           - --csi-address=/csi/csi.sock
           - --health-port=9898
@@ -100,7 +100,7 @@ spec:
               mountPath: /csi
 
         - name: csi-external-health-monitor-controller
-          image: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.2.0
+          image: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.3.0
           args:
             - "--v=5"
             - "--csi-address=$(ADDRESS)"
@@ -114,7 +114,7 @@ spec:
               mountPath: /csi
 
         - name: node-driver-registrar
-          image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.0.1
+          image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.2.0
           args:
             - --v=5
             - --csi-address=/csi/csi.sock
