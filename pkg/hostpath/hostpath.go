@@ -74,6 +74,7 @@ type Config struct {
 	EnableAttach          bool
 	EnableTopology        bool
 	EnableVolumeExpansion bool
+	CheckVolumeLifecycle  bool
 }
 
 var (
