@@ -31,7 +31,7 @@ spec:
       serviceAccountName: csi-external-health-monitor-controller
       containers:
         - name: hostpath
-          image: k8s.gcr.io/sig-storage/hostpathplugin:v1.6.2
+          image: k8s.gcr.io/sig-storage/hostpathplugin:v1.7.0
           args:
             - "--drivername=hostpath.csi.k8s.io"
             - "--v=5"
