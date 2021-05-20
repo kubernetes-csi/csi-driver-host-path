@@ -1,6 +1,26 @@
-# Release notes for v1.7.0
+# Release notes for v1.7.1
 
 [Documentation](https://kubernetes-csi.github.io)
+
+# Changelog since v1.7.0
+
+## Changes by Kind
+
+### Uncategorized
+ - Fixed image building. ([#298](https://github.com/kubernetes-csi/csi-driver-host-path/pull/298), [@pohly](https://github.com/pohly))
+
+## Dependencies
+
+### Added
+_Nothing has changed._
+
+### Changed
+_Nothing has changed._
+
+### Removed
+_Nothing has changed._
+
+# Release notes for v1.7.0
 
 # Changelog since v1.6.2
 
