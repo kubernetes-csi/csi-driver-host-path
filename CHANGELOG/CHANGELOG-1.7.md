@@ -1,6 +1,24 @@
-# Release notes for v1.7.1
+# Release notes for v1.7.2
 
 [Documentation](https://kubernetes-csi.github.io)
+
+# Changelog since v1.7.1
+
+## Changes by Kind
+
+### Bug or Regression
+ - The deploy scripts did not work when used to test sidecars because kustomize didn't allow rbac.yaml files with absolute paths. ([#302](https://github.com/kubernetes-csi/csi-driver-host-path/pull/302), [@pohly](https://github.com/pohly))
+
+## Dependencies
+
+### Added
+_Nothing has changed._
+
+### Changed
+_Nothing has changed._
+
+### Removed
+_Nothing has changed._
 
 # Changelog since v1.7.0
 
