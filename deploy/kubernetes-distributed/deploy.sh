@@ -148,7 +148,10 @@ for component in CSI_PROVISIONER; do
     # we need to add the files locally in temp folder and using kustomize adding labels it will be applied
     if [[ "${current}" =~ ^http:// ]] || [[ "${current}" =~ ^https:// ]]; then
       run curl "${current}" --output "${TEMP_DIR}"/rbac.yaml --silent --location
-      current=./rbac.yaml
+    else
+        # Even for local files we need to copy because kustomize only supports files inside
+        # the root of a kustomization.
+        cp "${current}" "${TEMP_DIR}"/rbac.yaml
     fi
 
     cat <<- EOF > "${TEMP_DIR}"/kustomization.yaml
@@ -160,7 +163,7 @@ commonLabels:
   app.kubernetes.io/part-of: csi-driver-host-path
 
 resources:
-- ${current}
+- ./rbac.yaml
 EOF
 
     run kubectl apply --kustomize "${TEMP_DIR}"
