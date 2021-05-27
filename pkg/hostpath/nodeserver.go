@@ -141,7 +141,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		notMnt, err := mount.IsNotMountPoint(mount.New(""), targetPath)
 		if err != nil {
 			if os.IsNotExist(err) {
-				if err = os.MkdirAll(targetPath, 0750); err != nil {
+				if err = os.Mkdir(targetPath, 0750); err != nil {
 					return nil, fmt.Errorf("create target path: %w", err)
 				}
 				notMnt = true
