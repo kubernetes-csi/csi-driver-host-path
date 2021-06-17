@@ -88,3 +88,39 @@ func TestSnapshots(t *testing.T) {
 
 	require.Empty(t, s.GetSnapshots(), "final snapshots")
 }
+
+// TestSnapshotsFromSameSource tests that multiple snapshots from the same
+// source can exist at the same time.
+func TestSnapshotsFromSameSource(t *testing.T) {
+	tmp := t.TempDir()
+	statefileName := path.Join(tmp, "state.json")
+
+	s, err := New(statefileName)
+	require.NoError(t, err, "construct state")
+
+	err = s.UpdateSnapshot(Snapshot{Id: "foo", Name: "foo-name", VolID: "source"})
+	require.NoError(t, err, "add snapshot")
+	err = s.UpdateSnapshot(Snapshot{Id: "bar", Name: "bar-name", VolID: "source"})
+	require.NoError(t, err, "add snapshot")
+
+	_, err = s.GetSnapshotByID("foo")
+	require.NoError(t, err, "get existing snapshot by ID 'foo'")
+	_, err = s.GetSnapshotByName("foo-name")
+	require.NoError(t, err, "get existing snapshot by name 'foo-name'")
+	_, err = s.GetSnapshotByID("bar")
+	require.NoError(t, err, "get existing snapshot by ID 'bar'")
+	_, err = s.GetSnapshotByName("bar-name")
+	require.NoError(t, err, "get existing snapshot by name 'bar-name'")
+
+	// Make sure it still works after reconstruction
+	s, err = New(statefileName)
+	require.NoError(t, err, "reconstruct state")
+	_, err = s.GetSnapshotByID("foo")
+	require.NoError(t, err, "get existing snapshot by ID 'foo'")
+	_, err = s.GetSnapshotByName("foo-name")
+	require.NoError(t, err, "get existing snapshot by name 'foo-name'")
+	_, err = s.GetSnapshotByID("bar")
+	require.NoError(t, err, "get existing snapshot by ID 'bar'")
+	_, err = s.GetSnapshotByName("bar-name")
+	require.NoError(t, err, "get existing snapshot by name 'bar-name'")
+}

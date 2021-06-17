@@ -244,7 +244,7 @@ func (s *state) GetSnapshots() []Snapshot {
 
 func (s *state) UpdateSnapshot(update Snapshot) error {
 	for i, snapshot := range s.Snapshots {
-		if snapshot.VolID == update.VolID {
+		if snapshot.Id == update.Id {
 			s.Snapshots[i] = update
 			return s.dump()
 		}
