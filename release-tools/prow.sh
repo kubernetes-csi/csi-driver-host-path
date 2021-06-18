@@ -762,6 +762,8 @@ install_snapshot_crds() {
 
 # Install snapshot controller and associated RBAC, retrying until the pod is running.
 install_snapshot_controller() {
+  TEMP_DIR="$( mktemp -d )"
+  trap 'rm -rf ${TEMP_DIR}' EXIT
   CONTROLLER_DIR="https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${CSI_SNAPSHOTTER_VERSION}"
   if [[ ${REPO_DIR} == *"external-snapshotter"* ]]; then
       CONTROLLER_DIR="${REPO_DIR}"
@@ -838,6 +840,31 @@ install_snapshot_controller() {
       echo "kubectl apply -f $SNAPSHOT_CONTROLLER_YAML"
       kubectl apply -f "$SNAPSHOT_CONTROLLER_YAML"
   fi
+  eval current=${SNAPSHOT_CONTROLLER_YAML}
+   if [[ CSI_PROW_KUBERNETES_VERSION == "latest" ]]; then
+      run curl "${current}" --output "${TEMP_DIR}"/snapshot_controller.yaml --silent --location
+    else
+        # Even for local files we need to copy because kustomize only supports files inside
+        # the root of a kustomization.
+        cp "${current}" "${TEMP_DIR}"/snapshot_controller.yaml
+    fi
+    cat <<- EOF > "${TEMP_DIR}"/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+commonLabels:
+  app.kubernetes.io/instance: hostpath.csi.k8s.io
+  app.kubernetes.io/part-of: csi-driver-host-path
+containers:
+  -name: snapshot-controller
+   image: quay.io/k8scsi/snapshot-controller:canary
+
+resources:
+- ./snapshot_controller.yaml
+EOF
+
+    run kubectl apply --kustomize "${TEMP_DIR}"
+done
+
 
   cnt=0
   expected_running_pods=$(kubectl apply --dry-run=client -o "jsonpath={.spec.replicas}" -f "$SNAPSHOT_CONTROLLER_YAML")
