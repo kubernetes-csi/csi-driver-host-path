@@ -653,6 +653,7 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 		ulenSnapshots = int32(len(snapshots))
 		maxEntries    = req.MaxEntries
 		startingToken int32
+		maxToken      = uint32(math.MaxUint32)
 	)
 
 	if v := req.StartingToken; v != "" {
@@ -661,7 +662,7 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 			return nil, status.Errorf(
 				codes.Aborted,
 				"startingToken=%d !< int32=%d",
-				startingToken, math.MaxUint32)
+				startingToken, maxToken)
 		}
 		startingToken = int32(i)
 	}
