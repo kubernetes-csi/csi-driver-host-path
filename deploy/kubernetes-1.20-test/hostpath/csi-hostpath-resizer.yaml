@@ -37,7 +37,7 @@ spec:
       serviceAccountName: csi-resizer
       containers:
         - name: csi-resizer
-          image: k8s.gcr.io/sig-storage/csi-resizer:v1.2.0
+          image: k8s.gcr.io/sig-storage/csi-resizer:v1.3.0
           args:
             - -v=5
             - -csi-address=/csi/csi.sock
