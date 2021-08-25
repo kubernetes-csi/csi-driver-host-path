@@ -78,7 +78,7 @@ version_to_git () {
 # the list of windows versions was matched from:
 # - https://hub.docker.com/_/microsoft-windows-nanoserver
 # - https://hub.docker.com/_/microsoft-windows-servercore
-configvar CSI_PROW_BUILD_PLATFORMS "linux amd64; linux ppc64le -ppc64le; linux s390x -s390x; linux arm64 -arm64; windows amd64 .exe nanoserver:1809 servercore:ltsc2019; windows amd64 .exe nanoserver:1909 servercore:1909; windows amd64 .exe nanoserver:2004 servercore:2004; windows amd64 .exe nanoserver:20H2 servercore:20H2" "Go target platforms (= GOOS + GOARCH) and file suffix of the resulting binaries"
+configvar CSI_PROW_BUILD_PLATFORMS "linux amd64; linux ppc64le -ppc64le; linux s390x -s390x; linux arm -arm; linux arm64 -arm64; windows amd64 .exe nanoserver:1809 servercore:ltsc2019; windows amd64 .exe nanoserver:1909 servercore:1909; windows amd64 .exe nanoserver:2004 servercore:2004; windows amd64 .exe nanoserver:20H2 servercore:20H2" "Go target platforms (= GOOS + GOARCH) and file suffix of the resulting binaries"
 
 # If we have a vendor directory, then use it. We must be careful to only
 # use this for "make" invocations inside the project's repo itself because
@@ -292,7 +292,7 @@ tests_need_alpha_cluster () {
     tests_enabled "parallel-alpha" "serial-alpha"
 }
 
-# Enabling mock tests adds the "CSI mock volume" tests from https://github.com/kubernetes/kubernetes/blob/master/test/e2e/storage/csi_mock_volume.go
+# Enabling mock tests adds the "CSI mock volume" tests from https://github.com/kubernetes/kubernetes/blob/HEAD/test/e2e/storage/csi_mock_volume.go
 # to the e2e.test invocations (serial, parallel, and the corresponding alpha variants).
 # When testing canary images, those get used instead of the images specified
 # in the e2e.test's normal YAML files.
@@ -795,7 +795,7 @@ install_snapshot_controller() {
       kind load docker-image --name csi-prow ${NEW_IMG} || die "could not load the snapshot-controller:csiprow image into the kind cluster"
 
       # deploy snapshot-controller
-      echo "Deploying snapshot-controller"
+      echo "Deploying snapshot-controller from ${SNAPSHOT_CONTROLLER_YAML} with $NEW_IMG."
       # Replace image in SNAPSHOT_CONTROLLER_YAML with snapshot-controller:csiprow and deploy
       # NOTE: This logic is similar to the logic here:
       # https://github.com/kubernetes-csi/csi-driver-host-path/blob/v1.4.0/deploy/util/deploy-hostpath.sh#L155
@@ -832,8 +832,19 @@ install_snapshot_controller() {
               echo "$modified"
               exit 1
           fi
-	  echo "kubectl apply -f ${SNAPSHOT_CONTROLLER_YAML}(modified)"
       done
+  elif [ "${CSI_PROW_DRIVER_CANARY}" = "canary" ]; then
+      echo "Deploying snapshot-controller from ${SNAPSHOT_CONTROLLER_YAML} with canary images."
+      yaml="$(kubectl apply --dry-run=client -o yaml -f "$SNAPSHOT_CONTROLLER_YAML")"
+      # Ignore: See if you can use ${variable//search/replace} instead.
+      # shellcheck disable=SC2001
+      modified="$(echo "$yaml" | sed -e "s;image: .*/\([^/:]*\):.*;image: ${CSI_PROW_DRIVER_CANARY_REGISTRY}/\1:canary;")"
+      diff <(echo "$yaml") <(echo "$modified")
+      if ! echo "$modified" | kubectl apply -f -; then
+          echo "modified version of $SNAPSHOT_CONTROLLER_YAML:"
+          echo "$modified"
+          exit 1
+      fi
   else
       echo "kubectl apply -f $SNAPSHOT_CONTROLLER_YAML"
       kubectl apply -f "$SNAPSHOT_CONTROLLER_YAML"
