@@ -1,6 +1,35 @@
-# Release notes for v1.7.2
+# Release notes for v1.7.3
 
 [Documentation](https://kubernetes-csi.github.io)
+
+# Changelog since v1.7.2
+
+## Changes by Kind
+
+### Bug or Regression
+
+- Fix build on 32bit platforms ([#320](https://github.com/kubernetes-csi/csi-driver-host-path/pull/320), [@c0va23](https://github.com/c0va23))
+- Fixed bug where `UpdateSnapshot` checks the volume ID when it should check the snapshot ID before updating. ([#315](https://github.com/kubernetes-csi/csi-driver-host-path/pull/315), [@verult](https://github.com/verult))
+
+### Other (Cleanup or Flake)
+
+- Added Kubernetes 1.21 deployments without the obsolete health-monitor-agent ([#313](https://github.com/kubernetes-csi/csi-driver-host-path/pull/313), [@pohly](https://github.com/pohly))
+- Changed deployments to use the latest CSI sidecar versions, released during the k8s 1.22 cycle. ([#324](https://github.com/kubernetes-csi/csi-driver-host-path/pull/324), [@verult](https://github.com/verult))
+- Livenessprobe version is now 2.4.0 in all deployments. ([#323](https://github.com/kubernetes-csi/csi-driver-host-path/pull/323), [@verult](https://github.com/verult))
+- NodePublishVolume now requires that the CO creates the parents of the target directory, as implied by the CSI spec. ([#307](https://github.com/kubernetes-csi/csi-driver-host-path/pull/307), [@pohly](https://github.com/pohly))
+
+## Dependencies
+
+### Added
+_Nothing has changed._
+
+### Changed
+_Nothing has changed._
+
+### Removed
+_Nothing has changed._
+
+# Release notes for v1.7.2
 
 # Changelog since v1.7.1
 
