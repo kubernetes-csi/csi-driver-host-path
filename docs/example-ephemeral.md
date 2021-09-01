@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: hostpath
-          image: image: quay.io/k8scsi/hostpathplugin:v1.2.0
+          image: quay.io/k8scsi/hostpathplugin:v1.2.0
           args:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"

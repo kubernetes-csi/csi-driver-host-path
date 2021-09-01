@@ -21,11 +21,12 @@ The driver can provide empty directories that are backed by the same filesystem 
 Usually, the driver implements all CSI operations itself. When deployed with the `-proxy-endpoint` parameter, it instead proxies all incoming connections for a CSI driver that is [embedded inside the Kubernetes E2E test suite](https://github.com/kubernetes/kubernetes/tree/master/test/e2e/storage/drivers/csi-test) and used for mocking a CSI driver [with callbacks provided by certain tests](https://github.com/kubernetes/kubernetes/blob/5ad79eae2dcbf33df3b35c48ec993d30fbda46dd/test/e2e/storage/csi_mock_volume.go#L110).
 
 ## Deployment
-[Deployment for Kubernetes 1.17 and later](docs/deploy-1.17-and-later.md)
+Deployment varies depending on the Kubernetes version your cluster is running:
+- [Deployment for Kubernetes 1.21 and later](docs/deploy-1.21-and-later.md)
 
 ## Examples
 The following examples assume that the CSI hostpath driver has been deployed and validated:
-- [Volume snapshots](docs/example-snapshots-1.17-and-later.md)
+- [Volume snapshots](docs/example-snapshots-1.21-and-later.md)
 - [Inline ephemeral volumes](docs/example-ephemeral.md)
 
 ## Building the binaries
