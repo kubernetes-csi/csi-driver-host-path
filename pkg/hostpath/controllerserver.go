@@ -139,7 +139,7 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	kind := req.GetParameters()[storageKind]
 	vol, err := hp.createVolume(volumeID, req.GetName(), capacity, requestedAccessType, false /* ephemeral */, kind)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create volume %v: %w", volumeID, err)
+		return nil, err
 	}
 	glog.V(4).Infof("created volume %s at path %s", vol.VolID, vol.VolPath)
 
