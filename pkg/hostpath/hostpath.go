@@ -157,13 +157,12 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType st
 		}
 		if kind == "" {
 			// Still nothing?!
-			return nil, status.Errorf(codes.OutOfRange, "requested capacity %d of arbitrary storage exceeds all remaining capacity", cap)
+			return nil, status.Errorf(codes.ResourceExhausted, "requested capacity %d of arbitrary storage exceeds all remaining capacity", cap)
 		}
 		used := hp.sumVolumeSizes(kind)
 		available := hp.config.Capacity[kind]
 		if used+cap > available.Value() {
-
-			return nil, status.Errorf(codes.OutOfRange, "requested capacity %d exceeds remaining capacity for %q, %s out of %s already used",
+			return nil, status.Errorf(codes.ResourceExhausted, "requested capacity %d exceeds remaining capacity for %q, %s out of %s already used",
 				cap, kind, resource.NewQuantity(used, resource.BinarySI).String(), available.String())
 		}
 	} else if kind != "" {
