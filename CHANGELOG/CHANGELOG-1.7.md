@@ -9,6 +9,7 @@
 ### Bug or Regression
 
 - Fix build on 32bit platforms ([#320](https://github.com/kubernetes-csi/csi-driver-host-path/pull/320), [@c0va23](https://github.com/c0va23))
+- Fix rescheduling with distributed provisioning when simulated storage capacity is exhausted ([#331](https://github.com/kubernetes-csi/csi-driver-host-path/pull/331), [@pohly](https://github.com/pohly))
 - Fixed bug where `UpdateSnapshot` checks the volume ID when it should check the snapshot ID before updating. ([#315](https://github.com/kubernetes-csi/csi-driver-host-path/pull/315), [@verult](https://github.com/verult))
 
 ### Other (Cleanup or Flake)
