@@ -798,7 +798,7 @@ func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceC
 			csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
 			csi.ControllerServiceCapability_RPC_VOLUME_CONDITION,
 		}
-		if hp.config.EnableVolumeExpansion {
+		if hp.config.EnableVolumeExpansion && !hp.config.DisableControllerExpansion {
 			cl = append(cl, csi.ControllerServiceCapability_RPC_EXPAND_VOLUME)
 		}
 		if hp.config.EnableAttach {

@@ -383,7 +383,7 @@ func (hp *hostPath) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCap
 			},
 		},
 	}
-	if hp.config.EnableVolumeExpansion {
+	if hp.config.EnableVolumeExpansion && !hp.config.DisableNodeExpansion {
 		caps = append(caps, &csi.NodeServiceCapability{
 			Type: &csi.NodeServiceCapability_Rpc{
 				Rpc: &csi.NodeServiceCapability_RPC{
@@ -471,6 +471,15 @@ func (hp *hostPath) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVol
 	volPath := req.GetVolumePath()
 	if len(volPath) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume path not provided")
+	}
+
+	capRange := req.GetCapacityRange()
+	if capRange == nil {
+		return nil, status.Error(codes.InvalidArgument, "Capacity range not provided")
+	}
+	capacity := int64(capRange.GetRequiredBytes())
+	if capacity > hp.config.MaxVolumeExpansionSizeNode {
+		return nil, status.Errorf(codes.OutOfRange, "Requested capacity %d exceeds maximum allowed %d", capacity, hp.config.MaxVolumeExpansionSizeNode)
 	}
 
 	info, err := os.Stat(volPath)
