@@ -35,6 +35,17 @@ If you want to build the driver yourself, you can do so with the following comma
 make
 ```
 
+## Development
+
+### Updating sidecar images
+The `deploy/` directory contains manifests for deploying the CSI hostpath driver for different Kubernetes versions.
+
+If you want to update the image versions used in these manifests, you can do so with the following command from the root directory:
+
+```shell
+hack/bump-image-versions.sh
+```
+
 ## Community, discussion, contribution, and support
 
 Learn how to engage with the Kubernetes community on the [community page](http://kubernetes.io/community/).
