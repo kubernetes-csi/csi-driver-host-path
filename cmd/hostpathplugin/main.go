@@ -55,7 +55,13 @@ func main() {
 	flag.BoolVar(&cfg.CheckVolumeLifecycle, "check-volume-lifecycle", false, "Can be used to turn some violations of the volume lifecycle into warnings instead of failing the incorrect gRPC call. Disabled by default because of https://github.com/kubernetes/kubernetes/issues/101911.")
 	flag.Int64Var(&cfg.MaxVolumeSize, "max-volume-size", 1024*1024*1024*1024, "maximum size of volumes in bytes (inclusive)")
 	flag.BoolVar(&cfg.EnableTopology, "enable-topology", true, "Enables PluginCapability_Service_VOLUME_ACCESSIBILITY_CONSTRAINTS capability.")
-	flag.BoolVar(&cfg.EnableVolumeExpansion, "node-expand-required", true, "Enables NodeServiceCapability_RPC_EXPAND_VOLUME capacity.")
+	flag.BoolVar(&cfg.EnableVolumeExpansion, "node-expand-required", true, "Enables volume expansion capability of the plugin(Deprecated). Please use enable-volume-expansion flag.")
+
+	flag.BoolVar(&cfg.EnableVolumeExpansion, "enable-volume-expansion", true, "Enables volume expansion feature.")
+	flag.BoolVar(&cfg.DisableControllerExpansion, "disable-controller-expansion", false, "Disables Controller volume expansion capability.")
+	flag.BoolVar(&cfg.DisableNodeExpansion, "disable-node-expansion", false, "Disables Node volume expansion capability.")
+	flag.Int64Var(&cfg.MaxVolumeExpansionSizeNode, "max-volume-size-node", 0, "Maximum allowed size of volume when expanded on the node. Defaults to same size as max-volume-size.")
+
 	flag.Int64Var(&cfg.AttachLimit, "attach-limit", 0, "Maximum number of attachable volumes on a node. Zero refers to no limit.")
 	showVersion := flag.Bool("version", false, "Show version.")
 	// The proxy-endpoint option is intended to used by the Kubernetes E2E test suite
@@ -95,6 +101,10 @@ func main() {
 
 		<-sigc
 		return
+	}
+
+	if cfg.MaxVolumeExpansionSizeNode == 0 {
+		cfg.MaxVolumeExpansionSizeNode = cfg.MaxVolumeSize
 	}
 
 	driver, err := hostpath.NewHostPathDriver(cfg)

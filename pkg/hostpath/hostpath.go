@@ -59,22 +59,25 @@ type hostPath struct {
 }
 
 type Config struct {
-	DriverName            string
-	Endpoint              string
-	ProxyEndpoint         string
-	NodeID                string
-	VendorVersion         string
-	StateDir              string
-	MaxVolumesPerNode     int64
-	MaxVolumeSize         int64
-	AttachLimit           int64
-	Capacity              Capacity
-	Ephemeral             bool
-	ShowVersion           bool
-	EnableAttach          bool
-	EnableTopology        bool
-	EnableVolumeExpansion bool
-	CheckVolumeLifecycle  bool
+	DriverName                 string
+	Endpoint                   string
+	ProxyEndpoint              string
+	NodeID                     string
+	VendorVersion              string
+	StateDir                   string
+	MaxVolumesPerNode          int64
+	MaxVolumeSize              int64
+	AttachLimit                int64
+	Capacity                   Capacity
+	Ephemeral                  bool
+	ShowVersion                bool
+	EnableAttach               bool
+	EnableTopology             bool
+	EnableVolumeExpansion      bool
+	DisableControllerExpansion bool
+	DisableNodeExpansion       bool
+	MaxVolumeExpansionSizeNode int64
+	CheckVolumeLifecycle       bool
 }
 
 var (
