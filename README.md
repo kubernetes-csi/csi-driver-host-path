@@ -8,9 +8,9 @@ This repository hosts the CSI Hostpath driver and all of its build and dependent
 
 ## Pre-requisite
 - Kubernetes cluster
-- Running version 1.13 or later
+- Running version 1.17 or later
 - Access to terminal with `kubectl` installed
-- For Kubernetes 1.17 or later, the VolumeSnapshot beta CRDs and Snapshot Controller must be installed as part of the cluster deployment (see Kubernetes 1.17+ deployment instructions)
+- VolumeSnapshot CRDs and Snapshot Controller must be installed as part of the cluster deployment (see Kubernetes 1.17+ deployment instructions)
 
 ## Features
 
@@ -21,15 +21,11 @@ The driver can provide empty directories that are backed by the same filesystem 
 Usually, the driver implements all CSI operations itself. When deployed with the `-proxy-endpoint` parameter, it instead proxies all incoming connections for a CSI driver that is [embedded inside the Kubernetes E2E test suite](https://github.com/kubernetes/kubernetes/tree/master/test/e2e/storage/drivers/csi-test) and used for mocking a CSI driver [with callbacks provided by certain tests](https://github.com/kubernetes/kubernetes/blob/5ad79eae2dcbf33df3b35c48ec993d30fbda46dd/test/e2e/storage/csi_mock_volume.go#L110).
 
 ## Deployment
-Deployment varies depending on the Kubernetes version your cluster is running:
-- [Deployment for Kubernetes 1.17 and later](docs/deploy-1.17-and-later.md)
-- [Deployment for Kubernetes 1.16 and earlier](docs/deploy-pre-1.17.md)
+[Deployment for Kubernetes 1.17 and later](docs/deploy-1.17-and-later.md)
 
 ## Examples
 The following examples assume that the CSI hostpath driver has been deployed and validated:
-- Volume snapshots
-  - [Kubernetes 1.17 and later](docs/example-snapshots-1.17-and-later.md)
-  - [Kubernetes 1.16 and earlier](docs/example-snapshots-pre-1.17.md)
+- [Volume snapshots](docs/example-snapshots-1.17-and-later.md)
 - [Inline ephemeral volumes](docs/example-ephemeral.md)
 
 ## Building the binaries
@@ -37,6 +33,17 @@ If you want to build the driver yourself, you can do so with the following comma
 
 ```shell
 make
+```
+
+## Development
+
+### Updating sidecar images
+The `deploy/` directory contains manifests for deploying the CSI hostpath driver for different Kubernetes versions.
+
+If you want to update the image versions used in these manifests, you can do so with the following command from the root directory:
+
+```shell
+hack/bump-image-versions.sh
 ```
 
 ## Community, discussion, contribution, and support
