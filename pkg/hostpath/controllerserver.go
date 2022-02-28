@@ -463,7 +463,18 @@ func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.Controller
 
 	volume, err := hp.state.GetVolumeByID(req.GetVolumeId())
 	if err != nil {
-		return nil, err
+		// ControllerGetVolume should report abnormal volume condition if volume is not found
+		return &csi.ControllerGetVolumeResponse{
+			Volume: &csi.Volume{
+				VolumeId: req.GetVolumeId(),
+			},
+			Status: &csi.ControllerGetVolumeResponse_VolumeStatus{
+				VolumeCondition: &csi.VolumeCondition{
+					Abnormal: true,
+					Message:  err.Error(),
+				},
+			},
+		}, nil
 	}
 
 	healthy, msg := hp.doHealthCheckInControllerSide(req.GetVolumeId())
