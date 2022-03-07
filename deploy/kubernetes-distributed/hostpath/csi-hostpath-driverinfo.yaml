@@ -17,5 +17,4 @@ spec:
   podInfoOnMount: true
   # No attacher needed.
   attachRequired: false
-  # alpha: opt into capacity-aware scheduling
   storageCapacity: true

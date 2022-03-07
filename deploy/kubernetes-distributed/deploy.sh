@@ -174,8 +174,7 @@ done
 # changed via CSI_PROVISIONER_TAG, so we cannot just check for the version currently
 # listed in the YAML file.
 case "$CSI_PROVISIONER_TAG" in
-    "") csistoragecapacities_api=v1alpha1;; # unchanged, assume version from YAML
-    *) csistoragecapacities_api=v1beta1;; # set, assume that it is more recent *and* a version that uses v1beta1 (https://github.com/kubernetes-csi/external-provisioner/pull/584)
+    *) csistoragecapacities_api=v1beta1;; # we currently always use that version
 esac
 get_csistoragecapacities=$(kubectl get csistoragecapacities.${csistoragecapacities_api}.storage.k8s.io 2>&1 || true)
 if  echo "$get_csistoragecapacities" | grep -q "the server doesn't have a resource type"; then
