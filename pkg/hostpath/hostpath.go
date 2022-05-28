@@ -180,6 +180,13 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType st
 		if err != nil {
 			return nil, err
 		}
+		// change dir mode as Mkdir could be affected by umask and Mkdir would inherit acls of the parent dir
+		// default volume type for the root of all volumes is created with DirectoryOrCreate
+		// DirectoryOrCreate is 0755 by default and host root dir for volumes if exist could have different perm (0750)
+		// change volume path mode to 777 to be accessible by unprivileged containers
+		if err = os.Chmod(path, 0777); err != nil {
+			glog.V(4).Infof("Couldn't change volume permissions: %w", err)
+		}
 	case state.BlockAccess:
 		executor := utilexec.New()
 		size := fmt.Sprintf("%dM", cap/mib)
