@@ -37,7 +37,7 @@ spec:
       serviceAccountName: csi-snapshotter
       containers:
         - name: csi-snapshotter
-          image: k8s.gcr.io/sig-storage/csi-snapshotter:v5.0.1
+          image: registry.k8s.io/sig-storage/csi-snapshotter:v5.0.1
           args:
             - -v=5
             - --csi-address=/csi/csi.sock
