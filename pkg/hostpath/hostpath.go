@@ -185,7 +185,7 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType st
 		// DirectoryOrCreate is 0755 by default and host root dir for volumes if exist could have different perm (0750)
 		// change volume path mode to 777 to be accessible by unprivileged containers
 		if err = os.Chmod(path, 0777); err != nil {
-			glog.V(4).Infof("Couldn't change volume permissions: %w", err)
+			glog.V(4).Infof("Couldn't change volume permissions: %v", err)
 		}
 	case state.BlockAccess:
 		executor := utilexec.New()
