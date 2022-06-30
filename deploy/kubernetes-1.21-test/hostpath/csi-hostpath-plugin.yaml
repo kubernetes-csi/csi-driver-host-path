@@ -31,7 +31,7 @@ spec:
       serviceAccountName: csi-external-health-monitor-controller
       containers:
         - name: hostpath
-          image: k8s.gcr.io/sig-storage/hostpathplugin:v1.7.3
+          image: registry.k8s.io/sig-storage/hostpathplugin:v1.7.3
           args:
             - "--drivername=hostpath.csi.k8s.io"
             - "--v=5"
@@ -77,13 +77,13 @@ spec:
           volumeMounts:
           - mountPath: /csi
             name: socket-dir
-          image: k8s.gcr.io/sig-storage/livenessprobe:v2.6.0
+          image: registry.k8s.io/sig-storage/livenessprobe:v2.7.0
           args:
           - --csi-address=/csi/csi.sock
           - --health-port=9898
 
         - name: csi-external-health-monitor-controller
-          image: k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.4.0
+          image: registry.k8s.io/sig-storage/csi-external-health-monitor-controller:v0.5.0
           args:
             - "--v=5"
             - "--csi-address=$(ADDRESS)"
@@ -97,7 +97,7 @@ spec:
               mountPath: /csi
 
         - name: node-driver-registrar
-          image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.5.0
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.5.1
           args:
             - --v=5
             - --csi-address=/csi/csi.sock

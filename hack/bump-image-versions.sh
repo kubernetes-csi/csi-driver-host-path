@@ -36,5 +36,5 @@ livenessprobe
 for image in $images; do
     latest=$(gcloud container images list-tags k8s.gcr.io/sig-storage/$image --format='get(tags)' --filter='tags~^v AND NOT tags~v2020 AND NOT tags~-rc' --sort-by=tags | tail -n 1)
 
-    sed -i -e "s;\(image: k8s.gcr.io/sig-storage/$image:\).*;\1$latest;" $(find deploy -type f)
+    sed -i -e "s;\(image: registry.k8s.io/sig-storage/$image:\).*;\1$latest;" $(find deploy -type f)
 done

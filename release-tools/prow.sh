@@ -196,7 +196,7 @@ kindest/node:v1.14.10@sha256:f8a66ef82822ab4f7569e91a5bccaf27bceee135c1457c512e5
 # If the deployment script is called with CSI_PROW_TEST_DRIVER=<file name> as
 # environment variable, then it must write a suitable test driver configuration
 # into that file in addition to installing the driver.
-configvar CSI_PROW_DRIVER_VERSION "v1.3.0" "CSI driver version"
+configvar CSI_PROW_DRIVER_VERSION "v1.8.0" "CSI driver version"
 configvar CSI_PROW_DRIVER_REPO https://github.com/kubernetes-csi/csi-driver-host-path "CSI driver repo"
 configvar CSI_PROW_DEPLOYMENT "" "deployment"
 configvar CSI_PROW_DEPLOYMENT_SUFFIX "" "additional suffix in kubernetes-x.yy[suffix].yaml files"
@@ -346,8 +346,11 @@ configvar CSI_PROW_E2E_ALPHA "$(get_versioned_variable CSI_PROW_E2E_ALPHA "${csi
 # kubernetes-csi components must be updated, either by disabling
 # the failing test for "latest" or by updating the test and not running
 # it anymore for older releases.
-configvar CSI_PROW_E2E_ALPHA_GATES_LATEST 'GenericEphemeralVolume=true,CSIStorageCapacity=true' "alpha feature gates for latest Kubernetes"
+configvar CSI_PROW_E2E_ALPHA_GATES_LATEST '' "alpha feature gates for latest Kubernetes"
 configvar CSI_PROW_E2E_ALPHA_GATES "$(get_versioned_variable CSI_PROW_E2E_ALPHA_GATES "${csi_prow_kubernetes_version_suffix}")" "alpha E2E feature gates"
+
+configvar CSI_PROW_E2E_GATES_LATEST '' "non alpha feature gates for latest Kubernetes"
+configvar CSI_PROW_E2E_GATES "$(get_versioned_variable CSI_PROW_E2E_GATES "${csi_prow_kubernetes_version_suffix}")" "non alpha E2E feature gates"
 
 # Which external-snapshotter tag to use for the snapshotter CRD and snapshot-controller deployment
 default_csi_snapshotter_version () {
@@ -811,7 +814,7 @@ install_snapshot_controller() {
           modified="$(cat "$i" | while IFS= read -r line; do
               nocomments="$(echo "$line" | sed -e 's/ *#.*$//')"
               if echo "$nocomments" | grep -q '^[[:space:]]*image:[[:space:]]*'; then
-                  # Split 'image: k8s.gcr.io/sig-storage/snapshot-controller:v3.0.0'
+                  # Split 'image: registry.k8s.io/sig-storage/snapshot-controller:v3.0.0'
                   # into image (snapshot-controller:v3.0.0),
                   # name (snapshot-controller),
                   # tag (v3.0.0).
@@ -912,11 +915,11 @@ patch_kubernetes () {
     local source="$1" target="$2"
 
     if [ "${CSI_PROW_DRIVER_CANARY}" = "canary" ]; then
-        # We cannot replace k8s.gcr.io/sig-storage with gcr.io/k8s-staging-sig-storage because
+        # We cannot replace registry.k8s.io/sig-storage with gcr.io/k8s-staging-sig-storage because
         # e2e.test does not support it (see test/utils/image/manifest.go). Instead we
         # invoke the e2e.test binary with KUBE_TEST_REPO_LIST set to a file that
         # overrides that registry.
-        find "$source/test/e2e/testing-manifests/storage-csi/mock" -name '*.yaml' -print0 | xargs -0 sed -i -e 's;k8s.gcr.io/sig-storage/\(.*\):v.*;k8s.gcr.io/sig-storage/\1:canary;'
+        find "$source/test/e2e/testing-manifests/storage-csi/mock" -name '*.yaml' -print0 | xargs -0 sed -i -e 's;registry.k8s.io/sig-storage/\(.*\):v.*;registry.k8s.io/sig-storage/\1:canary;'
         cat >"$target/e2e-repo-list" <<EOF
 sigStorageRegistry: gcr.io/k8s-staging-sig-storage
 EOF
@@ -1254,7 +1257,8 @@ main () {
         fi
 
         if tests_need_non_alpha_cluster; then
-            start_cluster || die "starting the non-alpha cluster failed"
+            # Need to (re)create the cluster.
+            start_cluster "${CSI_PROW_E2E_GATES}" || die "starting the non-alpha cluster failed"
 
             # Install necessary snapshot CRDs and snapshot controller
             install_snapshot_crds
@@ -1304,7 +1308,11 @@ main () {
             delete_cluster_inside_prow_job non-alpha
         fi
 
-        if tests_need_alpha_cluster && [ "${CSI_PROW_E2E_ALPHA_GATES}" ]; then
+        # If the cluster for alpha tests doesn't need any feature gates, then we
+        # could reuse the same cluster as for the other tests. But that would make
+        # the flow in this script harder and wouldn't help in practice because
+        # we have separate Prow jobs for alpha and non-alpha tests.
+        if tests_need_alpha_cluster; then
             # Need to (re)create the cluster.
             start_cluster "${CSI_PROW_E2E_ALPHA_GATES}" || die "starting alpha cluster failed"
 
