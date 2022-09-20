@@ -290,9 +290,7 @@ func MakeBindOptsSensitive(options []string, sensitiveOptions []string) (bool, [
 		switch option {
 		case "bind":
 			bind = true
-			break
-		case "remount":
-			break
+		case "remount": // Do nothing.
 		default:
 			bindRemountOpts = append(bindRemountOpts, option)
 		}
@@ -302,9 +300,7 @@ func MakeBindOptsSensitive(options []string, sensitiveOptions []string) (bool, [
 		switch sensitiveOption {
 		case "bind":
 			bind = true
-			break
-		case "remount":
-			break
+		case "remount": // Do nothing.
 		default:
 			bindRemountSensitiveOpts = append(bindRemountSensitiveOpts, sensitiveOption)
 		}
