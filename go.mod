@@ -1,6 +1,6 @@
 module github.com/kubernetes-csi/csi-driver-host-path
 
-go 1.19
+go 1.18
 
 require (
 	github.com/container-storage-interface/spec v1.6.0

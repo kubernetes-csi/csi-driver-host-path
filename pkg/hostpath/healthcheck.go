@@ -128,7 +128,7 @@ func checkMountPointExist(volumePath string) (bool, error) {
 
 func (hp *hostPath) checkPVCapacityValid(volID string) (bool, error) {
 	volumePath := hp.getVolumePath(volID)
-	_, fscapacity, _, _, _, _, err := fs.FsInfo(volumePath)
+	_, fscapacity, _, _, _, _, err := fs.Info(volumePath)
 	if err != nil {
 		return false, fmt.Errorf("failed to get capacity info: %+v", err)
 	}
@@ -143,12 +143,12 @@ func (hp *hostPath) checkPVCapacityValid(volID string) (bool, error) {
 }
 
 func getPVStats(volumePath string) (available int64, capacity int64, used int64, inodes int64, inodesFree int64, inodesUsed int64, err error) {
-	return fs.FsInfo(volumePath)
+	return fs.Info(volumePath)
 }
 
 func (hp *hostPath) checkPVUsage(volID string) (bool, error) {
 	volumePath := hp.getVolumePath(volID)
-	fsavailable, _, _, _, _, _, err := fs.FsInfo(volumePath)
+	fsavailable, _, _, _, _, _, err := fs.Info(volumePath)
 	if err != nil {
 		return false, err
 	}
