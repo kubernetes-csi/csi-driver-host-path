@@ -21,8 +21,8 @@ Ensure your volumesnapshotclass was created during hostpath deployment:
 > Namespace:
 > Labels:           <none>
 > Annotations:      kubectl.kubernetes.io/last-applied-configuration:
->                     {"apiVersion":"snapshot.storage.k8s.io/v1beta1","deletionPolicy":"Delete","driver":"hostpath.csi.k8s.io","kind":"VolumeSnapshotClass","met...
-> API Version:      snapshot.storage.k8s.io/v1beta1
+>                     {"apiVersion":"snapshot.storage.k8s.io/v1","deletionPolicy":"Delete","driver":"hostpath.csi.k8s.io","kind":"VolumeSnapshotClass","met...
+> API Version:      snapshot.storage.k8s.io/v1
 > Deletion Policy:  Delete
 > Driver:           hostpath.csi.k8s.io
 > Kind:             VolumeSnapshotClass
@@ -30,14 +30,14 @@ Ensure your volumesnapshotclass was created during hostpath deployment:
 >   Creation Timestamp:  2020-03-09T20:53:32Z
 >   Generation:          1
 >   Resource Version:    938
->   Self Link:           /apis/snapshot.storage.k8s.io/v1beta1/volumesnapshotclasses/csi-hostpath-snapclass
+>   Self Link:           /apis/snapshot.storage.k8s.io/v1/volumesnapshotclasses/csi-hostpath-snapclass
 >   UID:                 8d2320cb-85fc-4908-9895-5ff8867169e2
 > Events:                <none>
 > ```
 
 After having created the `csi-pvc` as described in the deployment validation,
 use the volume snapshot class to dynamically create a volume snapshot:
->  - `$ kubectl apply -f examples/csi-snapshot-v1beta1.yaml`
+>  - `$ kubectl apply -f examples/csi-snapshot-v1.yaml`
 > ```
 > volumesnapshot.snapshot.storage.k8s.io/new-snapshot-demo created
 > ```
@@ -61,8 +61,8 @@ use the volume snapshot class to dynamically create a volume snapshot:
 > Namespace:    default
 > Labels:       <none>
 > Annotations:  kubectl.kubernetes.io/last-applied-configuration:
->                 {"apiVersion":"snapshot.storage.k8s.io/v1beta1","kind":"VolumeSnapshot","metadata":{"annotations":{},"name":"new-snapshot-demo","namespace...
-> API Version:  snapshot.storage.k8s.io/v1beta1
+>                 {"apiVersion":"snapshot.storage.k8s.io/v1","kind":"VolumeSnapshot","metadata":{"annotations":{},"name":"new-snapshot-demo","namespace...
+> API Version:  snapshot.storage.k8s.io/v1
 > Kind:         VolumeSnapshot
 > Metadata:
 >   Creation Timestamp:  2020-03-09T21:45:04Z
@@ -71,7 +71,7 @@ use the volume snapshot class to dynamically create a volume snapshot:
 >     snapshot.storage.kubernetes.io/volumesnapshot-bound-protection
 >   Generation:        1
 >   Resource Version:  11146
->   Self Link:         /apis/snapshot.storage.k8s.io/v1beta1/namespaces/default/volumesnapshots/new-snapshot-demo
+>   Self Link:         /apis/snapshot.storage.k8s.io/v1/namespaces/default/volumesnapshots/new-snapshot-demo
 >   UID:               1b461d4e-6279-4f1d-9910-61d35d80c888
 > Spec:
 >   Source:
@@ -92,7 +92,7 @@ use the volume snapshot class to dynamically create a volume snapshot:
 > Namespace:
 > Labels:       <none>
 > Annotations:  <none>
-> API Version:  snapshot.storage.k8s.io/v1beta1
+> API Version:  snapshot.storage.k8s.io/v1
 > Kind:         VolumeSnapshotContent
 > Metadata:
 >   Creation Timestamp:  2020-03-09T21:45:04Z
@@ -100,7 +100,7 @@ use the volume snapshot class to dynamically create a volume snapshot:
 >     snapshot.storage.kubernetes.io/volumesnapshotcontent-bound-protection
 >   Generation:        1
 >   Resource Version:  11145
->   Self Link:         /apis/snapshot.storage.k8s.io/v1beta1/volumesnapshotcontents/snapcontent-1b461d4e-6279-4f1d-9910-61d35d80c888
+>   Self Link:         /apis/snapshot.storage.k8s.io/v1/volumesnapshotcontents/snapcontent-1b461d4e-6279-4f1d-9910-61d35d80c888
 >   UID:               665657cd-4461-476c-9cdb-5c0490c58945
 > Spec:
 >   Deletion Policy:  Delete
@@ -109,7 +109,7 @@ use the volume snapshot class to dynamically create a volume snapshot:
 >     Volume Handle:             42bdc1e0-624e-11ea-beee-42d40678b2d1
 >   Volume Snapshot Class Name:  csi-hostpath-snapclass
 >   Volume Snapshot Ref:
->     API Version:       snapshot.storage.k8s.io/v1beta1
+>     API Version:       snapshot.storage.k8s.io/v1
 >     Kind:              VolumeSnapshot
 >     Name:              new-snapshot-demo
 >     Namespace:         default
