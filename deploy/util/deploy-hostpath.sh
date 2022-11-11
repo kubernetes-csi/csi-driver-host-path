@@ -70,7 +70,7 @@ default_kubelet_data_dir=/var/lib/kubelet
 # implies that refreshing that image has to be done manually.
 #
 # As a special case, 'none' as registry removes the registry name.
-
+# Set VOLUME_MODE_CONVERSION_TESTS to "true" to enable the feature in external-provisioner.
 
 # The default is to use the RBAC rules that match the image that is
 # being used, also in the case that the image gets overridden. This
@@ -136,6 +136,10 @@ function version_gt() {
     greaterVersion=${greaterVersion#"kubernetes-"};
     greaterVersion=${greaterVersion#"v"}; 
     test "$(printf '%s' "$versions" | sort -V | head -n 1)" != "$greaterVersion"
+}
+
+function volume_mode_conversion () {
+    [ "${VOLUME_MODE_CONVERSION_TESTS}" == "true" ]
 }
 
 # In addition, the RBAC rules can be overridden separately.
@@ -210,6 +214,11 @@ done
 echo "deploying hostpath components"
 for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
     echo "   $i"
+    # start of container feature flag arguments
+    if volume_mode_conversion; then
+      sed -i -e 's/# end csi-provisioner args/- \"--prevent-volume-mode-conversion=true\"\n            # end csi-provisioner args/' $i
+    fi
+    # end of container feature flag arguments
     modified="$(cat "$i" | sed -e "s;${default_kubelet_data_dir}/;${KUBELET_DATA_DIR}/;" | while IFS= read -r line; do
         nocomments="$(echo "$line" | sed -e 's/ *#.*$//')"
         if echo "$nocomments" | grep -q '^[[:space:]]*image:[[:space:]]*'; then
