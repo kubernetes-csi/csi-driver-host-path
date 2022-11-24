@@ -60,6 +60,8 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
+	mounter := mount.New("")
+
 	// if ephemeral is specified, create volume here to avoid errors
 	if ephemeralVolume {
 		volID := req.GetVolumeId()
@@ -102,8 +104,6 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 			return nil, fmt.Errorf("failed to get the loop device: %w", err)
 		}
 
-		mounter := mount.New("")
-
 		// Check if the target path exists. Create if not present.
 		_, err = os.Lstat(targetPath)
 		if os.IsNotExist(err) {
@@ -130,7 +130,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		}
 
 		options := []string{"bind"}
-		if err := mount.New("").Mount(loopDevice, targetPath, "", options); err != nil {
+		if err := mounter.Mount(loopDevice, targetPath, "", options); err != nil {
 			return nil, fmt.Errorf("failed to mount block device: %s at %s: %w", loopDevice, targetPath, err)
 		}
 	} else if req.GetVolumeCapability().GetMount() != nil {
@@ -138,7 +138,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 			return nil, status.Error(codes.InvalidArgument, "cannot publish a non-mount volume as mount volume")
 		}
 
-		notMnt, err := mount.IsNotMountPoint(mount.New(""), targetPath)
+		notMnt, err := mount.IsNotMountPoint(mounter, targetPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				if err = os.Mkdir(targetPath, 0750); err != nil {
@@ -173,7 +173,6 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		if readOnly {
 			options = append(options, "ro")
 		}
-		mounter := mount.New("")
 		path := hp.getVolumePath(volumeId)
 
 		if err := mounter.Mount(path, targetPath, "", options); err != nil {
