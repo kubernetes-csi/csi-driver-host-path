@@ -31,10 +31,13 @@ import (
 	"k8s.io/utils/mount"
 )
 
-const TopologyKeyNode = "topology.hostpath.csi/node"
+const (
+	TopologyKeyNode = "topology.hostpath.csi/node"
+
+	failedPreconditionAccessModeConflict = "volume uses SINGLE_NODE_SINGLE_WRITER access mode and is already mounted at a different target path"
+)
 
 func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -80,6 +83,10 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 	vol, err := hp.state.GetVolumeByID(req.GetVolumeId())
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	if hasSingleNodeSingleWriterAccessMode(req) && isMountedElsewhere(req, vol) {
+		return nil, status.Error(codes.FailedPrecondition, failedPreconditionAccessModeConflict)
 	}
 
 	if !ephemeralVolume {
@@ -520,4 +527,22 @@ func makeFile(pathname string) error {
 		}
 	}
 	return nil
+}
+
+// hasSingleNodeSingleWriterAccessMode checks if the publish request uses the
+// SINGLE_NODE_SINGLE_WRITER access mode.
+func hasSingleNodeSingleWriterAccessMode(req *csi.NodePublishVolumeRequest) bool {
+	accessMode := req.GetVolumeCapability().GetAccessMode()
+	return accessMode != nil && accessMode.GetMode() == csi.VolumeCapability_AccessMode_SINGLE_NODE_SINGLE_WRITER
+}
+
+// isMountedElsewhere checks if the volume to publish is mounted elsewhere on
+// the node.
+func isMountedElsewhere(req *csi.NodePublishVolumeRequest, vol state.Volume) bool {
+	for _, targetPath := range vol.Published {
+		if targetPath != req.GetTargetPath() {
+			return true
+		}
+	}
+	return false
 }
