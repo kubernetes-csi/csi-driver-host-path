@@ -7,8 +7,8 @@ github.com/blang/semver/v4
 # github.com/cespare/xxhash/v2 v2.1.2
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/container-storage-interface/spec v1.6.0
-## explicit; go 1.16
+# github.com/container-storage-interface/spec v1.7.0
+## explicit; go 1.18
 github.com/container-storage-interface/spec/lib/go/csi
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
@@ -200,7 +200,7 @@ k8s.io/apimachinery/pkg/util/runtime
 k8s.io/apimachinery/pkg/util/sets
 k8s.io/apimachinery/pkg/util/uuid
 k8s.io/apimachinery/pkg/version
-# k8s.io/apiserver v0.25.2
+# k8s.io/apiserver v0.26.0
 ## explicit; go 1.19
 k8s.io/apiserver/pkg/features
 k8s.io/apiserver/pkg/util/feature
@@ -220,7 +220,7 @@ k8s.io/klog/v2/internal/clock
 k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
-# k8s.io/kubernetes v1.25.2
+# k8s.io/kubernetes v1.26.0
 ## explicit; go 1.19
 k8s.io/kubernetes/pkg/features
 k8s.io/kubernetes/pkg/kubelet/server/metrics
@@ -228,7 +228,7 @@ k8s.io/kubernetes/pkg/volume/util/fs
 k8s.io/kubernetes/pkg/volume/util/fsquota
 k8s.io/kubernetes/pkg/volume/util/fsquota/common
 k8s.io/kubernetes/pkg/volume/util/volumepathhandler
-# k8s.io/mount-utils v0.25.2
+# k8s.io/mount-utils v0.26.0
 ## explicit; go 1.19
 k8s.io/mount-utils
 # k8s.io/utils v0.0.0-20221107191617-1a15be271d1d
