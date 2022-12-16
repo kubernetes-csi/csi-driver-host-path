@@ -31,10 +31,13 @@ import (
 	"k8s.io/utils/mount"
 )
 
-const TopologyKeyNode = "topology.hostpath.csi/node"
+const (
+	TopologyKeyNode = "topology.hostpath.csi/node"
+
+	failedPreconditionAccessModeConflict = "volume uses SINGLE_NODE_SINGLE_WRITER access mode and is already mounted at a different target path"
+)
 
 func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-
 	// Check arguments
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
@@ -60,6 +63,8 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
+	mounter := mount.New("")
+
 	// if ephemeral is specified, create volume here to avoid errors
 	if ephemeralVolume {
 		volID := req.GetVolumeId()
@@ -78,6 +83,10 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 	vol, err := hp.state.GetVolumeByID(req.GetVolumeId())
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	if hasSingleNodeSingleWriterAccessMode(req) && isMountedElsewhere(req, vol) {
+		return nil, status.Error(codes.FailedPrecondition, failedPreconditionAccessModeConflict)
 	}
 
 	if !ephemeralVolume {
@@ -101,8 +110,6 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		if err != nil {
 			return nil, fmt.Errorf("failed to get the loop device: %w", err)
 		}
-
-		mounter := mount.New("")
 
 		// Check if the target path exists. Create if not present.
 		_, err = os.Lstat(targetPath)
@@ -130,7 +137,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		}
 
 		options := []string{"bind"}
-		if err := mount.New("").Mount(loopDevice, targetPath, "", options); err != nil {
+		if err := mounter.Mount(loopDevice, targetPath, "", options); err != nil {
 			return nil, fmt.Errorf("failed to mount block device: %s at %s: %w", loopDevice, targetPath, err)
 		}
 	} else if req.GetVolumeCapability().GetMount() != nil {
@@ -138,7 +145,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 			return nil, status.Error(codes.InvalidArgument, "cannot publish a non-mount volume as mount volume")
 		}
 
-		notMnt, err := mount.IsNotMountPoint(mount.New(""), targetPath)
+		notMnt, err := mount.IsNotMountPoint(mounter, targetPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				if err = os.Mkdir(targetPath, 0750); err != nil {
@@ -173,7 +180,6 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		if readOnly {
 			options = append(options, "ro")
 		}
-		mounter := mount.New("")
 		path := hp.getVolumePath(volumeId)
 
 		if err := mounter.Mount(path, targetPath, "", options); err != nil {
@@ -521,4 +527,22 @@ func makeFile(pathname string) error {
 		}
 	}
 	return nil
+}
+
+// hasSingleNodeSingleWriterAccessMode checks if the publish request uses the
+// SINGLE_NODE_SINGLE_WRITER access mode.
+func hasSingleNodeSingleWriterAccessMode(req *csi.NodePublishVolumeRequest) bool {
+	accessMode := req.GetVolumeCapability().GetAccessMode()
+	return accessMode != nil && accessMode.GetMode() == csi.VolumeCapability_AccessMode_SINGLE_NODE_SINGLE_WRITER
+}
+
+// isMountedElsewhere checks if the volume to publish is mounted elsewhere on
+// the node.
+func isMountedElsewhere(req *csi.NodePublishVolumeRequest, vol state.Volume) bool {
+	for _, targetPath := range vol.Published {
+		if targetPath != req.GetTargetPath() {
+			return true
+		}
+	}
+	return false
 }
