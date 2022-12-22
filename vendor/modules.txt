@@ -36,8 +36,8 @@ github.com/golang/protobuf/ptypes/wrappers
 # github.com/google/uuid v1.1.2
 ## explicit
 github.com/google/uuid
-# github.com/kubernetes-csi/csi-lib-utils v0.11.0
-## explicit; go 1.16
+# github.com/kubernetes-csi/csi-lib-utils v0.12.0
+## explicit; go 1.18
 github.com/kubernetes-csi/csi-lib-utils/protosanitizer
 # github.com/matttproud/golang_protobuf_extensions v1.0.2
 ## explicit; go 1.9
