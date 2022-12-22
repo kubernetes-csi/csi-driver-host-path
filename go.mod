@@ -6,7 +6,7 @@ require (
 	github.com/container-storage-interface/spec v1.7.0
 	github.com/golang/glog v1.0.0
 	github.com/golang/protobuf v1.5.2
-	github.com/kubernetes-csi/csi-lib-utils v0.11.0
+	github.com/kubernetes-csi/csi-lib-utils v0.12.0
 	github.com/pborman/uuid v1.2.1
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/net v0.4.0
