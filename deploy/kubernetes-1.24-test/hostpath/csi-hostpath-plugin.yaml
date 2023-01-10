@@ -83,7 +83,7 @@ spec:
           - --health-port=9898
 
         - name: csi-external-health-monitor-controller
-          image: registry.k8s.io/sig-storage/csi-external-health-monitor-controller:v0.8.0
+          image: registry.k8s.io/sig-storage/csi-external-health-monitor-controller:v0.7.0
           args:
             - "--v=5"
             - "--csi-address=$(ADDRESS)"
