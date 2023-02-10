@@ -29,12 +29,12 @@ __Note:__ The above command may not work for clusters running on managed k8s ser
 Run the following commands to install these components: 
 ```shell
 # Change to the latest supported snapshotter version
-$ SNAPSHOTTER_VERSION=v2.0.1
+$ SNAPSHOTTER_VERSION=v6.1.0
 
 # Apply VolumeSnapshot CRDs
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
 
 # Create snapshot controller
 $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml
@@ -269,3 +269,24 @@ Status:
 Events:      <none>
 ```
 
+## Distributed Deployment and Snapshotting
+
+Use `deploy/kubernetes-distributed/deploy.sh`, it supports distributed deployments and snapshooting but doesn't setup `external-health-monitor`, `external-resizer` and `external-attacher`.
+
+Please check [Distributed Snapshotting](https://github.com/kubernetes-csi/external-snapshotter/tree/master#distributed-snapshotting) how to enable it.
+
+`rbac-snapshot-controller.yaml` needs to be modified before applying, or `ClusterRole` `snapshot-controller-runner`edited after:
+```yaml
+  # Enable this RBAC rule only when using distributed snapshotting, i.e. when the enable-distributed-snapshotting flag is set to true
+   - apiGroups: [""]
+     resources: ["nodes"]
+     verbs: ["get", "list", "watch"]
+```
+
+`setup-snapshot-controller.yaml` needs to be modified before applying, or `containers.spec` edited after: 
+```yaml
+          args:
+            - "--v=5"
+            - "--leader-election=true"
+            - "--enable-distributed-snapshotting"
+```
