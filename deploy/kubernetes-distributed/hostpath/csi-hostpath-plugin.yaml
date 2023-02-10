@@ -1,3 +1,86 @@
+# All of the individual sidecar RBAC roles get bound
+# to this account.
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: csi-hostpathplugin-sa
+  namespace: default
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: serviceaccount
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: provisioner-cluster-role
+  name: csi-hostpathplugin-provisioner-cluster-role
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-provisioner-runner
+subjects:
+- kind: ServiceAccount
+  name: csi-hostpathplugin-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: snapshotter-cluster-role
+  name: csi-hostpathplugin-snapshotter-cluster-role
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-snapshotter-runner
+subjects:
+- kind: ServiceAccount
+  name: csi-hostpathplugin-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: provisioner-role
+  name: csi-hostpathplugin-provisioner-role
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: external-provisioner-cfg
+subjects:
+- kind: ServiceAccount
+  name: csi-hostpathplugin-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: snapshotter-role
+  name: csi-hostpathplugin-snapshotter-role
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: external-snapshotter-leaderelection
+subjects:
+- kind: ServiceAccount
+  name: csi-hostpathplugin-sa
+---
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -22,7 +105,7 @@ spec:
         app.kubernetes.io/name: csi-hostpathplugin
         app.kubernetes.io/component: plugin
     spec:
-      serviceAccountName: csi-provisioner
+      serviceAccountName: csi-hostpathplugin-sa
       containers:
         - name: csi-provisioner
           image: registry.k8s.io/sig-storage/csi-provisioner:v3.3.0
@@ -128,6 +211,7 @@ spec:
               name: csi-data-dir
             - mountPath: /dev
               name: dev-dir
+
         - name: liveness-probe
           volumeMounts:
           - mountPath: /csi
@@ -136,6 +220,27 @@ spec:
           args:
           - --csi-address=/csi/csi.sock
           - --health-port=9898
+
+        - name: csi-snapshotter
+          image: registry.k8s.io/sig-storage/csi-snapshotter:v6.1.0
+          args:
+            - -v=5
+            - --csi-address=/csi/csi.sock
+            - --node-deployment
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          securityContext:
+            # This is necessary only for systems with SELinux, where
+            # non-privileged sidecar containers cannot access unix domain socket
+            # created by privileged CSI driver container.
+            privileged: true
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
 
       volumes:
         - hostPath:

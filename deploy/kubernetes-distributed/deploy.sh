@@ -119,8 +119,18 @@ function version_gt() {
 }
 
 
+# In addition, the RBAC rules can be overridden separately.
+# For snapshotter 2.0+, the directory has changed.
+SNAPSHOTTER_RBAC_RELATIVE_PATH="rbac.yaml"
+if version_gt $(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-snapshotter "${UPDATE_RBAC_RULES}") "v1.255.255"; then
+	SNAPSHOTTER_RBAC_RELATIVE_PATH="csi-snapshotter/rbac-csi-snapshotter.yaml"
+fi
+
 CSI_PROVISIONER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-provisioner false)/deploy/kubernetes/rbac.yaml"
 : ${CSI_PROVISIONER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-provisioner "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
+
+CSI_SNAPSHOTTER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-snapshotter false)/deploy/kubernetes/${SNAPSHOTTER_RBAC_RELATIVE_PATH}"
+: ${CSI_SNAPSHOTTER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-snapshotter "${UPDATE_RBAC_RULES}")/deploy/kubernetes/${SNAPSHOTTER_RBAC_RELATIVE_PATH}}
 
 # Some images are not affected by *_REGISTRY/*_TAG and IMAGE_* variables.
 # The default is to update unless explicitly excluded.
@@ -135,7 +145,7 @@ run () {
 
 # rbac rules
 echo "applying RBAC rules"
-for component in CSI_PROVISIONER; do
+for component in CSI_PROVISIONER CSI_SNAPSHOTTER; do
     eval current="\${${component}_RBAC}"
     eval original="\${${component}_RBAC_YAML}"
     if [ "$current" != "$original" ]; then
@@ -174,7 +184,7 @@ done
 # changed via CSI_PROVISIONER_TAG, so we cannot just check for the version currently
 # listed in the YAML file.
 case "$CSI_PROVISIONER_TAG" in
-    *) csistoragecapacities_api=v1beta1;; # we currently always use that version
+    *) csistoragecapacities_api=v1;; # we currently always use that version
 esac
 get_csistoragecapacities=$(kubectl get csistoragecapacities.${csistoragecapacities_api}.storage.k8s.io 2>&1 || true)
 if  echo "$get_csistoragecapacities" | grep -q "the server doesn't have a resource type"; then
