@@ -182,7 +182,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		}
 		path := hp.getVolumePath(volumeId)
 
-		if err := mounter.Mount(path, targetPath, "", options); err != nil {
+		if err := mounter.Mount(path, targetPath, fsType, options); err != nil {
 			var errList strings.Builder
 			errList.WriteString(err.Error())
 			if vol.Ephemeral {
