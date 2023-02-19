@@ -18,7 +18,7 @@ error: the server doesn't have a resource type "volumesnapshotclasses"
 Next, check if any pods are running the snapshot-controller image:
 ```
 $ kubectl get pods --all-namespaces -o=jsonpath='{range .items[*]}{"\n"}{range .spec.containers[*]}{.image}{", "}{end}{end}' | grep snapshot-controller
-quay.io/k8scsi/snapshot-controller:v2.0.1, 
+quay.io/k8scsi/snapshot-controller:v6.2.1, 
 ```
 
 If no pods are running the snapshot-controller, follow the instructions below to create the snapshot-controller
@@ -29,12 +29,12 @@ __Note:__ The above command may not work for clusters running on managed k8s ser
 Run the following commands to install these components: 
 ```shell
 # Change to the latest supported snapshotter version
-$ SNAPSHOTTER_VERSION=v2.0.1
+$ SNAPSHOTTER_VERSION=v6.2.1
 
 # Apply VolumeSnapshot CRDs
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
 
 # Create snapshot controller
 $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml
