@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"sort"
 
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc/codes"
@@ -333,4 +334,24 @@ func (s *state) DeleteGroupSnapshot(groupSnapshotID string) error {
 		}
 	}
 	return nil
+}
+
+func (gs *GroupSnapshot) MatchesSourceVolumeIDs(sourceVolumeIDs []string) bool {
+	snapshotIDs := gs.SnapshotIDs
+
+	if len(snapshotIDs) != len(sourceVolumeIDs) {
+		return false
+	}
+
+	// sort slices so that values are at the same location
+	sort.Strings(snapshotIDs)
+	sort.Strings(sourceVolumeIDs)
+
+	for i, v := range snapshotIDs {
+		if v != sourceVolumeIDs[i] {
+			return false
+		}
+	}
+
+	return true
 }
