@@ -134,7 +134,7 @@ func TestVolumeGroupSnapshots(t *testing.T) {
 	require.Empty(t, s.GetGroupSnapshots(), "initial groupsnapshots")
 
 	_, err = s.GetGroupSnapshotByID("foo")
-	require.Equal(t, codes.NotFound, status.Convert(err).Code(), "GetSnapshotByID of non-existent groupsnapshot")
+	require.Equal(t, codes.NotFound, status.Convert(err).Code(), "GetGroupSnapshotByID of non-existent groupsnapshot")
 	require.Contains(t, status.Convert(err).Message(), "foo")
 
 	err = s.UpdateGroupSnapshot(GroupSnapshot{Id: "foo", Name: "bar"})
