@@ -124,3 +124,34 @@ func TestSnapshotsFromSameSource(t *testing.T) {
 	_, err = s.GetSnapshotByName("bar-name")
 	require.NoError(t, err, "get existing snapshot by name 'bar-name'")
 }
+
+func TestVolumeGroupSnapshots(t *testing.T) {
+	tmp := t.TempDir()
+	statefileName := path.Join(tmp, "state.json")
+
+	s, err := New(statefileName)
+	require.NoError(t, err, "construct state")
+	require.Empty(t, s.GetGroupSnapshots(), "initial groupsnapshots")
+
+	_, err = s.GetGroupSnapshotByID("foo")
+	require.Equal(t, codes.NotFound, status.Convert(err).Code(), "GetSnapshotByID of non-existent groupsnapshot")
+	require.Contains(t, status.Convert(err).Message(), "foo")
+
+	err = s.UpdateGroupSnapshot(GroupSnapshot{Id: "foo", Name: "bar"})
+	require.NoError(t, err, "add groupsnapshot")
+
+	s, err = New(statefileName)
+	require.NoError(t, err, "reconstruct state")
+	_, err = s.GetGroupSnapshotByID("foo")
+	require.NoError(t, err, "get existing groupsnapshot by ID")
+	_, err = s.GetGroupSnapshotByName("bar")
+	require.NoError(t, err, "get existing groupsnapshot by name")
+
+	err = s.DeleteGroupSnapshot("foo")
+	require.NoError(t, err, "delete existing groupsnapshot")
+
+	err = s.DeleteGroupSnapshot("foo")
+	require.NoError(t, err, "delete non-existent groupsnapshot")
+
+	require.Empty(t, s.GetGroupSnapshots(), "final groupsnapshots")
+}
