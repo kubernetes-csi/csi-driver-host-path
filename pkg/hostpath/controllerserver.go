@@ -34,7 +34,6 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/klog/v2"
-	utilexec "k8s.io/utils/exec"
 
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
 )
@@ -543,21 +542,10 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 
 	snapshotID := uuid.NewUUID().String()
 	creationTime := ptypes.TimestampNow()
-	volPath := hostPathVolume.VolPath
 	file := hp.getSnapshotPath(snapshotID)
 
-	var cmd []string
-	if hostPathVolume.VolAccessType == state.BlockAccess {
-		glog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
-		cmd = []string{"cp", volPath, file}
-	} else {
-		glog.V(4).Infof("Creating snapshot of Filsystem Mode Volume")
-		cmd = []string{"tar", "czf", file, "-C", volPath, "."}
-	}
-	executor := utilexec.New()
-	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("failed create snapshot: %w: %s", err, out)
+	if err := hp.createSnapshotFromVolume(hostPathVolume, file); err != nil {
+		return nil, err
 	}
 
 	glog.V(4).Infof("create volume snapshot %s", file)
