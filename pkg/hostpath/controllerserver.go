@@ -589,6 +589,11 @@ func (hp *hostPath) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotR
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
+	// If the snapshot has a GroupSnapshotID, deletion is not allowed and should return InvalidArgument.
+	if snapshot, err := hp.state.GetSnapshotByID(snapshotID); err != nil && snapshot.GroupSnapshotID != "" {
+		return nil, status.Errorf(codes.InvalidArgument, "Snapshot with ID %s is part of groupsnapshot %s", snapshotID, snapshot.GroupSnapshotID)
+	}
+
 	glog.V(4).Infof("deleting snapshot %s", snapshotID)
 	path := hp.getSnapshotPath(snapshotID)
 	os.RemoveAll(path)
