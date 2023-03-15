@@ -20,5 +20,6 @@ DriverInfo:
     singleNodeVolume: true
     snapshotDataSource: true
     topology: true
+    FSResizeFromSourceNotSupported: true
 InlineVolumes:
 - shared: true
