@@ -123,7 +123,7 @@ func NewHostPathDriver(cfg Config) (*hostPath, error) {
 func (hp *hostPath) Run() error {
 	s := NewNonBlockingGRPCServer()
 	// hp itself implements ControllerServer, NodeServer, and IdentityServer.
-	s.Start(hp.config.Endpoint, hp, hp, hp)
+	s.Start(hp.config.Endpoint, hp, hp, hp, hp)
 	s.Wait()
 
 	return nil
