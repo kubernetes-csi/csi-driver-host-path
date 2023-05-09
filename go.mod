@@ -13,7 +13,7 @@ require (
 	google.golang.org/grpc v1.51.0
 	k8s.io/apimachinery v0.27.0
 	k8s.io/klog/v2 v2.90.1
-	k8s.io/kubernetes v1.27.0
+	k8s.io/kubernetes v1.27.1
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491
 )
 
