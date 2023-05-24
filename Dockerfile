@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM alpine
+FROM cgr.dev/chainguard/wolfi-base
 LABEL maintainers="Kubernetes Authors"
 LABEL description="HostPath Driver"
 ARG binary=./bin/hostpathplugin
