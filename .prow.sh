@@ -26,6 +26,9 @@ CSI_PROW_HOSTPATH_DRIVER_NAME="hostpath.csi.k8s.io"
 
 CSI_PROW_TESTS_SANITY="sanity"
 
+# FIXME: do not merge this, only for testing PR #399
+CSI_PROW_SANITY_VERSION="master"
+
 . release-tools/prow.sh
 
 main
