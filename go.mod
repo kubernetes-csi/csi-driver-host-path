@@ -10,7 +10,7 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/net v0.11.0
-	google.golang.org/grpc v1.56.0
+	google.golang.org/grpc v1.56.1
 	k8s.io/apimachinery v0.27.0
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kubernetes v1.27.3
