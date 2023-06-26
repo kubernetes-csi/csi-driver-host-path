@@ -21,7 +21,6 @@ package state
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"os"
 
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
@@ -145,7 +144,7 @@ func (s *state) dump() error {
 	if err != nil {
 		return status.Errorf(codes.Internal, "error encoding volumes and snapshots: %v", err)
 	}
-	if err := ioutil.WriteFile(s.statefilePath, data, 0600); err != nil {
+	if err := os.WriteFile(s.statefilePath, data, 0600); err != nil {
 		return status.Errorf(codes.Internal, "error writing state file: %v", err)
 	}
 	return nil
@@ -155,7 +154,7 @@ func (s *state) restore() error {
 	s.Volumes = nil
 	s.Snapshots = nil
 
-	data, err := ioutil.ReadFile(s.statefilePath)
+	data, err := os.ReadFile(s.statefilePath)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
 		// Nothing to do.
