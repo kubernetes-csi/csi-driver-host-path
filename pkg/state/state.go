@@ -188,9 +188,7 @@ func (s *state) GetVolumeByName(volName string) (Volume, error) {
 
 func (s *state) GetVolumes() []Volume {
 	volumes := make([]Volume, len(s.Volumes))
-	for i, volume := range s.Volumes {
-		volumes[i] = volume
-	}
+	copy(volumes, s.Volumes)
 	return volumes
 }
 
@@ -235,9 +233,7 @@ func (s *state) GetSnapshotByName(name string) (Snapshot, error) {
 
 func (s *state) GetSnapshots() []Snapshot {
 	snapshots := make([]Snapshot, len(s.Snapshots))
-	for i, snapshot := range s.Snapshots {
-		snapshots[i] = snapshot
-	}
+	copy(snapshots, s.Snapshots)
 	return snapshots
 }
 
