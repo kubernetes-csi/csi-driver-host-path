@@ -190,6 +190,7 @@ kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: csi-hostpathplugin
+  namespace: default
   labels:
     app.kubernetes.io/instance: hostpath.csi.k8s.io
     app.kubernetes.io/part-of: csi-driver-host-path
