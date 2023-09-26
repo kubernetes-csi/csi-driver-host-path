@@ -5,7 +5,7 @@ metadata:
 spec:
   storageClassName: csi-hostpath-sc
   dataSource:
-    name: pvc-raw
+    name: pvc-raw  # definded in the csi-pvc-block.yaml
     kind: PersistentVolumeClaim
     apiGroup: ""
   accessModes:

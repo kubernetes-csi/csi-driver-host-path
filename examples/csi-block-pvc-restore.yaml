@@ -6,7 +6,7 @@ spec:
   storageClassName: csi-hostpath-sc
   volumeMode: Block
   dataSource:
-    name: raw-pvc-snapshot
+    name: raw-pvc-snapshot # defined in the csi-block-pvc-snapshot.yaml
     kind: VolumeSnapshot
     apiGroup: snapshot.storage.k8s.io
   accessModes:
