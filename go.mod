@@ -13,7 +13,7 @@ require (
 	google.golang.org/grpc v1.58.2
 	k8s.io/apimachinery v0.28.0
 	k8s.io/klog/v2 v2.100.1
-	k8s.io/kubernetes v1.27.4
+	k8s.io/kubernetes v1.28.2
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
 )
 
@@ -40,7 +40,8 @@ require (
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.26.0 // indirect
+	k8s.io/apiextensions-apiserver v0.0.0 // indirect
+	k8s.io/apiserver v0.27.0 // indirect
 	k8s.io/component-base v0.28.0 // indirect
 	k8s.io/mount-utils v0.26.0 // indirect
 )
