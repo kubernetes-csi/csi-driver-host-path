@@ -18,7 +18,6 @@ package hostpath
 
 import (
 	"encoding/json"
-	"sync"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -35,22 +34,15 @@ func NewNonBlockingGRPCServer() *nonBlockingGRPCServer {
 
 // NonBlocking server
 type nonBlockingGRPCServer struct {
-	wg      sync.WaitGroup
 	server  *grpc.Server
 	cleanup func()
 }
 
 func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, gcs csi.GroupControllerServer, sms csi.SnapshotMetadataServer) {
 
-	s.wg.Add(1)
-
 	go s.serve(endpoint, ids, cs, ns, gcs, sms)
 
 	return
-}
-
-func (s *nonBlockingGRPCServer) Wait() {
-	s.wg.Wait()
 }
 
 func (s *nonBlockingGRPCServer) Stop() {
@@ -95,7 +87,6 @@ func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.
 	klog.Infof("Listening for connections on address: %#v", listener.Addr())
 
 	server.Serve(listener)
-
 }
 
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {

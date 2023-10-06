@@ -130,14 +130,16 @@ func NewHostPathDriver(cfg Config) (*hostPath, error) {
 	return hp, nil
 }
 
-func (hp *hostPath) Run() error {
+func (hp *hostPath) Run(stopCh <-chan os.Signal) error {
 	s := NewNonBlockingGRPCServer()
 	var sms csi.SnapshotMetadataServer
 	if hp.config.EnableSnapshotMetadata {
 		sms = hp
 	}
 	s.Start(hp.config.Endpoint, hp, hp, hp, hp, sms)
-	s.Wait()
+
+	<-stopCh
+	s.Stop()
 
 	return nil
 }
