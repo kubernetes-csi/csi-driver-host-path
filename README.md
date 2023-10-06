@@ -28,12 +28,16 @@ The following examples assume that the CSI hostpath driver has been deployed and
 - [Volume snapshots](docs/example-snapshots-1.17-and-later.md)
 - [Inline ephemeral volumes](docs/example-ephemeral.md)
 
-## Building the binaries
+## Build and Test locally
+### Building the binaries
 If you want to build the driver yourself, you can do so with the following command from the root directory:
 
 ```shell
 make
 ```
+
+### Test hostpath driver
+See [doc](./pkg/hostpath/README.md)
 
 ## Development
 
