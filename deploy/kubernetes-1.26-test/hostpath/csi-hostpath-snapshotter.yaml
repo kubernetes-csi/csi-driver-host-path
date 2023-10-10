@@ -1,28 +1,28 @@
 kind: StatefulSet
 apiVersion: apps/v1
 metadata:
-  name: csi-hostpath-provisioner
+  name: csi-hostpath-snapshotter
   labels:
     app.kubernetes.io/instance: hostpath.csi.k8s.io
     app.kubernetes.io/part-of: csi-driver-host-path
-    app.kubernetes.io/name: csi-hostpath-provisioner
-    app.kubernetes.io/component: provisioner
+    app.kubernetes.io/name: csi-hostpath-snapshotter
+    app.kubernetes.io/component: snapshotter
 spec:
-  serviceName: "csi-hostpath-provisioner"
+  serviceName: "csi-hostpath-snapshotter"
   replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/instance: hostpath.csi.k8s.io
       app.kubernetes.io/part-of: csi-driver-host-path
-      app.kubernetes.io/name: csi-hostpath-provisioner
-      app.kubernetes.io/component: provisioner
+      app.kubernetes.io/name: csi-hostpath-snapshotter
+      app.kubernetes.io/component: snapshotter
   template:
     metadata:
       labels:
         app.kubernetes.io/instance: hostpath.csi.k8s.io
         app.kubernetes.io/part-of: csi-driver-host-path
-        app.kubernetes.io/name: csi-hostpath-provisioner
-        app.kubernetes.io/component: provisioner
+        app.kubernetes.io/name: csi-hostpath-snapshotter
+        app.kubernetes.io/component: snapshotter
     spec:
       affinity:
         podAffinity:
@@ -34,14 +34,13 @@ spec:
                 values:
                   - hostpath.csi.k8s.io
             topologyKey: kubernetes.io/hostname
-      serviceAccountName: csi-provisioner
+      serviceAccountName: csi-snapshotter
       containers:
-        - name: csi-provisioner
-          image: registry.k8s.io/sig-storage/csi-provisioner:v3.4.0
+        - name: csi-snapshotter
+          image: registry.k8s.io/sig-storage/csi-snapshotter:v6.3.0
           args:
             - -v=5
             - --csi-address=/csi/csi.sock
-            - --feature-gates=Topology=true
           securityContext:
             # This is necessary only for systems with SELinux, where
             # non-privileged sidecar containers cannot access unix domain socket
