@@ -196,7 +196,7 @@ func (s *state) UpdateVolume(update Volume) error {
 	for i, volume := range s.Volumes {
 		if volume.VolID == update.VolID {
 			s.Volumes[i] = update
-			return nil
+			return s.dump()
 		}
 	}
 	s.Volumes = append(s.Volumes, update)
