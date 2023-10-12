@@ -29,7 +29,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 	utilexec "k8s.io/utils/exec"
 
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
@@ -197,8 +196,7 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType st
 		}
 
 		// Associate block file with the loop device.
-		volPathHandler := volumepathhandler.VolumePathHandler{}
-		_, err = volPathHandler.AttachFileDevice(path)
+		_, err = AttachFileDevice(path)
 		if err != nil {
 			// Remove the block file because it'll no longer be used again.
 			if err2 := os.Remove(path); err2 != nil {
@@ -237,10 +235,9 @@ func (hp *hostPath) deleteVolume(volID string) error {
 	}
 
 	if vol.VolAccessType == state.BlockAccess {
-		volPathHandler := volumepathhandler.VolumePathHandler{}
 		path := hp.getVolumePath(volID)
 		glog.V(4).Infof("deleting loop device for file %s if it exists", path)
-		if err := volPathHandler.DetachFileDevice(path); err != nil {
+		if err := DetachFileDevice(path); err != nil {
 			return fmt.Errorf("failed to remove loop device for file %s: %v", path, err)
 		}
 	}

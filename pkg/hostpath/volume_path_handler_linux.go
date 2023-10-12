@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
 Copyright 2018 The Kubernetes Authors.
 
@@ -17,7 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package volumepathhandler
+// This file is copied from https://github.com/kubernetes/kubernetes/blob/v1.29.0-alpha.2/pkg/volume/util/volumepathhandler/volume_path_handler_linux.go
+
+package hostpath
 
 import (
 	"errors"
@@ -33,10 +32,15 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+        losetupPath       = "losetup"
+        ErrDeviceNotFound = "device not found"
+)
+
 // AttachFileDevice takes a path to a regular file and makes it available as an
 // attached block device.
-func (v VolumePathHandler) AttachFileDevice(path string) (string, error) {
-	blockDevicePath, err := v.GetLoopDevice(path)
+func AttachFileDevice(path string) (string, error) {
+	blockDevicePath, err := GetLoopDevice(path)
 	if err != nil && err.Error() != ErrDeviceNotFound {
 		return "", fmt.Errorf("GetLoopDevice failed for path %s: %v", path, err)
 	}
@@ -54,8 +58,8 @@ func (v VolumePathHandler) AttachFileDevice(path string) (string, error) {
 
 // DetachFileDevice takes a path to the attached block device and
 // detach it from block device.
-func (v VolumePathHandler) DetachFileDevice(path string) error {
-	loopPath, err := v.GetLoopDevice(path)
+func DetachFileDevice(path string) error {
+	loopPath, err := GetLoopDevice(path)
 	if err != nil {
 		if err.Error() == ErrDeviceNotFound {
 			klog.Warningf("couldn't find loopback device which takes file descriptor lock. Skip detaching device. device path: %q", path)
@@ -74,7 +78,7 @@ func (v VolumePathHandler) DetachFileDevice(path string) error {
 }
 
 // GetLoopDevice returns the full path to the loop device associated with the given path.
-func (v VolumePathHandler) GetLoopDevice(path string) (string, error) {
+func GetLoopDevice(path string) (string, error) {
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return "", errors.New(ErrDeviceNotFound)
@@ -161,7 +165,7 @@ func cleanBackingFilePath(path string) string {
 // ex. mapPath symlink: pods/{podUid}}/{DefaultKubeletVolumeDevicesDirName}/{escapeQualifiedPluginName}/{volumeName} -> /dev/sdX
 //
 //	globalMapPath/{pod uuid} bind mount: plugins/kubernetes.io/{PluginName}/{DefaultKubeletVolumeDevicesDirName}/{volumePluginDependentPath}/{pod uuid} -> /dev/sdX
-func (v VolumePathHandler) FindGlobalMapPathUUIDFromPod(pluginDir, mapPath string, podUID types.UID) (string, error) {
+func FindGlobalMapPathUUIDFromPod(pluginDir, mapPath string, podUID types.UID) (string, error) {
 	var globalMapPathUUID string
 	// Find symbolic link named pod uuid under plugin dir
 	err := filepath.Walk(pluginDir, func(path string, fi os.FileInfo, err error) error {

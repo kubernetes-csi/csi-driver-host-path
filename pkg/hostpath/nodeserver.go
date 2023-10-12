@@ -27,7 +27,6 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 	"k8s.io/utils/mount"
 )
 
@@ -103,10 +102,8 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 			return nil, status.Error(codes.InvalidArgument, "cannot publish a non-block volume as block volume")
 		}
 
-		volPathHandler := volumepathhandler.VolumePathHandler{}
-
 		// Get loop device from the volume path.
-		loopDevice, err := volPathHandler.GetLoopDevice(vol.VolPath)
+		loopDevice, err := GetLoopDevice(vol.VolPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get the loop device: %w", err)
 		}
