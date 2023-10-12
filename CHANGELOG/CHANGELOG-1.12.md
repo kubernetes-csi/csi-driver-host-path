@@ -1,0 +1,272 @@
+# Release notes for v1.12.0
+
+# Changelog since v1.11.0
+
+## Changes by Kind
+
+### Failing Test
+
+- CSI HostPath driver e2e test for resizing fs needs to be disabled because it does not support FSResizeFromSourceNotSupported capability. ([#401](https://github.com/kubernetes-csi/csi-driver-host-path/pull/401), [@RomanBednar](https://github.com/RomanBednar))
+
+### Other (Cleanup or Flake)
+
+- Update deploy directory structure and update sidecar releases, corresponding to Kubernetes 1.28. ([#460](https://github.com/kubernetes-csi/csi-driver-host-path/pull/460), [@mowangdk](https://github.com/mowangdk))
+- Updated Kubernetes dependencies to v1.28.2 ([#452](https://github.com/kubernetes-csi/csi-driver-host-path/pull/452), [@jsafrane](https://github.com/jsafrane))
+
+## Dependencies
+
+### Added
+- cloud.google.com/go/compute/metadata: v0.2.3
+- cloud.google.com/go/compute: v1.21.0
+- github.com/alecthomas/kingpin/v2: [v2.3.2](https://github.com/alecthomas/kingpin/v2/tree/v2.3.2)
+- github.com/antlr/antlr4/runtime/Go/antlr/v4: [8188dc5](https://github.com/antlr/antlr4/runtime/Go/antlr/v4/tree/8188dc5)
+- github.com/creack/pty: [v1.1.9](https://github.com/creack/pty/tree/v1.1.9)
+- github.com/google/gnostic-models: [v0.6.8](https://github.com/google/gnostic-models/tree/v0.6.8)
+- github.com/googleapis/enterprise-certificate-proxy: [v0.2.3](https://github.com/googleapis/enterprise-certificate-proxy/tree/v0.2.3)
+- github.com/xhit/go-str2duration/v2: [v2.1.0](https://github.com/xhit/go-str2duration/v2/tree/v2.1.0)
+- google.golang.org/genproto/googleapis/api: 782d3b1
+- google.golang.org/genproto/googleapis/rpc: 782d3b1
+- k8s.io/endpointslice: v0.28.2
+- sigs.k8s.io/kustomize/kustomize/v5: 6ce0bf3
+
+### Changed
+- github.com/Azure/azure-sdk-for-go: [v55.0.0+incompatible → v68.0.0+incompatible](https://github.com/Azure/azure-sdk-for-go/compare/v55.0.0...v68.0.0)
+- github.com/Azure/go-autorest/autorest/adal: [v0.9.20 → v0.9.23](https://github.com/Azure/go-autorest/autorest/adal/compare/v0.9.20...v0.9.23)
+- github.com/Azure/go-autorest/autorest/validation: [v0.1.0 → v0.3.1](https://github.com/Azure/go-autorest/autorest/validation/compare/v0.1.0...v0.3.1)
+- github.com/Azure/go-autorest/autorest: [v0.11.27 → v0.11.29](https://github.com/Azure/go-autorest/autorest/compare/v0.11.27...v0.11.29)
+- github.com/Microsoft/go-winio: [v0.4.17 → v0.6.0](https://github.com/Microsoft/go-winio/compare/v0.4.17...v0.6.0)
+- github.com/Microsoft/hcsshim: [v0.8.22 → v0.8.25](https://github.com/Microsoft/hcsshim/compare/v0.8.22...v0.8.25)
+- github.com/alecthomas/units: [f65c72e → b94a6e3](https://github.com/alecthomas/units/compare/f65c72e...b94a6e3)
+- github.com/cenkalti/backoff/v4: [v4.1.3 → v4.2.1](https://github.com/cenkalti/backoff/v4/compare/v4.1.3...v4.2.1)
+- github.com/census-instrumentation/opencensus-proto: [v0.2.1 → v0.4.1](https://github.com/census-instrumentation/opencensus-proto/compare/v0.2.1...v0.4.1)
+- github.com/cespare/xxhash/v2: [v2.1.2 → v2.2.0](https://github.com/cespare/xxhash/v2/compare/v2.1.2...v2.2.0)
+- github.com/cilium/ebpf: [v0.7.0 → v0.9.1](https://github.com/cilium/ebpf/compare/v0.7.0...v0.9.1)
+- github.com/cncf/udpa/go: [04548b0 → c52dc94](https://github.com/cncf/udpa/go/compare/04548b0...c52dc94)
+- github.com/cncf/xds/go: [cb28da3 → e9ce688](https://github.com/cncf/xds/go/compare/cb28da3...e9ce688)
+- github.com/container-storage-interface/spec: [v1.7.0 → v1.8.0](https://github.com/container-storage-interface/spec/compare/v1.7.0...v1.8.0)
+- github.com/containerd/cgroups: [v1.0.1 → v1.1.0](https://github.com/containerd/cgroups/compare/v1.0.1...v1.1.0)
+- github.com/containerd/ttrpc: [v1.1.0 → v1.2.2](https://github.com/containerd/ttrpc/compare/v1.1.0...v1.2.2)
+- github.com/coredns/caddy: [v1.1.0 → v1.1.1](https://github.com/coredns/caddy/compare/v1.1.0...v1.1.1)
+- github.com/coredns/corefile-migration: [v1.0.17 → v1.0.20](https://github.com/coredns/corefile-migration/compare/v1.0.17...v1.0.20)
+- github.com/coreos/go-oidc: [v2.1.0+incompatible → v2.2.1+incompatible](https://github.com/coreos/go-oidc/compare/v2.1.0...v2.2.1)
+- github.com/coreos/go-semver: [v0.3.0 → v0.3.1](https://github.com/coreos/go-semver/compare/v0.3.0...v0.3.1)
+- github.com/coreos/go-systemd/v22: [v22.3.2 → v22.5.0](https://github.com/coreos/go-systemd/v22/compare/v22.3.2...v22.5.0)
+- github.com/docker/distribution: [v2.8.1+incompatible → v2.8.2+incompatible](https://github.com/docker/distribution/compare/v2.8.1...v2.8.2)
+- github.com/dustin/go-humanize: [v1.0.0 → v1.0.1](https://github.com/dustin/go-humanize/compare/v1.0.0...v1.0.1)
+- github.com/envoyproxy/go-control-plane: [49ff273 → v0.11.1](https://github.com/envoyproxy/go-control-plane/compare/49ff273...v0.11.1)
+- github.com/envoyproxy/protoc-gen-validate: [v0.1.0 → v1.0.2](https://github.com/envoyproxy/protoc-gen-validate/compare/v0.1.0...v1.0.2)
+- github.com/fvbommel/sortorder: [v1.0.1 → v1.1.0](https://github.com/fvbommel/sortorder/compare/v1.0.1...v1.1.0)
+- github.com/go-errors/errors: [v1.0.1 → v1.4.2](https://github.com/go-errors/errors/compare/v1.0.1...v1.4.2)
+- github.com/go-kit/log: [v0.2.0 → v0.2.1](https://github.com/go-kit/log/compare/v0.2.0...v0.2.1)
+- github.com/go-logr/logr: [v1.2.3 → v1.2.4](https://github.com/go-logr/logr/compare/v1.2.3...v1.2.4)
+- github.com/go-openapi/jsonpointer: [v0.19.5 → v0.19.6](https://github.com/go-openapi/jsonpointer/compare/v0.19.5...v0.19.6)
+- github.com/go-openapi/jsonreference: [v0.20.0 → v0.20.2](https://github.com/go-openapi/jsonreference/compare/v0.20.0...v0.20.2)
+- github.com/go-openapi/swag: [v0.19.14 → v0.22.3](https://github.com/go-openapi/swag/compare/v0.19.14...v0.22.3)
+- github.com/go-task/slim-sprig: [348f09d → 52ccab3](https://github.com/go-task/slim-sprig/compare/348f09d...52ccab3)
+- github.com/gofrs/uuid: [v4.0.0+incompatible → v4.4.0+incompatible](https://github.com/gofrs/uuid/compare/v4.0.0...v4.4.0)
+- github.com/golang-jwt/jwt/v4: [v4.2.0 → v4.5.0](https://github.com/golang-jwt/jwt/v4/compare/v4.2.0...v4.5.0)
+- github.com/golang/glog: [v1.0.0 → v1.1.2](https://github.com/golang/glog/compare/v1.0.0...v1.1.2)
+- github.com/golang/protobuf: [v1.5.2 → v1.5.3](https://github.com/golang/protobuf/compare/v1.5.2...v1.5.3)
+- github.com/google/cadvisor: [v0.46.0 → v0.47.3](https://github.com/google/cadvisor/compare/v0.46.0...v0.47.3)
+- github.com/google/cel-go: [v0.12.5 → v0.16.1](https://github.com/google/cel-go/compare/v0.12.5...v0.16.1)
+- github.com/google/gofuzz: [v1.1.0 → v1.2.0](https://github.com/google/gofuzz/compare/v1.1.0...v1.2.0)
+- github.com/google/uuid: [v1.1.2 → v1.3.0](https://github.com/google/uuid/compare/v1.1.2...v1.3.0)
+- github.com/googleapis/gax-go/v2: [v2.1.1 → v2.7.1](https://github.com/googleapis/gax-go/v2/compare/v2.1.1...v2.7.1)
+- github.com/inconshreveable/mousetrap: [v1.0.1 → v1.1.0](https://github.com/inconshreveable/mousetrap/compare/v1.0.1...v1.1.0)
+- github.com/kr/pretty: [v0.1.0 → v0.3.1](https://github.com/kr/pretty/compare/v0.1.0...v0.3.1)
+- github.com/kubernetes-csi/csi-lib-utils: [v0.12.0 → v0.15.0](https://github.com/kubernetes-csi/csi-lib-utils/compare/v0.12.0...v0.15.0)
+- github.com/mailru/easyjson: [v0.7.6 → v0.7.7](https://github.com/mailru/easyjson/compare/v0.7.6...v0.7.7)
+- github.com/matttproud/golang_protobuf_extensions: [v1.0.2 → v1.0.4](https://github.com/matttproud/golang_protobuf_extensions/compare/v1.0.2...v1.0.4)
+- github.com/mitchellh/go-wordwrap: [v1.0.0 → v1.0.1](https://github.com/mitchellh/go-wordwrap/compare/v1.0.0...v1.0.1)
+- github.com/moby/ipvs: [v1.0.1 → v1.1.0](https://github.com/moby/ipvs/compare/v1.0.1...v1.1.0)
+- github.com/moby/term: [39b0c02 → 1aeaba8](https://github.com/moby/term/compare/39b0c02...1aeaba8)
+- github.com/onsi/ginkgo/v2: [v2.4.0 → v2.9.4](https://github.com/onsi/ginkgo/v2/compare/v2.4.0...v2.9.4)
+- github.com/onsi/gomega: [v1.23.0 → v1.27.6](https://github.com/onsi/gomega/compare/v1.23.0...v1.27.6)
+- github.com/opencontainers/runc: [v1.1.4 → v1.1.7](https://github.com/opencontainers/runc/compare/v1.1.4...v1.1.7)
+- github.com/opencontainers/runtime-spec: [1c3f411 → 494a5a6](https://github.com/opencontainers/runtime-spec/compare/1c3f411...494a5a6)
+- github.com/prometheus/client_golang: [v1.14.0 → v1.16.0](https://github.com/prometheus/client_golang/compare/v1.14.0...v1.16.0)
+- github.com/prometheus/client_model: [v0.3.0 → v0.4.0](https://github.com/prometheus/client_model/compare/v0.3.0...v0.4.0)
+- github.com/prometheus/common: [v0.37.0 → v0.44.0](https://github.com/prometheus/common/compare/v0.37.0...v0.44.0)
+- github.com/prometheus/procfs: [v0.8.0 → v0.10.1](https://github.com/prometheus/procfs/compare/v0.8.0...v0.10.1)
+- github.com/rogpeppe/go-internal: [v1.3.0 → v1.10.0](https://github.com/rogpeppe/go-internal/compare/v1.3.0...v1.10.0)
+- github.com/seccomp/libseccomp-golang: [f33da4d → v0.10.0](https://github.com/seccomp/libseccomp-golang/compare/f33da4d...v0.10.0)
+- github.com/sirupsen/logrus: [v1.8.1 → v1.9.0](https://github.com/sirupsen/logrus/compare/v1.8.1...v1.9.0)
+- github.com/spf13/cobra: [v1.6.0 → v1.7.0](https://github.com/spf13/cobra/compare/v1.6.0...v1.7.0)
+- github.com/stretchr/objx: [v0.4.0 → v0.5.0](https://github.com/stretchr/objx/compare/v0.4.0...v0.5.0)
+- github.com/stretchr/testify: [v1.8.0 → v1.8.4](https://github.com/stretchr/testify/compare/v1.8.0...v1.8.4)
+- github.com/tmc/grpc-websocket-proxy: [e5319fd → 673ab2c](https://github.com/tmc/grpc-websocket-proxy/compare/e5319fd...673ab2c)
+- github.com/vishvananda/netns: [db3c7e5 → v0.0.4](https://github.com/vishvananda/netns/compare/db3c7e5...v0.0.4)
+- github.com/vmware/govmomi: [v0.20.3 → v0.30.0](https://github.com/vmware/govmomi/compare/v0.20.3...v0.30.0)
+- github.com/xlab/treeprint: [v1.1.0 → v1.2.0](https://github.com/xlab/treeprint/compare/v1.1.0...v1.2.0)
+- go.etcd.io/bbolt: v1.3.6 → v1.3.7
+- go.etcd.io/etcd/api/v3: v3.5.5 → v3.5.9
+- go.etcd.io/etcd/client/pkg/v3: v3.5.5 → v3.5.9
+- go.etcd.io/etcd/client/v2: v2.305.5 → v2.305.9
+- go.etcd.io/etcd/client/v3: v3.5.5 → v3.5.9
+- go.etcd.io/etcd/pkg/v3: v3.5.5 → v3.5.9
+- go.etcd.io/etcd/raft/v3: v3.5.5 → v3.5.9
+- go.etcd.io/etcd/server/v3: v3.5.5 → v3.5.9
+- go.opencensus.io: v0.23.0 → v0.24.0
+- go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc: v0.35.0 → v0.41.0
+- go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp: v0.35.0 → v0.35.1
+- go.opentelemetry.io/otel/metric: v0.31.0 → v0.38.0
+- go.opentelemetry.io/otel/trace: v1.10.0 → v1.15.0
+- go.opentelemetry.io/otel: v1.10.0 → v1.15.0
+- go.starlark.net: 8dd3e2e → a134d8f
+- go.uber.org/atomic: v1.7.0 → v1.10.0
+- go.uber.org/goleak: v1.2.0 → v1.2.1
+- go.uber.org/multierr: v1.6.0 → v1.11.0
+- golang.org/x/crypto: v0.1.0 → v0.14.0
+- golang.org/x/exp: 6cc2880 → a9213ee
+- golang.org/x/mod: v0.6.0 → v0.10.0
+- golang.org/x/net: v0.4.0 → v0.17.0
+- golang.org/x/oauth2: ee48083 → v0.10.0
+- golang.org/x/sync: 886fb93 → v0.3.0
+- golang.org/x/sys: v0.3.0 → v0.13.0
+- golang.org/x/term: v0.3.0 → v0.13.0
+- golang.org/x/text: v0.5.0 → v0.13.0
+- golang.org/x/time: 90d013b → v0.3.0
+- golang.org/x/tools: v0.2.0 → v0.8.0
+- google.golang.org/api: v0.60.0 → v0.114.0
+- google.golang.org/genproto: 23cae91 → 782d3b1
+- google.golang.org/grpc: v1.49.0 → v1.58.2
+- google.golang.org/protobuf: v1.28.1 → v1.31.0
+- gopkg.in/check.v1: 8fa4692 → 10cb982
+- gopkg.in/gcfg.v1: v1.2.0 → v1.2.3
+- gopkg.in/natefinch/lumberjack.v2: v2.0.0 → v2.2.1
+- gopkg.in/square/go-jose.v2: v2.2.2 → v2.6.0
+- gopkg.in/warnings.v0: v0.1.1 → v0.1.2
+- k8s.io/api: v0.26.0 → v0.28.2
+- k8s.io/apiextensions-apiserver: v0.26.0 → v0.28.2
+- k8s.io/apimachinery: v0.26.0 → v0.28.2
+- k8s.io/apiserver: v0.26.0 → v0.28.2
+- k8s.io/cli-runtime: v0.26.0 → v0.28.2
+- k8s.io/client-go: v0.26.0 → v0.28.2
+- k8s.io/cloud-provider: v0.26.0 → v0.28.2
+- k8s.io/cluster-bootstrap: v0.26.0 → v0.28.2
+- k8s.io/code-generator: v0.26.0 → v0.28.2
+- k8s.io/component-base: v0.26.0 → v0.28.2
+- k8s.io/component-helpers: v0.26.0 → v0.28.2
+- k8s.io/controller-manager: v0.26.0 → v0.28.2
+- k8s.io/cri-api: v0.26.0 → v0.28.2
+- k8s.io/csi-translation-lib: v0.26.0 → v0.28.2
+- k8s.io/dynamic-resource-allocation: v0.26.0 → v0.28.2
+- k8s.io/klog/v2: v2.80.1 → v2.100.1
+- k8s.io/kms: v0.26.0 → v0.28.2
+- k8s.io/kube-aggregator: v0.26.0 → v0.28.2
+- k8s.io/kube-controller-manager: v0.26.0 → v0.28.2
+- k8s.io/kube-openapi: 172d655 → 2695361
+- k8s.io/kube-proxy: v0.26.0 → v0.28.2
+- k8s.io/kube-scheduler: v0.26.0 → v0.28.2
+- k8s.io/kubectl: v0.26.0 → v0.28.2
+- k8s.io/kubelet: v0.26.0 → v0.28.2
+- k8s.io/kubernetes: v1.26.0 → v1.28.2
+- k8s.io/legacy-cloud-providers: v0.26.0 → v0.28.2
+- k8s.io/metrics: v0.26.0 → v0.28.2
+- k8s.io/mount-utils: v0.26.0 → v0.28.2
+- k8s.io/pod-security-admission: v0.26.0 → v0.28.2
+- k8s.io/sample-apiserver: v0.26.0 → v0.28.2
+- k8s.io/utils: 1a15be2 → d93618c
+- sigs.k8s.io/apiserver-network-proxy/konnectivity-client: v0.0.33 → v0.1.2
+- sigs.k8s.io/json: f223a00 → bc3834c
+- sigs.k8s.io/kustomize/api: v0.12.1 → 6ce0bf3
+- sigs.k8s.io/kustomize/kyaml: v0.13.9 → 6ce0bf3
+
+### Removed
+- cloud.google.com/go/analytics: v0.11.0
+- cloud.google.com/go/area120: v0.5.0
+- cloud.google.com/go/artifactregistry: v1.6.0
+- cloud.google.com/go/asset: v1.5.0
+- cloud.google.com/go/assuredworkloads: v1.5.0
+- cloud.google.com/go/automl: v1.5.0
+- cloud.google.com/go/bigquery: v1.42.0
+- cloud.google.com/go/billing: v1.4.0
+- cloud.google.com/go/binaryauthorization: v1.1.0
+- cloud.google.com/go/cloudtasks: v1.5.0
+- cloud.google.com/go/datacatalog: v1.5.0
+- cloud.google.com/go/dataflow: v0.6.0
+- cloud.google.com/go/dataform: v0.3.0
+- cloud.google.com/go/datalabeling: v0.5.0
+- cloud.google.com/go/dataqna: v0.5.0
+- cloud.google.com/go/datastore: v1.1.0
+- cloud.google.com/go/datastream: v1.2.0
+- cloud.google.com/go/dialogflow: v1.15.0
+- cloud.google.com/go/documentai: v1.7.0
+- cloud.google.com/go/domains: v0.6.0
+- cloud.google.com/go/edgecontainer: v0.1.0
+- cloud.google.com/go/functions: v1.6.0
+- cloud.google.com/go/gaming: v1.5.0
+- cloud.google.com/go/gkeconnect: v0.5.0
+- cloud.google.com/go/gkehub: v0.9.0
+- cloud.google.com/go/language: v1.4.0
+- cloud.google.com/go/lifesciences: v0.5.0
+- cloud.google.com/go/mediatranslation: v0.5.0
+- cloud.google.com/go/memcache: v1.4.0
+- cloud.google.com/go/metastore: v1.5.0
+- cloud.google.com/go/networkconnectivity: v1.4.0
+- cloud.google.com/go/networksecurity: v0.5.0
+- cloud.google.com/go/notebooks: v1.2.0
+- cloud.google.com/go/osconfig: v1.7.0
+- cloud.google.com/go/oslogin: v1.4.0
+- cloud.google.com/go/phishingprotection: v0.5.0
+- cloud.google.com/go/privatecatalog: v0.5.0
+- cloud.google.com/go/pubsub: v1.3.1
+- cloud.google.com/go/recaptchaenterprise/v2: v2.1.0
+- cloud.google.com/go/recommendationengine: v0.5.0
+- cloud.google.com/go/recommender: v1.5.0
+- cloud.google.com/go/redis: v1.7.0
+- cloud.google.com/go/retail: v1.8.0
+- cloud.google.com/go/scheduler: v1.4.0
+- cloud.google.com/go/secretmanager: v1.6.0
+- cloud.google.com/go/security: v1.7.0
+- cloud.google.com/go/securitycenter: v1.13.0
+- cloud.google.com/go/servicedirectory: v1.4.0
+- cloud.google.com/go/speech: v1.6.0
+- cloud.google.com/go/storage: v1.10.0
+- cloud.google.com/go/talent: v1.1.0
+- cloud.google.com/go/videointelligence: v1.6.0
+- cloud.google.com/go/vision/v2: v2.2.0
+- cloud.google.com/go/webrisk: v1.4.0
+- cloud.google.com/go/workflows: v1.6.0
+- cloud.google.com/go: v0.97.0
+- dmitri.shuralyov.com/gpu/mtl: 666a987
+- github.com/BurntSushi/toml: [v0.3.1](https://github.com/BurntSushi/toml/tree/v0.3.1)
+- github.com/BurntSushi/xgb: [27f1227](https://github.com/BurntSushi/xgb/tree/27f1227)
+- github.com/alecthomas/template: [fb15b89](https://github.com/alecthomas/template/tree/fb15b89)
+- github.com/antlr/antlr4/runtime/Go/antlr: [v1.4.10](https://github.com/antlr/antlr4/runtime/Go/antlr/tree/v1.4.10)
+- github.com/aws/aws-sdk-go: [v1.44.116](https://github.com/aws/aws-sdk-go/tree/v1.44.116)
+- github.com/chzyer/logex: [v1.1.10](https://github.com/chzyer/logex/tree/v1.1.10)
+- github.com/chzyer/readline: [2972be2](https://github.com/chzyer/readline/tree/2972be2)
+- github.com/chzyer/test: [a1ea475](https://github.com/chzyer/test/tree/a1ea475)
+- github.com/client9/misspell: [v0.3.4](https://github.com/client9/misspell/tree/v0.3.4)
+- github.com/elazarl/goproxy: [947c36d](https://github.com/elazarl/goproxy/tree/947c36d)
+- github.com/form3tech-oss/jwt-go: [v3.2.3+incompatible](https://github.com/form3tech-oss/jwt-go/tree/v3.2.3)
+- github.com/go-gl/glfw/v3.3/glfw: [6f7a984](https://github.com/go-gl/glfw/v3.3/glfw/tree/6f7a984)
+- github.com/go-gl/glfw: [e6da0ac](https://github.com/go-gl/glfw/tree/e6da0ac)
+- github.com/go-kit/kit: [v0.9.0](https://github.com/go-kit/kit/tree/v0.9.0)
+- github.com/go-stack/stack: [v1.8.0](https://github.com/go-stack/stack/tree/v1.8.0)
+- github.com/google/gnostic: [v0.5.7-v3refs](https://github.com/google/gnostic/tree/v0.5.7-v3refs)
+- github.com/google/martian/v3: [v3.0.0](https://github.com/google/martian/v3/tree/v3.0.0)
+- github.com/google/martian: [v2.1.0+incompatible](https://github.com/google/martian/tree/v2.1.0)
+- github.com/google/renameio: [v0.1.0](https://github.com/google/renameio/tree/v0.1.0)
+- github.com/hashicorp/golang-lru: [v0.5.1](https://github.com/hashicorp/golang-lru/tree/v0.5.1)
+- github.com/ianlancetaylor/demangle: [5e5cf60](https://github.com/ianlancetaylor/demangle/tree/5e5cf60)
+- github.com/jmespath/go-jmespath: [v0.4.0](https://github.com/jmespath/go-jmespath/tree/v0.4.0)
+- github.com/jstemmer/go-junit-report: [v0.9.1](https://github.com/jstemmer/go-junit-report/tree/v0.9.1)
+- github.com/konsorten/go-windows-terminal-sequences: [v1.0.3](https://github.com/konsorten/go-windows-terminal-sequences/tree/v1.0.3)
+- github.com/kr/logfmt: [b84e30a](https://github.com/kr/logfmt/tree/b84e30a)
+- github.com/kr/pty: [v1.1.1](https://github.com/kr/pty/tree/v1.1.1)
+- github.com/mindprince/gonvml: [9ebdce4](https://github.com/mindprince/gonvml/tree/9ebdce4)
+- github.com/mitchellh/mapstructure: [v1.4.1](https://github.com/mitchellh/mapstructure/tree/v1.4.1)
+- github.com/niemeyer/pretty: [a10e7ca](https://github.com/niemeyer/pretty/tree/a10e7ca)
+- golang.org/x/image: cff245a
+- golang.org/x/lint: 738671d
+- golang.org/x/mobile: d2bd2a2
+- gopkg.in/alecthomas/kingpin.v2: v2.2.6
+- gopkg.in/errgo.v2: v2.1.0
+- gotest.tools/v3: v3.0.3
+- honnef.co/go/tools: v0.0.1-2020.1.4
+- rsc.io/binaryregexp: v0.2.0
+- rsc.io/quote/v3: v3.1.0
+- rsc.io/sampler: v1.3.0
+- sigs.k8s.io/kustomize/kustomize/v4: v4.5.7
