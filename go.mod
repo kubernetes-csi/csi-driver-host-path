@@ -99,3 +99,5 @@ replace k8s.io/mount-utils => k8s.io/mount-utils v0.28.2
 replace k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.28.2
 
 replace k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.28.2
+
+replace k8s.io/endpointslice => k8s.io/endpointslice v0.28.2
