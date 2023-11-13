@@ -70,11 +70,12 @@ type Snapshot struct {
 }
 
 type GroupSnapshot struct {
-	Name         string
-	Id           string
-	SnapshotIDs  []string
-	CreationTime *timestamp.Timestamp
-	ReadyToUse   bool
+	Name            string
+	Id              string
+	SnapshotIDs     []string
+	SourceVolumeIDs []string
+	CreationTime    *timestamp.Timestamp
+	ReadyToUse      bool
 }
 
 // State is the interface that the rest of the code has to use to
@@ -337,17 +338,17 @@ func (s *state) DeleteGroupSnapshot(groupSnapshotID string) error {
 }
 
 func (gs *GroupSnapshot) MatchesSourceVolumeIDs(sourceVolumeIDs []string) bool {
-	snapshotIDs := gs.SnapshotIDs
+	stateSourceVolumeIDs := gs.SourceVolumeIDs
 
-	if len(snapshotIDs) != len(sourceVolumeIDs) {
+	if len(stateSourceVolumeIDs) != len(sourceVolumeIDs) {
 		return false
 	}
 
 	// sort slices so that values are at the same location
-	sort.Strings(snapshotIDs)
+	sort.Strings(stateSourceVolumeIDs)
 	sort.Strings(sourceVolumeIDs)
 
-	for i, v := range snapshotIDs {
+	for i, v := range stateSourceVolumeIDs {
 		if v != sourceVolumeIDs[i] {
 			return false
 		}

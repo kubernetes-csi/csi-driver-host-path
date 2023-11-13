@@ -102,12 +102,15 @@ func (hp *hostPath) CreateVolumeGroupSnapshot(ctx context.Context, req *csi.Crea
 	}
 
 	groupSnapshot := state.GroupSnapshot{
-		Name:         req.GetName(),
-		Id:           uuid.NewUUID().String(),
-		CreationTime: ptypes.TimestampNow(),
-		SnapshotIDs:  make([]string, len(req.GetSourceVolumeIds())),
-		ReadyToUse:   true,
+		Name:            req.GetName(),
+		Id:              uuid.NewUUID().String(),
+		CreationTime:    ptypes.TimestampNow(),
+		SnapshotIDs:     make([]string, len(req.GetSourceVolumeIds())),
+		SourceVolumeIDs: make([]string, len(req.GetSourceVolumeIds())),
+		ReadyToUse:      true,
 	}
+
+	copy(groupSnapshot.SourceVolumeIDs, req.GetSourceVolumeIds())
 
 	snapshots := make([]*csi.Snapshot, len(req.GetSourceVolumeIds()))
 
