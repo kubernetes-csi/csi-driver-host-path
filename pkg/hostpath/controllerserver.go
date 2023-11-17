@@ -644,11 +644,12 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 
 	for _, snap := range hpSnapshots {
 		snapshot := csi.Snapshot{
-			SnapshotId:     snap.Id,
-			SourceVolumeId: snap.VolID,
-			CreationTime:   snap.CreationTime,
-			SizeBytes:      snap.SizeBytes,
-			ReadyToUse:     snap.ReadyToUse,
+			SnapshotId:      snap.Id,
+			SourceVolumeId:  snap.VolID,
+			CreationTime:    snap.CreationTime,
+			SizeBytes:       snap.SizeBytes,
+			ReadyToUse:      snap.ReadyToUse,
+			GroupSnapshotId: snap.GroupSnapshotID,
 		}
 		snapshots = append(snapshots, snapshot)
 	}
@@ -760,11 +761,12 @@ func convertSnapshot(snap state.Snapshot) *csi.ListSnapshotsResponse {
 	entries := []*csi.ListSnapshotsResponse_Entry{
 		{
 			Snapshot: &csi.Snapshot{
-				SnapshotId:     snap.Id,
-				SourceVolumeId: snap.VolID,
-				CreationTime:   snap.CreationTime,
-				SizeBytes:      snap.SizeBytes,
-				ReadyToUse:     snap.ReadyToUse,
+				SnapshotId:      snap.Id,
+				SourceVolumeId:  snap.VolID,
+				CreationTime:    snap.CreationTime,
+				SizeBytes:       snap.SizeBytes,
+				ReadyToUse:      snap.ReadyToUse,
+				GroupSnapshotId: snap.GroupSnapshotID,
 			},
 		},
 	}
