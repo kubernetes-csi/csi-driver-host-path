@@ -36,12 +36,12 @@ github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/protobuf/ptypes/wrappers
-# github.com/google/uuid v1.3.0
+# github.com/google/uuid v1.3.1
 ## explicit
 github.com/google/uuid
 # github.com/kr/text v0.2.0
 ## explicit
-# github.com/kubernetes-csi/csi-lib-utils v0.15.0
+# github.com/kubernetes-csi/csi-lib-utils v0.16.0
 ## explicit; go 1.18
 github.com/kubernetes-csi/csi-lib-utils/protosanitizer
 # github.com/matttproud/golang_protobuf_extensions v1.0.4
@@ -101,10 +101,10 @@ golang.org/x/text/secure/bidirule
 golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.58.3
+# google.golang.org/grpc v1.59.0
 ## explicit; go 1.19
 google.golang.org/grpc
 google.golang.org/grpc/attributes
