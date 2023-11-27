@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"sort"
 
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc/codes"
@@ -58,13 +59,23 @@ type Volume struct {
 }
 
 type Snapshot struct {
-	Name         string
-	Id           string
-	VolID        string
-	Path         string
-	CreationTime *timestamp.Timestamp
-	SizeBytes    int64
-	ReadyToUse   bool
+	Name            string
+	Id              string
+	VolID           string
+	Path            string
+	CreationTime    *timestamp.Timestamp
+	SizeBytes       int64
+	ReadyToUse      bool
+	GroupSnapshotID string
+}
+
+type GroupSnapshot struct {
+	Name            string
+	Id              string
+	SnapshotIDs     []string
+	SourceVolumeIDs []string
+	CreationTime    *timestamp.Timestamp
+	ReadyToUse      bool
 }
 
 // State is the interface that the rest of the code has to use to
@@ -112,11 +123,32 @@ type State interface {
 	// snapshot ID. It is not an error when such a snapshot
 	// does not exist.
 	DeleteSnapshot(snapshotID string) error
+
+	// GetGroupSnapshotByID retrieves a groupsnapshot by its unique ID or
+	// returns an error including that ID when not found.
+	GetGroupSnapshotByID(vgsID string) (GroupSnapshot, error)
+
+	// GetGroupSnapshotByName retrieves a groupsnapshot by its name or
+	// returns an error including that name when not found.
+	GetGroupSnapshotByName(volName string) (GroupSnapshot, error)
+
+	// GetGroupSnapshots returns all currently existing groupsnapshots.
+	GetGroupSnapshots() []GroupSnapshot
+
+	// UpdateGroupSnapshot updates the existing hostpath groupsnapshot,
+	// identified by its snapshot ID, or adds it if it does not exist yet.
+	UpdateGroupSnapshot(snapshot GroupSnapshot) error
+
+	// DeleteGroupSnapshot deletes the groupsnapshot with the given
+	// groupsnapshot ID. It is not an error when such a groupsnapshot does
+	// not exist.
+	DeleteGroupSnapshot(groupSnapshotID string) error
 }
 
 type resources struct {
-	Volumes   []Volume
-	Snapshots []Snapshot
+	Volumes        []Volume
+	Snapshots      []Snapshot
+	GroupSnapshots []GroupSnapshot
 }
 
 type state struct {
@@ -256,4 +288,71 @@ func (s *state) DeleteSnapshot(snapshotID string) error {
 		}
 	}
 	return nil
+}
+
+func (s *state) GetGroupSnapshotByID(groupSnapshotID string) (GroupSnapshot, error) {
+	for _, groupSnapshot := range s.GroupSnapshots {
+		if groupSnapshot.Id == groupSnapshotID {
+			return groupSnapshot, nil
+		}
+	}
+	return GroupSnapshot{}, status.Errorf(codes.NotFound, "groupsnapshot id %s does not exist in the groupsnapshots list", groupSnapshotID)
+}
+
+func (s *state) GetGroupSnapshotByName(name string) (GroupSnapshot, error) {
+	for _, groupSnapshot := range s.GroupSnapshots {
+		if groupSnapshot.Name == name {
+			return groupSnapshot, nil
+		}
+	}
+	return GroupSnapshot{}, status.Errorf(codes.NotFound, "groupsnapshot name %s does not exist in the groupsnapshots list", name)
+}
+
+func (s *state) GetGroupSnapshots() []GroupSnapshot {
+	groupSnapshots := make([]GroupSnapshot, len(s.GroupSnapshots))
+	for i, groupSnapshot := range s.GroupSnapshots {
+		groupSnapshots[i] = groupSnapshot
+	}
+	return groupSnapshots
+}
+
+func (s *state) UpdateGroupSnapshot(update GroupSnapshot) error {
+	for i, groupSnapshot := range s.GroupSnapshots {
+		if groupSnapshot.Id == update.Id {
+			s.GroupSnapshots[i] = update
+			return s.dump()
+		}
+	}
+	s.GroupSnapshots = append(s.GroupSnapshots, update)
+	return s.dump()
+}
+
+func (s *state) DeleteGroupSnapshot(groupSnapshotID string) error {
+	for i, groupSnapshot := range s.GroupSnapshots {
+		if groupSnapshot.Id == groupSnapshotID {
+			s.GroupSnapshots = append(s.GroupSnapshots[:i], s.GroupSnapshots[i+1:]...)
+			return s.dump()
+		}
+	}
+	return nil
+}
+
+func (gs *GroupSnapshot) MatchesSourceVolumeIDs(sourceVolumeIDs []string) bool {
+	stateSourceVolumeIDs := gs.SourceVolumeIDs
+
+	if len(stateSourceVolumeIDs) != len(sourceVolumeIDs) {
+		return false
+	}
+
+	// sort slices so that values are at the same location
+	sort.Strings(stateSourceVolumeIDs)
+	sort.Strings(sourceVolumeIDs)
+
+	for i, v := range stateSourceVolumeIDs {
+		if v != sourceVolumeIDs[i] {
+			return false
+		}
+	}
+
+	return true
 }

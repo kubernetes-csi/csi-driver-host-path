@@ -40,11 +40,11 @@ type nonBlockingGRPCServer struct {
 	cleanup func()
 }
 
-func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
+func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, gcs csi.GroupControllerServer) {
 
 	s.wg.Add(1)
 
-	go s.serve(endpoint, ids, cs, ns)
+	go s.serve(endpoint, ids, cs, ns, gcs)
 
 	return
 }
@@ -63,7 +63,7 @@ func (s *nonBlockingGRPCServer) ForceStop() {
 	s.cleanup()
 }
 
-func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer) {
+func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, gcs csi.GroupControllerServer) {
 	listener, cleanup, err := endpoint.Listen(ep)
 	if err != nil {
 		glog.Fatalf("Failed to listen: %v", err)
@@ -84,6 +84,9 @@ func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.
 	}
 	if ns != nil {
 		csi.RegisterNodeServer(server, ns)
+	}
+	if gcs != nil {
+		csi.RegisterGroupControllerServer(server, gcs)
 	}
 
 	glog.Infof("Listening for connections on address: %#v", listener.Addr())

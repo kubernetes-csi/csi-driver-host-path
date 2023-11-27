@@ -34,7 +34,6 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/klog/v2"
-	utilexec "k8s.io/utils/exec"
 
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
 )
@@ -543,21 +542,10 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 
 	snapshotID := uuid.NewUUID().String()
 	creationTime := ptypes.TimestampNow()
-	volPath := hostPathVolume.VolPath
 	file := hp.getSnapshotPath(snapshotID)
 
-	var cmd []string
-	if hostPathVolume.VolAccessType == state.BlockAccess {
-		glog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
-		cmd = []string{"cp", volPath, file}
-	} else {
-		glog.V(4).Infof("Creating snapshot of Filsystem Mode Volume")
-		cmd = []string{"tar", "czf", file, "-C", volPath, "."}
-	}
-	executor := utilexec.New()
-	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("failed create snapshot: %w: %s", err, out)
+	if err := hp.createSnapshotFromVolume(hostPathVolume, file); err != nil {
+		return nil, err
 	}
 
 	glog.V(4).Infof("create volume snapshot %s", file)
@@ -600,6 +588,11 @@ func (hp *hostPath) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotR
 	// driver might use more fine-grained locking.
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
+
+	// If the snapshot has a GroupSnapshotID, deletion is not allowed and should return InvalidArgument.
+	if snapshot, err := hp.state.GetSnapshotByID(snapshotID); err != nil && snapshot.GroupSnapshotID != "" {
+		return nil, status.Errorf(codes.InvalidArgument, "Snapshot with ID %s is part of groupsnapshot %s", snapshotID, snapshot.GroupSnapshotID)
+	}
 
 	glog.V(4).Infof("deleting snapshot %s", snapshotID)
 	path := hp.getSnapshotPath(snapshotID)
@@ -651,11 +644,12 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 
 	for _, snap := range hpSnapshots {
 		snapshot := csi.Snapshot{
-			SnapshotId:     snap.Id,
-			SourceVolumeId: snap.VolID,
-			CreationTime:   snap.CreationTime,
-			SizeBytes:      snap.SizeBytes,
-			ReadyToUse:     snap.ReadyToUse,
+			SnapshotId:      snap.Id,
+			SourceVolumeId:  snap.VolID,
+			CreationTime:    snap.CreationTime,
+			SizeBytes:       snap.SizeBytes,
+			ReadyToUse:      snap.ReadyToUse,
+			GroupSnapshotId: snap.GroupSnapshotID,
 		}
 		snapshots = append(snapshots, snapshot)
 	}
@@ -767,11 +761,12 @@ func convertSnapshot(snap state.Snapshot) *csi.ListSnapshotsResponse {
 	entries := []*csi.ListSnapshotsResponse_Entry{
 		{
 			Snapshot: &csi.Snapshot{
-				SnapshotId:     snap.Id,
-				SourceVolumeId: snap.VolID,
-				CreationTime:   snap.CreationTime,
-				SizeBytes:      snap.SizeBytes,
-				ReadyToUse:     snap.ReadyToUse,
+				SnapshotId:      snap.Id,
+				SourceVolumeId:  snap.VolID,
+				CreationTime:    snap.CreationTime,
+				SizeBytes:       snap.SizeBytes,
+				ReadyToUse:      snap.ReadyToUse,
+				GroupSnapshotId: snap.GroupSnapshotID,
 			},
 		},
 	}
