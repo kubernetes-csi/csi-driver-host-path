@@ -493,6 +493,10 @@ func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.Controller
 	}, nil
 }
 
+func (hp *hostPath) ControllerModifyVolume(ctx context.Context, request *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
 // CreateSnapshot uses tar command to create snapshot for hostpath volume. The tar command can quickly create
 // archives of entire directories. The host image must have "tar" binaries in /bin, /usr/sbin, or /usr/bin.
 func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
