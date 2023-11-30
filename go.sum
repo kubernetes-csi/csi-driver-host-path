@@ -119,8 +119,8 @@ k8s.io/component-base v0.29.0-rc.1 h1:YNXLyyB7x0lGqclAXmUbREnRiESVFPJrX0Nqz0+XHK
 k8s.io/component-base v0.29.0-rc.1/go.mod h1:BxIwavzsdJarfgTSRgaQa7IbepGVNdFSiEsLGUaH4QA=
 k8s.io/klog/v2 v2.110.1 h1:U/Af64HJf7FcwMcXyKm2RPM22WZzyR7OSpYj5tg3cL0=
 k8s.io/klog/v2 v2.110.1/go.mod h1:YGtd1984u+GgbuZ7e08/yBuAfKLSO0+uR1Fhi6ExXjo=
-k8s.io/kubernetes v1.29.0-rc.1 h1:oqPgJ5yyawfiMzjDhCvzwFtTIcaGF57ntsN50xzl5oI=
-k8s.io/kubernetes v1.29.0-rc.1/go.mod h1:9kztbUQf9stVDcIYXx+BX3nuGCsAQDsuClkGMpPs3pA=
+k8s.io/kubernetes v1.30.0-alpha.0 h1:O9b7RPAHd0giRuV68qtpcI6wsRMPYtHJAv6mtOefqpc=
+k8s.io/kubernetes v1.30.0-alpha.0/go.mod h1:9kztbUQf9stVDcIYXx+BX3nuGCsAQDsuClkGMpPs3pA=
 k8s.io/mount-utils v0.30.0-alpha.0 h1:hga3HePjAnYTofEKHmjvTZZzSCTV4auLQ9D172n1Gig=
 k8s.io/mount-utils v0.30.0-alpha.0/go.mod h1:N3lDK/G1B8R/IkAt4NhHyqB07OqEr7P763z3TNge94U=
 k8s.io/utils v0.0.0-20230726121419-3b25d923346b h1:sgn3ZU783SCgtaSJjpcVVlRqd6GSnlTLKgpAAttJvpI=
