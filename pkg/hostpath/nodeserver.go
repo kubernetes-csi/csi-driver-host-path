@@ -69,15 +69,18 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 	if ephemeralVolume {
 		volID := req.GetVolumeId()
 		volName := fmt.Sprintf("ephemeral-%s", volID)
-		kind := req.GetVolumeContext()[storageKind]
-		// Configurable size would be nice. For now we use a small, fixed volume size of 100Mi.
-		volSize := int64(100 * 1024 * 1024)
-		vol, err := hp.createVolume(req.GetVolumeId(), volName, volSize, state.MountAccess, ephemeralVolume, kind)
-		if err != nil && !os.IsExist(err) {
-			glog.Error("ephemeral mode failed to create volume: ", err)
-			return nil, err
+		if _, err := hp.state.GetVolumeByName(volName); err != nil {
+			// Volume doesn't exist, create it
+			kind := req.GetVolumeContext()[storageKind]
+			// Configurable size would be nice. For now we use a small, fixed volume size of 100Mi.
+			volSize := int64(100 * 1024 * 1024)
+			vol, err := hp.createVolume(req.GetVolumeId(), volName, volSize, state.MountAccess, ephemeralVolume, kind)
+			if err != nil && !os.IsExist(err) {
+				glog.Error("ephemeral mode failed to create volume: ", err)
+				return nil, err
+			}
+			glog.V(4).Infof("ephemeral mode: created volume: %s", vol.VolPath)
 		}
-		glog.V(4).Infof("ephemeral mode: created volume: %s", vol.VolPath)
 	}
 
 	vol, err := hp.state.GetVolumeByID(req.GetVolumeId())
