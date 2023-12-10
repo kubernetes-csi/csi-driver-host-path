@@ -3,7 +3,7 @@ module github.com/kubernetes-csi/csi-driver-host-path
 go 1.21
 
 require (
-	github.com/container-storage-interface/spec v1.9.0
+	github.com/container-storage-interface/spec v1.9.1-0.20240314114506-2696773158b9
 	github.com/golang/glog v1.2.1
 	github.com/golang/protobuf v1.5.4
 	github.com/kubernetes-csi/csi-lib-utils v0.17.0
