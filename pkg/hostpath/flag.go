@@ -69,3 +69,23 @@ var _ flag.Value = &Capacity{}
 func (c *Capacity) Enabled() bool {
 	return len(*c) > 0
 }
+
+// StringArray is a flag.Value implementation that allows to specify
+// a comma-separated list of strings on the command line.
+type StringArray []string
+
+// Set is an implementation of flag.Value.Set.
+func (s *StringArray) Set(value string) error {
+	parts := strings.Split(value, ",")
+	for _, part := range parts {
+		*s = append(*s, strings.TrimSpace(part))
+	}
+	return nil
+}
+
+// String is an implementation of flag.Value.String.
+func (s *StringArray) String() string {
+	return fmt.Sprintf("%v", []string(*s))
+}
+
+var _ flag.Value = &StringArray{}
