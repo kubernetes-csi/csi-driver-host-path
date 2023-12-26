@@ -1,3 +1,24 @@
+# Release notes for v1.12.1
+
+[Documentation](https://kubernetes-csi.github.io)
+
+## Changes by Kind
+
+### Bug or Regression
+
+- Cherry-pick PR 480: Fix missing published target paths when republish the ephemeral volume ([#483](https://github.com/kubernetes-csi/csi-driver-host-path/pull/483), [@carlory](https://github.com/carlory))
+
+## Dependencies
+
+### Added
+_Nothing has changed._
+
+### Changed
+_Nothing has changed._
+
+### Removed
+_Nothing has changed._
+
 # Release notes for v1.12.0
 
 # Changelog since v1.11.0
