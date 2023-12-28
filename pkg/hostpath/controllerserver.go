@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
@@ -46,6 +47,17 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
 		glog.V(3).Infof("invalid create volume req: %v", req)
 		return nil, err
+	}
+
+	if len(req.GetMutableParameters()) > 0 {
+		if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_MODIFY_VOLUME); err != nil {
+			glog.V(3).Infof("invalid create volume req: %v", req)
+			return nil, err
+		}
+		// Check if the mutable parameters are in the accepted list
+		if err := hp.validateVolumeMutableParameters(req.MutableParameters); err != nil {
+			return nil, err
+		}
 	}
 
 	// Check arguments
@@ -493,8 +505,36 @@ func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.Controller
 	}, nil
 }
 
-func (hp *hostPath) ControllerModifyVolume(ctx context.Context, request *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
-	return nil, fmt.Errorf("unimplemented")
+func (hp *hostPath) ControllerModifyVolume(ctx context.Context, req *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
+	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_MODIFY_VOLUME); err != nil {
+		return nil, err
+	}
+
+	// Check arguments
+	if len(req.VolumeId) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID cannot be empty")
+	}
+	if len(req.MutableParameters) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Mutable parameters cannot be empty")
+	}
+
+	// Check if the mutable parameters are in the accepted list
+	if err := hp.validateVolumeMutableParameters(req.MutableParameters); err != nil {
+		return nil, err
+	}
+
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	// Get the volume
+	_, err := hp.state.GetVolumeByID(req.VolumeId)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	return &csi.ControllerModifyVolumeResponse{}, nil
 }
 
 // CreateSnapshot uses tar command to create snapshot for hostpath volume. The tar command can quickly create
@@ -782,6 +822,25 @@ func convertSnapshot(snap state.Snapshot) *csi.ListSnapshotsResponse {
 	return rsp
 }
 
+// validateVolumeMutableParameters is a helper function to check if the mutable parameters are in the accepted list
+func (hp *hostPath) validateVolumeMutableParameters(params map[string]string) error {
+	if len(hp.config.AcceptedMutableParameterNames) == 0 {
+		return nil
+	}
+
+	accepts := sets.New(hp.config.AcceptedMutableParameterNames...)
+	unsupported := []string{}
+	for k := range params {
+		if !accepts.Has(k) {
+			unsupported = append(unsupported, k)
+		}
+	}
+	if len(unsupported) > 0 {
+		return status.Errorf(codes.InvalidArgument, "invalid parameters: %v", unsupported)
+	}
+	return nil
+}
+
 func (hp *hostPath) validateControllerServiceRequest(c csi.ControllerServiceCapability_RPC_Type) error {
 	if c == csi.ControllerServiceCapability_RPC_UNKNOWN {
 		return nil
@@ -814,6 +873,9 @@ func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceC
 		}
 		if hp.config.EnableAttach {
 			cl = append(cl, csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME)
+		}
+		if hp.config.EnableControllerModifyVolume {
+			cl = append(cl, csi.ControllerServiceCapability_RPC_MODIFY_VOLUME)
 		}
 	}
 
