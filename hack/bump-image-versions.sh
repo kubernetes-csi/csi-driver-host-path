@@ -20,8 +20,9 @@
 # for older Kubernetes releases.
 
 set -e
+set -x
 
-# List of images under https://console.cloud.google.com/gcr/images/k8s-staging-sig-storage/GLOBAL
+# List of images under registry.k8s.io/sig-storage
 images="
 csi-attacher
 csi-node-driver-registrar
@@ -33,8 +34,17 @@ csi-external-health-monitor-controller
 livenessprobe
 "
 
-for image in $images; do
-    latest=$(gcloud container images list-tags k8s.gcr.io/sig-storage/$image --format='get(tags)' --filter='tags~^v AND NOT tags~v2020 AND NOT tags~-rc' --sort-by=tags | tail -n 1)
+if ! command -v skopeo > /dev/null 2>&1; then
+    echo "skopeo not found. For installation instructions, see https://github.com/containers/skopeo/blob/main/install.md"
+    exit 1
+fi
 
-    sed -i -e "s;\(image: registry.k8s.io/sig-storage/$image:\).*;\1$latest;" $(find deploy -type f)
+if ! command -v jq > /dev/null 2>&1; then
+    echo "jq not found."
+    exit 1
+fi
+
+for image in $images; do
+    latest=$(skopeo list-tags --retry-times 3 docker://registry.k8s.io/sig-storage/"$image" | jq -r '.Tags[]' | grep -e '^v.*$' | sort -V | tail -n 1)
+    find deploy -type f -exec sed -i '' "s;\(image: registry.k8s.io/sig-storage/$image:\).*;\1$latest;" {} \;
 done
