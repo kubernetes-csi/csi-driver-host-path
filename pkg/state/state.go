@@ -338,18 +338,24 @@ func (s *state) DeleteGroupSnapshot(groupSnapshotID string) error {
 }
 
 func (gs *GroupSnapshot) MatchesSourceVolumeIDs(sourceVolumeIDs []string) bool {
-	stateSourceVolumeIDs := gs.SourceVolumeIDs
+	return equalIDs(gs.SourceVolumeIDs, sourceVolumeIDs)
+}
 
-	if len(stateSourceVolumeIDs) != len(sourceVolumeIDs) {
+func (gs *GroupSnapshot) MatchesSnapshotIDs(snapshotIDs []string) bool {
+	return equalIDs(gs.SnapshotIDs, snapshotIDs)
+}
+
+func equalIDs(a, b []string) bool {
+	if len(a) != len(b) {
 		return false
 	}
 
 	// sort slices so that values are at the same location
-	sort.Strings(stateSourceVolumeIDs)
-	sort.Strings(sourceVolumeIDs)
+	sort.Strings(a)
+	sort.Strings(b)
 
-	for i, v := range stateSourceVolumeIDs {
-		if v != sourceVolumeIDs[i] {
+	for i, v := range a {
+		if v != b[i] {
 			return false
 		}
 	}

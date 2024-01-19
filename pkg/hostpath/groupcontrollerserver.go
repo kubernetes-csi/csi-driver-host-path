@@ -237,7 +237,7 @@ func (hp *hostPath) GetVolumeGroupSnapshot(ctx context.Context, req *csi.GetVolu
 		return nil, err
 	}
 
-	if !groupSnapshot.MatchesSourceVolumeIDs(req.GetSnapshotIds()) {
+	if !groupSnapshot.MatchesSnapshotIDs(req.GetSnapshotIds()) {
 		return nil, status.Error(codes.InvalidArgument, "Snapshot IDs do not match the GroupSnapshot IDs")
 	}
 
