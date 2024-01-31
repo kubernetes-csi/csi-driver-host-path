@@ -10,7 +10,7 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/net v0.20.0
-	google.golang.org/grpc v1.59.0
+	google.golang.org/grpc v1.61.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubernetes v1.29.0
@@ -24,7 +24,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/google/uuid v1.3.1 // indirect
+	github.com/google/uuid v1.4.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/moby/sys/mountinfo v0.6.2 // indirect
