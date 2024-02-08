@@ -28,13 +28,16 @@ __Note:__ The above command may not work for clusters running on managed k8s ser
 ### VolumeSnapshot CRDs and snapshot controller installation
 Run the following commands to install these components: 
 ```shell
-# Change to the latest supported snapshotter version
-$ SNAPSHOTTER_VERSION=v2.0.1
+# Change to the latest supported snapshotter release branch
+$ SNAPSHOTTER_BRANCH=release-6.3
 
 # Apply VolumeSnapshot CRDs
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_BRANCH}/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_BRANCH}/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_BRANCH}/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+
+# Change to the latest supported snapshotter version
+$ SNAPSHOTTER_VERSION=v6.3.3
 
 # Create snapshot controller
 $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/${SNAPSHOTTER_VERSION}/deploy/kubernetes/snapshot-controller/rbac-snapshot-controller.yaml
@@ -117,20 +120,23 @@ volumesnapshotclass.snapshot.storage.k8s.io/csi-hostpath-snapclass created
 
 The [livenessprobe side-container](https://github.com/kubernetes-csi/livenessprobe) provided by the CSI community is deployed with the CSI driver to provide the liveness checking of the CSI services.
 
+## Modify Cluster Role
+
+For example, if you want to modify external-resizer RBAC rules, you can do:
+```
+kubectl edit clusterrole external-resizer-runner 
+```
+Replace external-resizer-runner to the role you want to modify
+
 ## Run example application and validate
 
 Next, validate the deployment.  First, ensure all expected pods are running properly including the external attacher, provisioner, snapshotter and the actual hostpath driver plugin:
 
 ```shell
 $ kubectl get pods
-NAME                         READY   STATUS    RESTARTS   AGE
-csi-hostpath-attacher-0      1/1     Running   0          4m21s
-csi-hostpath-provisioner-0   1/1     Running   0          4m19s
-csi-hostpath-resizer-0       1/1     Running   0          4m19s
-csi-hostpath-snapshotter-0   1/1     Running   0          4m18s
-csi-hostpath-socat-0         1/1     Running   0          4m18s
-csi-hostpathplugin-0         3/3     Running   0          4m20s
-snapshot-controller-0        1/1     Running   0          4m37s
+NAME                   READY   STATUS    RESTARTS   AGE
+csi-hostpath-socat-0   1/1     Running   0          42m
+csi-hostpathplugin-0   8/8     Running   0          42m
 ```
 
 From the root directory, deploy the application pods including a storage class, a PVC, and a pod which mounts a volume using the Hostpath driver found in directory `./examples`:
