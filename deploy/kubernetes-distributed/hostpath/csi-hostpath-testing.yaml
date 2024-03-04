@@ -64,7 +64,9 @@ spec:
             topologyKey: kubernetes.io/hostname
       containers:
         - name: socat
-          image: docker.io/alpine/socat:1.7.4.3-r0
+          image: registry.k8s.io/sig-storage/hostpathplugin:v1.13.0
+          command:
+          - socat
           args:
             - tcp-listen:10000,fork,reuseaddr
             - unix-connect:/csi/csi.sock
