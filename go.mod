@@ -8,7 +8,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 	github.com/kubernetes-csi/csi-lib-utils v0.17.0
 	github.com/pborman/uuid v1.2.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	golang.org/x/net v0.21.0
 	google.golang.org/grpc v1.62.0
 	k8s.io/apimachinery v0.29.0
