@@ -461,7 +461,7 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 		})
 	}
 
-	klog.V(5).Infof("Volumes are: %+v", *volumeRes)
+	klog.V(5).Infof("Volumes are: %+v", volumeRes)
 	return volumeRes, nil
 }
 
@@ -678,7 +678,7 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 		return &csi.ListSnapshotsResponse{}, nil
 	}
 
-	var snapshots []csi.Snapshot
+	var snapshots []*csi.Snapshot
 	// case 3: no parameter is set, so we return all the snapshots.
 	hpSnapshots := hp.state.GetSnapshots()
 	sort.Slice(hpSnapshots, func(i, j int) bool {
@@ -686,7 +686,7 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 	})
 
 	for _, snap := range hpSnapshots {
-		snapshot := csi.Snapshot{
+		snapshot := &csi.Snapshot{
 			SnapshotId:      snap.Id,
 			SourceVolumeId:  snap.VolID,
 			CreationTime:    snap.CreationTime,
@@ -741,7 +741,7 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 
 	for i = 0; i < len(entries); i++ {
 		entries[i] = &csi.ListSnapshotsResponse_Entry{
-			Snapshot: &snapshots[j],
+			Snapshot: snapshots[j],
 		}
 		j++
 	}
