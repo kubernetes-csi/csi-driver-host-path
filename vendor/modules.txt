@@ -236,7 +236,7 @@ k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
 k8s.io/klog/v2/internal/sloghandler
-# k8s.io/kubernetes v1.29.0
+# k8s.io/kubernetes v1.29.2
 ## explicit; go 1.21
 k8s.io/kubernetes/pkg/features
 k8s.io/kubernetes/pkg/kubelet/server/metrics
