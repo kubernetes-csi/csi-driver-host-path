@@ -506,7 +506,7 @@ func (hp *hostPath) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVol
 	switch m := info.Mode(); {
 	case m.IsDir():
 		if vol.VolAccessType != state.MountAccess {
-			return nil, status.Errorf(codes.InvalidArgument, "Volume %s is not a directory", volID)
+			return nil, status.Errorf(codes.InvalidArgument, "Volume %s is not a mounted filesystem", volID)
 		}
 	case m&os.ModeDevice != 0:
 		if vol.VolAccessType != state.BlockAccess {
