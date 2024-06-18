@@ -24,9 +24,9 @@ import (
 	"os"
 	"sort"
 
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type AccessType int
@@ -63,7 +63,7 @@ type Snapshot struct {
 	Id              string
 	VolID           string
 	Path            string
-	CreationTime    *timestamp.Timestamp
+	CreationTime    *timestamppb.Timestamp
 	SizeBytes       int64
 	ReadyToUse      bool
 	GroupSnapshotID string
@@ -74,7 +74,7 @@ type GroupSnapshot struct {
 	Id              string
 	SnapshotIDs     []string
 	SourceVolumeIDs []string
-	CreationTime    *timestamp.Timestamp
+	CreationTime    *timestamppb.Timestamp
 	ReadyToUse      bool
 }
 
