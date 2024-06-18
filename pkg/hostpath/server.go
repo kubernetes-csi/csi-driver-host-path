@@ -20,9 +20,9 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"k8s.io/klog/v2"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/csi-driver-host-path/internal/endpoint"
@@ -66,7 +66,7 @@ func (s *nonBlockingGRPCServer) ForceStop() {
 func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, gcs csi.GroupControllerServer) {
 	listener, cleanup, err := endpoint.Listen(ep)
 	if err != nil {
-		glog.Fatalf("Failed to listen: %v", err)
+		klog.Fatalf("Failed to listen: %v", err)
 	}
 
 	opts := []grpc.ServerOption{
@@ -89,31 +89,31 @@ func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.
 		csi.RegisterGroupControllerServer(server, gcs)
 	}
 
-	glog.Infof("Listening for connections on address: %#v", listener.Addr())
+	klog.Infof("Listening for connections on address: %#v", listener.Addr())
 
 	server.Serve(listener)
 
 }
 
 func logGRPC(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-	pri := glog.Level(3)
+	pri := klog.Level(3)
 	if info.FullMethod == "/csi.v1.Identity/Probe" {
 		// This call occurs frequently, therefore it only gets log at level 5.
 		pri = 5
 	}
-	glog.V(pri).Infof("GRPC call: %s", info.FullMethod)
+	klog.V(pri).Infof("GRPC call: %s", info.FullMethod)
 
-	v5 := glog.V(5)
-	if v5 {
+	v5 := klog.V(5)
+	if v5.Enabled() {
 		v5.Infof("GRPC request: %s", protosanitizer.StripSecrets(req))
 	}
 	resp, err := handler(ctx, req)
 	if err != nil {
 		// Always log errors. Probably not useful though without the method name?!
-		glog.Errorf("GRPC error: %v", err)
+		klog.Errorf("GRPC error: %v", err)
 	}
 
-	if v5 {
+	if v5.Enabled() {
 		v5.Infof("GRPC response: %s", protosanitizer.StripSecrets(resp))
 
 		// In JSON format, intentionally logging without stripping secret
@@ -159,5 +159,5 @@ func logGRPCJson(method string, request, reply interface{}, err error) {
 	if err != nil {
 		logMessage.Error = err.Error()
 	}
-	glog.V(5).Infof("gRPCCall: %s\n", msg)
+	klog.V(5).Infof("gRPCCall: %s\n", msg)
 }

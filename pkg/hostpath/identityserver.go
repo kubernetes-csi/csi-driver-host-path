@@ -18,14 +18,14 @@ package hostpath
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/golang/glog"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/klog/v2"
 )
 
 func (hp *hostPath) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
-	glog.V(5).Infof("Using default GetPluginInfo")
+	klog.V(5).Infof("Using default GetPluginInfo")
 
 	if hp.config.DriverName == "" {
 		return nil, status.Error(codes.Unavailable, "Driver name not configured")
@@ -46,7 +46,7 @@ func (hp *hostPath) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.Prob
 }
 
 func (hp *hostPath) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
-	glog.V(5).Infof("Using default capabilities")
+	klog.V(5).Infof("Using default capabilities")
 	caps := []*csi.PluginCapability{
 		{
 			Type: &csi.PluginCapability_Service_{
