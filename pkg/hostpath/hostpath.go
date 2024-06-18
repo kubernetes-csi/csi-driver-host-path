@@ -25,10 +25,10 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/golang/glog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 	utilexec "k8s.io/utils/exec"
 
@@ -108,8 +108,8 @@ func NewHostPathDriver(cfg Config) (*hostPath, error) {
 		return nil, fmt.Errorf("failed to create dataRoot: %v", err)
 	}
 
-	glog.Infof("Driver: %v ", cfg.DriverName)
-	glog.Infof("Version: %s", cfg.VendorVersion)
+	klog.Infof("Driver: %v ", cfg.DriverName)
+	klog.Infof("Version: %s", cfg.VendorVersion)
 
 	s, err := state.New(path.Join(cfg.StateDir, "state.json"))
 	if err != nil {
@@ -204,7 +204,7 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType st
 		if err != nil {
 			// Remove the block file because it'll no longer be used again.
 			if err2 := os.Remove(path); err2 != nil {
-				glog.Errorf("failed to cleanup block file %s: %v", path, err2)
+				klog.Errorf("failed to cleanup block file %s: %v", path, err2)
 			}
 			return nil, fmt.Errorf("failed to attach device %v: %v", path, err)
 		}
@@ -221,7 +221,7 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType st
 		Ephemeral:     ephemeral,
 		Kind:          kind,
 	}
-	glog.V(4).Infof("adding hostpath volume: %s = %+v", volID, volume)
+	klog.V(4).Infof("adding hostpath volume: %s = %+v", volID, volume)
 	if err := hp.state.UpdateVolume(volume); err != nil {
 		return nil, err
 	}
@@ -230,7 +230,7 @@ func (hp *hostPath) createVolume(volID, name string, cap int64, volAccessType st
 
 // deleteVolume deletes the directory for the hostpath volume.
 func (hp *hostPath) deleteVolume(volID string) error {
-	glog.V(4).Infof("starting to delete hostpath volume: %s", volID)
+	klog.V(4).Infof("starting to delete hostpath volume: %s", volID)
 
 	vol, err := hp.state.GetVolumeByID(volID)
 	if err != nil {
@@ -241,7 +241,7 @@ func (hp *hostPath) deleteVolume(volID string) error {
 	if vol.VolAccessType == state.BlockAccess {
 		volPathHandler := volumepathhandler.VolumePathHandler{}
 		path := hp.getVolumePath(volID)
-		glog.V(4).Infof("deleting loop device for file %s if it exists", path)
+		klog.V(4).Infof("deleting loop device for file %s if it exists", path)
 		if err := volPathHandler.DetachFileDevice(path); err != nil {
 			return fmt.Errorf("failed to remove loop device for file %s: %v", path, err)
 		}
@@ -254,7 +254,7 @@ func (hp *hostPath) deleteVolume(volID string) error {
 	if err := hp.state.DeleteVolume(volID); err != nil {
 		return err
 	}
-	glog.V(4).Infof("deleted hostpath volume: %s = %+v", volID, vol)
+	klog.V(4).Infof("deleted hostpath volume: %s = %+v", volID, vol)
 	return nil
 }
 
@@ -308,9 +308,9 @@ func (hp *hostPath) loadFromSnapshot(size int64, snapshotId, destPath string, mo
 	}
 
 	executor := utilexec.New()
-	glog.V(4).Infof("Command Start: %v", cmd)
+	klog.V(4).Infof("Command Start: %v", cmd)
 	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
-	glog.V(4).Infof("Command Finish: %v", string(out))
+	klog.V(4).Infof("Command Finish: %v", string(out))
 	if err != nil {
 		return fmt.Errorf("failed pre-populate data from snapshot %v: %w: %s", snapshotId, err, out)
 	}
@@ -383,10 +383,10 @@ func (hp *hostPath) getAttachCount() int64 {
 func (hp *hostPath) createSnapshotFromVolume(vol state.Volume, file string) error {
 	var cmd []string
 	if vol.VolAccessType == state.BlockAccess {
-		glog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
+		klog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
 		cmd = []string{"cp", vol.VolPath, file}
 	} else {
-		glog.V(4).Infof("Creating snapshot of Filsystem Mode Volume")
+		klog.V(4).Infof("Creating snapshot of Filsystem Mode Volume")
 		cmd = []string{"tar", "czf", file, "-C", vol.VolPath, "."}
 	}
 	executor := utilexec.New()

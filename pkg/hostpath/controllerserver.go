@@ -25,7 +25,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/pborman/uuid"
 	"golang.org/x/net/context"
@@ -45,13 +44,13 @@ const (
 
 func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (resp *csi.CreateVolumeResponse, finalErr error) {
 	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
-		glog.V(3).Infof("invalid create volume req: %v", req)
+		klog.V(3).Infof("invalid create volume req: %v", req)
 		return nil, err
 	}
 
 	if len(req.GetMutableParameters()) > 0 {
 		if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_MODIFY_VOLUME); err != nil {
-			glog.V(3).Infof("invalid create volume req: %v", req)
+			klog.V(3).Infof("invalid create volume req: %v", req)
 			return nil, err
 		}
 		// Check if the mutable parameters are in the accepted list
@@ -152,7 +151,7 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	if err != nil {
 		return nil, err
 	}
-	glog.V(4).Infof("created volume %s at path %s", vol.VolID, vol.VolPath)
+	klog.V(4).Infof("created volume %s at path %s", vol.VolID, vol.VolPath)
 
 	if req.GetVolumeContentSource() != nil {
 		path := hp.getVolumePath(volumeID)
@@ -172,13 +171,13 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 			err = status.Errorf(codes.InvalidArgument, "%v not a proper volume source", volumeSource)
 		}
 		if err != nil {
-			glog.V(4).Infof("VolumeSource error: %v", err)
+			klog.V(4).Infof("VolumeSource error: %v", err)
 			if delErr := hp.deleteVolume(volumeID); delErr != nil {
-				glog.V(2).Infof("deleting hostpath volume %v failed: %v", volumeID, delErr)
+				klog.V(2).Infof("deleting hostpath volume %v failed: %v", volumeID, delErr)
 			}
 			return nil, err
 		}
-		glog.V(4).Infof("successfully populated volume %s", vol.VolID)
+		klog.V(4).Infof("successfully populated volume %s", vol.VolID)
 	}
 
 	return &csi.CreateVolumeResponse{
@@ -199,7 +198,7 @@ func (hp *hostPath) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeReque
 	}
 
 	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
-		glog.V(3).Infof("invalid delete volume req: %v", req)
+		klog.V(3).Infof("invalid delete volume req: %v", req)
 		return nil, err
 	}
 
@@ -227,7 +226,7 @@ func (hp *hostPath) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeReque
 	if err := hp.deleteVolume(volId); err != nil {
 		return nil, fmt.Errorf("failed to delete volume %v: %w", volId, err)
 	}
-	glog.V(4).Infof("volume %v successfully deleted", volId)
+	klog.V(4).Infof("volume %v successfully deleted", volId)
 
 	return &csi.DeleteVolumeResponse{}, nil
 }
@@ -446,7 +445,7 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 	for index := startIdx - 1; index < volumesLength && index < maxLength; index++ {
 		hpVolume = volumes[index]
 		healthy, msg := hp.doHealthCheckInControllerSide(hpVolume.VolID)
-		glog.V(3).Infof("Healthy state: %s Volume: %t", hpVolume.VolName, healthy)
+		klog.V(3).Infof("Healthy state: %s Volume: %t", hpVolume.VolName, healthy)
 		volumeRes.Entries = append(volumeRes.Entries, &csi.ListVolumesResponse_Entry{
 			Volume: &csi.Volume{
 				VolumeId:      hpVolume.VolID,
@@ -462,7 +461,7 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 		})
 	}
 
-	glog.V(5).Infof("Volumes are: %+v", *volumeRes)
+	klog.V(5).Infof("Volumes are: %+v", *volumeRes)
 	return volumeRes, nil
 }
 
@@ -489,7 +488,7 @@ func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.Controller
 	}
 
 	healthy, msg := hp.doHealthCheckInControllerSide(req.GetVolumeId())
-	glog.V(3).Infof("Healthy state: %s Volume: %t", volume.VolName, healthy)
+	klog.V(3).Infof("Healthy state: %s Volume: %t", volume.VolName, healthy)
 	return &csi.ControllerGetVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volume.VolID,
@@ -541,7 +540,7 @@ func (hp *hostPath) ControllerModifyVolume(ctx context.Context, req *csi.Control
 // archives of entire directories. The host image must have "tar" binaries in /bin, /usr/sbin, or /usr/bin.
 func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT); err != nil {
-		glog.V(3).Infof("invalid create snapshot req: %v", req)
+		klog.V(3).Infof("invalid create snapshot req: %v", req)
 		return nil, err
 	}
 
@@ -592,7 +591,7 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 		return nil, err
 	}
 
-	glog.V(4).Infof("create volume snapshot %s", file)
+	klog.V(4).Infof("create volume snapshot %s", file)
 	snapshot := state.Snapshot{}
 	snapshot.Name = req.GetName()
 	snapshot.Id = snapshotID
@@ -623,7 +622,7 @@ func (hp *hostPath) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotR
 	}
 
 	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT); err != nil {
-		glog.V(3).Infof("invalid delete snapshot req: %v", req)
+		klog.V(3).Infof("invalid delete snapshot req: %v", req)
 		return nil, err
 	}
 	snapshotID := req.GetSnapshotId()
@@ -638,7 +637,7 @@ func (hp *hostPath) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotR
 		return nil, status.Errorf(codes.InvalidArgument, "Snapshot with ID %s is part of groupsnapshot %s", snapshotID, snapshot.GroupSnapshotID)
 	}
 
-	glog.V(4).Infof("deleting snapshot %s", snapshotID)
+	klog.V(4).Infof("deleting snapshot %s", snapshotID)
 	path := hp.getSnapshotPath(snapshotID)
 	os.RemoveAll(path)
 	if err := hp.state.DeleteSnapshot(snapshotID); err != nil {
@@ -649,7 +648,7 @@ func (hp *hostPath) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotR
 
 func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS); err != nil {
-		glog.V(3).Infof("invalid list snapshot req: %v", req)
+		klog.V(3).Infof("invalid list snapshot req: %v", req)
 		return nil, err
 	}
 

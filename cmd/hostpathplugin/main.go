@@ -25,14 +25,10 @@ import (
 	"path"
 	"syscall"
 
-	"github.com/golang/glog"
 	"github.com/kubernetes-csi/csi-driver-host-path/internal/proxy"
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/hostpath"
+	"k8s.io/klog/v2"
 )
-
-func init() {
-	flag.Set("logtostderr", "true")
-}
 
 var (
 	// Set by the build process
@@ -70,6 +66,7 @@ func main() {
 	// for proxying incoming calls to the embedded mock CSI driver.
 	proxyEndpoint := flag.String("proxy-endpoint", "", "Instead of running the CSI driver code, just proxy connections from csiEndpoint to the given listening socket.")
 
+	klog.InitFlags(nil)
 	flag.Parse()
 
 	if *showVersion {
@@ -87,7 +84,7 @@ func main() {
 		defer cancel()
 		closer, err := proxy.Run(ctx, cfg.Endpoint, *proxyEndpoint)
 		if err != nil {
-			glog.Fatalf("failed to run proxy: %v", err)
+			klog.Fatalf("failed to run proxy: %v", err)
 		}
 		defer closer.Close()
 

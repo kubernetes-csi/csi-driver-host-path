@@ -35,9 +35,8 @@ import (
 	"io"
 	"net"
 
-	"github.com/golang/glog"
-
 	"github.com/kubernetes-csi/csi-driver-host-path/internal/endpoint"
+	"k8s.io/klog/v2"
 )
 
 // New listens on both endpoints and starts accepting connections
@@ -63,7 +62,7 @@ func Run(ctx context.Context, endpoint1, endpoint2 string) (io.Closer, error) {
 		return nil, fmt.Errorf("listen %s: %v", endpoint2, err)
 	}
 
-	glog.V(3).Infof("proxy listening on %s and %s", endpoint1, endpoint2)
+	klog.V(3).Infof("proxy listening on %s and %s", endpoint1, endpoint2)
 
 	go func() {
 		for {
@@ -73,19 +72,19 @@ func Run(ctx context.Context, endpoint1, endpoint2 string) (io.Closer, error) {
 			conn1 := accept(proxy.ctx, proxy.s1, endpoint1)
 			if conn1 == nil {
 				// Done, shut down.
-				glog.V(5).Infof("proxy endpoint %s closed, shutting down", endpoint1)
+				klog.V(5).Infof("proxy endpoint %s closed, shutting down", endpoint1)
 				return
 			}
 			conn2 := accept(proxy.ctx, proxy.s2, endpoint2)
 			if conn2 == nil {
 				// Done, shut down. The already accepted
 				// connection gets closed.
-				glog.V(5).Infof("proxy endpoint %s closed, shutting down and close established connection", endpoint2)
+				klog.V(5).Infof("proxy endpoint %s closed, shutting down and close established connection", endpoint2)
 				conn1.Close()
 				return
 			}
 
-			glog.V(3).Infof("proxy established a new connection between %s and %s", endpoint1, endpoint2)
+			klog.V(3).Infof("proxy established a new connection between %s and %s", endpoint1, endpoint2)
 			go copy(conn1, conn2, endpoint1, endpoint2)
 			go copy(conn2, conn1, endpoint2, endpoint1)
 		}
@@ -122,13 +121,13 @@ func (p *proxy) Close() error {
 }
 
 func copy(from, to net.Conn, fromEndpoint, toEndpoint string) {
-	glog.V(5).Infof("starting to copy %s -> %s", fromEndpoint, toEndpoint)
+	klog.V(5).Infof("starting to copy %s -> %s", fromEndpoint, toEndpoint)
 	// Signal recipient that no more data is going to come.
 	// This also stops reading from it.
 	defer to.Close()
 	// Copy data until EOF.
 	cnt, err := io.Copy(to, from)
-	glog.V(5).Infof("done copying %s -> %s: %d bytes, %v", fromEndpoint, toEndpoint, cnt, err)
+	klog.V(5).Infof("done copying %s -> %s: %d bytes, %v", fromEndpoint, toEndpoint, cnt, err)
 }
 
 func accept(ctx context.Context, s net.Listener, endpoint string) net.Conn {
@@ -141,6 +140,6 @@ func accept(ctx context.Context, s net.Listener, endpoint string) net.Conn {
 		if ctx.Err() != nil {
 			return nil
 		}
-		glog.V(3).Infof("accept on %s failed: %v", endpoint, err)
+		klog.V(3).Infof("accept on %s failed: %v", endpoint, err)
 	}
 }

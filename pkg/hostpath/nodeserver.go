@@ -22,11 +22,11 @@ import (
 	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/golang/glog"
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/volume/util/volumepathhandler"
 	"k8s.io/utils/mount"
 )
@@ -76,10 +76,10 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 			volSize := int64(100 * 1024 * 1024)
 			vol, err := hp.createVolume(req.GetVolumeId(), volName, volSize, state.MountAccess, ephemeralVolume, kind)
 			if err != nil && !os.IsExist(err) {
-				glog.Error("ephemeral mode failed to create volume: ", err)
+				klog.Error("ephemeral mode failed to create volume: ", err)
 				return nil, err
 			}
-			glog.V(4).Infof("ephemeral mode: created volume: %s", vol.VolPath)
+			klog.V(4).Infof("ephemeral mode: created volume: %s", vol.VolPath)
 		}
 	}
 
@@ -135,7 +135,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		}
 		if !notMount {
 			// It's already mounted.
-			glog.V(5).Infof("Skipping bind-mounting subpath %s: already mounted", targetPath)
+			klog.V(5).Infof("Skipping bind-mounting subpath %s: already mounted", targetPath)
 			return &csi.NodePublishVolumeResponse{}, nil
 		}
 
@@ -176,7 +176,7 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 		attrib := req.GetVolumeContext()
 		mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
 
-		glog.V(4).Infof("target %v\nfstype %v\ndevice %v\nreadonly %v\nvolumeId %v\nattributes %v\nmountflags %v\n",
+		klog.V(4).Infof("target %v\nfstype %v\ndevice %v\nreadonly %v\nvolumeId %v\nattributes %v\nmountflags %v\n",
 			targetPath, fsType, deviceId, readOnly, volumeId, attrib, mountFlags)
 
 		options := []string{"bind"}
@@ -228,7 +228,7 @@ func (hp *hostPath) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpubl
 	}
 
 	if !vol.Published.Has(targetPath) {
-		glog.V(4).Infof("Volume %q is not published at %q, nothing to do.", volumeID, targetPath)
+		klog.V(4).Infof("Volume %q is not published at %q, nothing to do.", volumeID, targetPath)
 		return &csi.NodeUnpublishVolumeResponse{}, nil
 	}
 
@@ -249,10 +249,10 @@ func (hp *hostPath) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpubl
 	if err = os.RemoveAll(targetPath); err != nil {
 		return nil, fmt.Errorf("remove target path: %w", err)
 	}
-	glog.V(4).Infof("hostpath: volume %s has been unpublished.", targetPath)
+	klog.V(4).Infof("hostpath: volume %s has been unpublished.", targetPath)
 
 	if vol.Ephemeral {
-		glog.V(4).Infof("deleting volume %s", volumeID)
+		klog.V(4).Infof("deleting volume %s", volumeID)
 		if err := hp.deleteVolume(volumeID); err != nil && !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to delete volume: %w", err)
 		}
@@ -296,7 +296,7 @@ func (hp *hostPath) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolum
 	}
 
 	if vol.Staged.Has(stagingTargetPath) {
-		glog.V(4).Infof("Volume %q is already staged at %q, nothing to do.", req.VolumeId, stagingTargetPath)
+		klog.V(4).Infof("Volume %q is already staged at %q, nothing to do.", req.VolumeId, stagingTargetPath)
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
@@ -334,7 +334,7 @@ func (hp *hostPath) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageV
 	}
 
 	if !vol.Staged.Has(stagingTargetPath) {
-		glog.V(4).Infof("Volume %q is not staged at %q, nothing to do.", req.VolumeId, stagingTargetPath)
+		klog.V(4).Infof("Volume %q is not staged at %q, nothing to do.", req.VolumeId, stagingTargetPath)
 		return &csi.NodeUnstageVolumeResponse{}, nil
 	}
 
@@ -435,13 +435,13 @@ func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolum
 	}
 
 	healthy, msg := hp.doHealthCheckInNodeSide(in.GetVolumeId())
-	glog.V(3).Infof("Healthy state: %+v Volume: %+v", volume.VolName, healthy)
+	klog.V(3).Infof("Healthy state: %+v Volume: %+v", volume.VolName, healthy)
 	available, capacity, used, inodes, inodesFree, inodesUsed, err := getPVStats(in.GetVolumePath())
 	if err != nil {
 		return nil, fmt.Errorf("get volume stats failed: %w", err)
 	}
 
-	glog.V(3).Infof("Capacity: %+v Used: %+v Available: %+v Inodes: %+v Free inodes: %+v Used inodes: %+v", capacity, used, available, inodes, inodesFree, inodesUsed)
+	klog.V(3).Infof("Capacity: %+v Used: %+v Available: %+v Inodes: %+v Free inodes: %+v Used inodes: %+v", capacity, used, available, inodes, inodesFree, inodesUsed)
 	return &csi.NodeGetVolumeStatsResponse{
 		Usage: []*csi.VolumeUsage{
 			{

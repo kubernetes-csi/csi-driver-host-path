@@ -23,7 +23,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/golang/glog"
+	"k8s.io/klog/v2"
 	fs "k8s.io/kubernetes/pkg/volume/util/fs"
 )
 
@@ -85,7 +85,7 @@ func checkMountPointExist(volumePath string) (bool, error) {
 
 	out, err := exec.Command(cmdPath, "--json").CombinedOutput()
 	if err != nil {
-		glog.V(3).Infof("failed to execute command: %+v", cmdPath)
+		klog.V(3).Infof("failed to execute command: %+v", cmdPath)
 		return false, err
 	}
 
@@ -138,7 +138,7 @@ func (hp *hostPath) checkPVCapacityValid(volID string) (bool, error) {
 		return false, err
 	}
 	volumeCapacity := volume.VolSize
-	glog.V(3).Infof("volume capacity: %+v fs capacity:%+v", volumeCapacity, fscapacity)
+	klog.V(3).Infof("volume capacity: %+v fs capacity:%+v", volumeCapacity, fscapacity)
 	return fscapacity >= volumeCapacity, nil
 }
 
@@ -153,13 +153,13 @@ func (hp *hostPath) checkPVUsage(volID string) (bool, error) {
 		return false, err
 	}
 
-	glog.V(3).Infof("fs available: %+v", fsavailable)
+	klog.V(3).Infof("fs available: %+v", fsavailable)
 	return fsavailable > 0, nil
 }
 
 func (hp *hostPath) doHealthCheckInControllerSide(volID string) (bool, string) {
 	volumePath := hp.getVolumePath(volID)
-	glog.V(3).Infof("Volume with ID %s has path %s.", volID, volumePath)
+	klog.V(3).Infof("Volume with ID %s has path %s.", volID, volumePath)
 	spExist, err := checkPathExist(volumePath)
 	if err != nil {
 		return false, err.Error()

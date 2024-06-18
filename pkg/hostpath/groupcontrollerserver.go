@@ -20,12 +20,12 @@ import (
 	"os"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pborman/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/klog/v2"
 
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
 )
@@ -44,7 +44,7 @@ func (hp *hostPath) GroupControllerGetCapabilities(context.Context, *csi.GroupCo
 
 func (hp *hostPath) CreateVolumeGroupSnapshot(ctx context.Context, req *csi.CreateVolumeGroupSnapshotRequest) (*csi.CreateVolumeGroupSnapshotResponse, error) {
 	if err := hp.validateGroupControllerServiceRequest(csi.GroupControllerServiceCapability_RPC_CREATE_DELETE_GET_VOLUME_GROUP_SNAPSHOT); err != nil {
-		glog.V(3).Infof("invalid create volume group snapshot req: %v", req)
+		klog.V(3).Infof("invalid create volume group snapshot req: %v", req)
 		return nil, err
 	}
 
@@ -129,7 +129,7 @@ func (hp *hostPath) CreateVolumeGroupSnapshot(ctx context.Context, req *csi.Crea
 			return nil, err
 		}
 
-		glog.V(4).Infof("create volume snapshot %s", file)
+		klog.V(4).Infof("create volume snapshot %s", file)
 		snapshot := state.Snapshot{}
 		snapshot.Name = req.GetName() + "-" + volumeID
 		snapshot.Id = snapshotID
@@ -170,7 +170,7 @@ func (hp *hostPath) CreateVolumeGroupSnapshot(ctx context.Context, req *csi.Crea
 
 func (hp *hostPath) DeleteVolumeGroupSnapshot(ctx context.Context, req *csi.DeleteVolumeGroupSnapshotRequest) (*csi.DeleteVolumeGroupSnapshotResponse, error) {
 	if err := hp.validateGroupControllerServiceRequest(csi.GroupControllerServiceCapability_RPC_CREATE_DELETE_GET_VOLUME_GROUP_SNAPSHOT); err != nil {
-		glog.V(3).Infof("invalid delete volume group snapshot req: %v", req)
+		klog.V(3).Infof("invalid delete volume group snapshot req: %v", req)
 		return nil, err
 	}
 
@@ -197,7 +197,7 @@ func (hp *hostPath) DeleteVolumeGroupSnapshot(ctx context.Context, req *csi.Dele
 	}
 
 	for _, snapshotID := range groupSnapshot.SnapshotIDs {
-		glog.V(4).Infof("deleting snapshot %s", snapshotID)
+		klog.V(4).Infof("deleting snapshot %s", snapshotID)
 		path := hp.getSnapshotPath(snapshotID)
 		os.RemoveAll(path)
 
@@ -206,7 +206,7 @@ func (hp *hostPath) DeleteVolumeGroupSnapshot(ctx context.Context, req *csi.Dele
 		}
 	}
 
-	glog.V(4).Infof("deleting groupsnapshot %s", groupSnapshotID)
+	klog.V(4).Infof("deleting groupsnapshot %s", groupSnapshotID)
 	if err := hp.state.DeleteGroupSnapshot(groupSnapshotID); err != nil {
 		return nil, err
 	}
@@ -216,7 +216,7 @@ func (hp *hostPath) DeleteVolumeGroupSnapshot(ctx context.Context, req *csi.Dele
 
 func (hp *hostPath) GetVolumeGroupSnapshot(ctx context.Context, req *csi.GetVolumeGroupSnapshotRequest) (*csi.GetVolumeGroupSnapshotResponse, error) {
 	if err := hp.validateGroupControllerServiceRequest(csi.GroupControllerServiceCapability_RPC_CREATE_DELETE_GET_VOLUME_GROUP_SNAPSHOT); err != nil {
-		glog.V(3).Infof("invalid get volume group snapshot req: %v", req)
+		klog.V(3).Infof("invalid get volume group snapshot req: %v", req)
 		return nil, err
 	}
 
