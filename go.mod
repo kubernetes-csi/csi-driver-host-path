@@ -12,7 +12,7 @@ require (
 	golang.org/x/net v0.26.0
 	google.golang.org/grpc v1.64.0
 	k8s.io/apimachinery v0.29.0
-	k8s.io/klog/v2 v2.120.1
+	k8s.io/klog/v2 v2.130.0
 	k8s.io/kubernetes v1.29.2
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 )
