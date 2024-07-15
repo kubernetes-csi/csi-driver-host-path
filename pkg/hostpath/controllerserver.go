@@ -586,8 +586,12 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 	snapshotID := uuid.NewUUID().String()
 	creationTime := ptypes.TimestampNow()
 	file := hp.getSnapshotPath(snapshotID)
+	opts, err := optionsFromParameters(hostPathVolume, req.Parameters)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid volume snapshot class parameters: %s", err.Error())
+	}
 
-	if err := hp.createSnapshotFromVolume(hostPathVolume, file); err != nil {
+	if err := hp.createSnapshotFromVolume(hostPathVolume, file, opts...); err != nil {
 		return nil, err
 	}
 

@@ -380,17 +380,25 @@ func (hp *hostPath) getAttachCount() int64 {
 	return count
 }
 
-func (hp *hostPath) createSnapshotFromVolume(vol state.Volume, file string) error {
-	var cmd []string
+func (hp *hostPath) createSnapshotFromVolume(vol state.Volume, file string, opts ...string) error {
+	var args []string
+	var cmdName string
 	if vol.VolAccessType == state.BlockAccess {
 		klog.V(4).Infof("Creating snapshot of Raw Block Mode Volume")
-		cmd = []string{"cp", vol.VolPath, file}
+		cmdName = "cp"
+		args = []string{vol.VolPath, file}
 	} else {
-		klog.V(4).Infof("Creating snapshot of Filsystem Mode Volume")
-		cmd = []string{"tar", "czf", file, "-C", vol.VolPath, "."}
+		klog.V(4).Infof("Creating snapshot of Filesystem Mode Volume")
+		cmdName = "tar"
+		opts = append(
+			[]string{"czf", file, "-C", vol.VolPath},
+			opts...,
+		)
+		args = []string{"."}
 	}
 	executor := utilexec.New()
-	out, err := executor.Command(cmd[0], cmd[1:]...).CombinedOutput()
+	optsAndArgs := append(opts, args...)
+	out, err := executor.Command(cmdName, optsAndArgs...).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed create snapshot: %w: %s", err, out)
 	}
