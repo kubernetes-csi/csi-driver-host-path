@@ -40,7 +40,7 @@ func (s *Strings) Empty() bool {
 	return len(*s) == 0
 }
 
-// Remove removes the first occurence of the string, if present.
+// Remove removes the first occurrence of the string, if present.
 func (s *Strings) Remove(str string) {
 	for i, str2 := range *s {
 		if str == str2 {

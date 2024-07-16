@@ -122,10 +122,15 @@ func (hp *hostPath) CreateVolumeGroupSnapshot(ctx context.Context, req *csi.Crea
 			return nil, err
 		}
 
+		opts, err := optionsFromParameters(hostPathVolume, req.Parameters)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid volume group snapshot class parameters: %s", err.Error())
+		}
+
 		snapshotID := uuid.NewUUID().String()
 		file := hp.getSnapshotPath(snapshotID)
 
-		if err := hp.createSnapshotFromVolume(hostPathVolume, file); err != nil {
+		if err := hp.createSnapshotFromVolume(hostPathVolume, file, opts...); err != nil {
 			return nil, err
 		}
 

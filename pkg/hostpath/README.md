@@ -21,10 +21,23 @@ $ csc identity plugin-info --endpoint tcp://127.0.0.1:10000
 "csi-hostpath"  "0.1.0"
 ```
 
-#### Create a volume
+#### Create a block volume
 ```
-$ csc controller new --endpoint tcp://127.0.0.1:10000 --cap 1,block CSIVolumeName
+$ csc controller new --endpoint tcp://127.0.0.1:10000 --cap 1,block --req-bytes 1048576 --lim-bytes 1048576 CSIVolumeName
 CSIVolumeID
+```
+
+#### Create mounted volume
+```
+$ csc controller new --endpoint tcp://127.0.0.1:10000 --cap MULTI_NODE_MULTI_WRITER,mount,xfs,uid=500,gid=500 CSIVolumeName
+CSIVolumeID
+```
+
+#### List volumes
+```
+csc controller list-volumes --endpoint tcp://127.0.0.1:10000
+CSIVolumeID  0
+CSIVolumeID  0
 ```
 
 #### Delete a volume
@@ -55,4 +68,20 @@ CSIVolumeID
 ```
 $ csc node get-info --endpoint tcp://127.0.0.1:10000
 CSINode
+```
+
+### Create snapshot
+```
+$ csc controller create-snapshot --endpoint tcp://127.0.0.1:10000 --params ignoreFailedRead=true --source-volume CSIVolumeID CSISnapshotName
+CSISnapshotID
+```
+
+### Delete snapshot
+```
+csc controller delete-snapshot --endpoint tcp://127.0.0.1:10000 CSISnapshotID
+```
+
+### List snapshots
+```
+csc controller list-snapshots --endpoint tcp://127.0.0.1:10000
 ```
