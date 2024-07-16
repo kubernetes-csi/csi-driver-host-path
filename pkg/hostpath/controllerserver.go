@@ -23,13 +23,12 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/golang/protobuf/ptypes"
-
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/pborman/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -397,11 +396,11 @@ func (hp *hostPath) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest
 
 	return &csi.GetCapacityResponse{
 		AvailableCapacity: available,
-		MaximumVolumeSize: &wrappers.Int64Value{Value: maxVolumeSize},
+		MaximumVolumeSize: &wrapperspb.Int64Value{Value: maxVolumeSize},
 
 		// We don't have a minimum volume size, so we might as well report that.
 		// Better explicit than implicit...
-		MinimumVolumeSize: &wrappers.Int64Value{Value: 0},
+		MinimumVolumeSize: &wrapperspb.Int64Value{Value: 0},
 	}, nil
 }
 
@@ -461,7 +460,7 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 		})
 	}
 
-	klog.V(5).Infof("Volumes are: %+v", *volumeRes)
+	klog.V(5).Infof("Volumes are: %+v", volumeRes)
 	return volumeRes, nil
 }
 
@@ -584,7 +583,7 @@ func (hp *hostPath) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotR
 	}
 
 	snapshotID := uuid.NewUUID().String()
-	creationTime := ptypes.TimestampNow()
+	creationTime := timestamppb.Now()
 	file := hp.getSnapshotPath(snapshotID)
 
 	if err := hp.createSnapshotFromVolume(hostPathVolume, file); err != nil {
@@ -678,7 +677,7 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 		return &csi.ListSnapshotsResponse{}, nil
 	}
 
-	var snapshots []csi.Snapshot
+	var snapshots []*csi.Snapshot
 	// case 3: no parameter is set, so we return all the snapshots.
 	hpSnapshots := hp.state.GetSnapshots()
 	sort.Slice(hpSnapshots, func(i, j int) bool {
@@ -686,7 +685,7 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 	})
 
 	for _, snap := range hpSnapshots {
-		snapshot := csi.Snapshot{
+		snapshot := &csi.Snapshot{
 			SnapshotId:      snap.Id,
 			SourceVolumeId:  snap.VolID,
 			CreationTime:    snap.CreationTime,
@@ -741,7 +740,7 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 
 	for i = 0; i < len(entries); i++ {
 		entries[i] = &csi.ListSnapshotsResponse_Entry{
-			Snapshot: &snapshots[j],
+			Snapshot: snapshots[j],
 		}
 		j++
 	}

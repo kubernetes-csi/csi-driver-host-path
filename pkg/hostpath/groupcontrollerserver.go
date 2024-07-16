@@ -20,11 +20,11 @@ import (
 	"os"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/pborman/uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/klog/v2"
 
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
@@ -104,7 +104,7 @@ func (hp *hostPath) CreateVolumeGroupSnapshot(ctx context.Context, req *csi.Crea
 	groupSnapshot := state.GroupSnapshot{
 		Name:            req.GetName(),
 		Id:              uuid.NewUUID().String(),
-		CreationTime:    ptypes.TimestampNow(),
+		CreationTime:    timestamppb.Now(),
 		SnapshotIDs:     make([]string, len(req.GetSourceVolumeIds())),
 		SourceVolumeIDs: make([]string, len(req.GetSourceVolumeIds())),
 		ReadyToUse:      true,

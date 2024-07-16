@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -49,6 +50,10 @@ const (
 )
 
 type hostPath struct {
+	csi.UnimplementedIdentityServer
+	csi.UnimplementedControllerServer
+	csi.UnimplementedNodeServer
+	csi.UnimplementedGroupControllerServer
 	config Config
 
 	// gRPC calls involving any of the fields below must be serialized
