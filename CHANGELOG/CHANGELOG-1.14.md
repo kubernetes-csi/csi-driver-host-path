@@ -1,3 +1,24 @@
+# Release notes for v1.14.1
+
+[Documentation](https://kubernetes-csi.github.io)
+
+## Changes by Kind
+
+### Other (Cleanup or Flake)
+
+- Bump external-resizer to v1.11.2 ([#549](https://github.com/kubernetes-csi/csi-driver-host-path/pull/549), [@AndrewSirenko](https://github.com/AndrewSirenko))
+
+## Dependencies
+
+### Added
+_Nothing has changed._
+
+### Changed
+_Nothing has changed._
+
+### Removed
+_Nothing has changed._
+
 # Release notes for v1.14.0
 
 # Changelog since v1.13.0
