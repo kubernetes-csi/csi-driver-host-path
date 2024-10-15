@@ -27,6 +27,58 @@ import (
 )
 
 func (hp *hostPath) GetMetadataAllocated(req *csi.GetMetadataAllocatedRequest, stream csi.SnapshotMetadata_GetMetadataAllocatedServer) error {
+	ctx := stream.Context()
+	// Check arguments
+	snapID := req.GetSnapshotId()
+	if len(snapID) == 0 {
+		return status.Error(codes.InvalidArgument, "SnapshotID missing in request")
+	}
+
+	// Load snapshots
+	source, err := hp.state.GetSnapshotByID(snapID)
+	if err != nil {
+		return status.Error(codes.Internal, "Cannot find the snapshot")
+	}
+	if !source.ReadyToUse {
+		return status.Error(codes.Unavailable, fmt.Sprintf("snapshot %v is not yet ready to use", snapID))
+	}
+
+	vol, err := hp.state.GetVolumeByID(source.VolID)
+	if err != nil {
+		return err
+	}
+	if vol.VolAccessType != state.BlockAccess {
+		return status.Error(codes.InvalidArgument, "Source volume does not have block mode access type")
+	}
+
+	allocatedBlocks := make(chan []*csi.BlockMetadata, 100)
+	go func() {
+		err := hp.getAllocatedBlockMetadata(ctx, hp.getSnapshotPath(snapID), req.StartingOffset, state.BlockSizeBytes, req.MaxResults, allocatedBlocks)
+		if err != nil {
+			klog.Errorf("failed to get allocated block metadata: %v", err)
+		}
+	}()
+
+	for {
+		select {
+		case cb, ok := <-allocatedBlocks:
+			if !ok {
+				klog.V(4).Info("channel closed, returning")
+				return nil
+			}
+			resp := csi.GetMetadataAllocatedResponse{
+				BlockMetadataType:   csi.BlockMetadataType_FIXED_LENGTH,
+				VolumeCapacityBytes: vol.VolSize,
+				BlockMetadata:       cb,
+			}
+			if err := stream.Send(&resp); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			klog.V(4).Info("received cancellation signal, returning")
+			return nil
+		}
+	}
 	return nil
 }
 
@@ -70,7 +122,7 @@ func (hp *hostPath) GetMetadataDelta(req *csi.GetMetadataDeltaRequest, stream cs
 		return status.Error(codes.InvalidArgument, "Source volume does not have block mode access type")
 	}
 
-	changedBlocks := make(chan []*csi.BlockMetadata)
+	changedBlocks := make(chan []*csi.BlockMetadata, 100)
 	go func() {
 		err := hp.getChangedBlockMetadata(ctx, hp.getSnapshotPath(baseSnapID), hp.getSnapshotPath(targetSnapID), req.StartingOffset, state.BlockSizeBytes, req.MaxResults, changedBlocks)
 		if err != nil {

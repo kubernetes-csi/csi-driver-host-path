@@ -17,7 +17,6 @@ limitations under the License.
 package hostpath
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -27,7 +26,6 @@ import (
 	"sync"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -83,7 +81,6 @@ type Config struct {
 	EnableTopology                bool
 	EnableVolumeExpansion         bool
 	EnableControllerModifyVolume  bool
-	EnableSnapshotMetadata        bool
 	AcceptedMutableParameterNames StringArray
 	DisableControllerExpansion    bool
 	DisableNodeExpansion          bool
@@ -413,88 +410,4 @@ func (hp *hostPath) createSnapshotFromVolume(vol state.Volume, file string, opts
 	}
 
 	return nil
-}
-
-func (hp *hostPath) getChangedBlockMetadata(ctx context.Context, sourcePath, targetPath string, startingOffset, blockSize int64, maxResult int32, changedBlocksChan chan<- []*csi.BlockMetadata) error {
-	klog.V(4).Infof("finding changed blocks between two files: %s, %s", sourcePath, targetPath)
-	defer close(changedBlocksChan)
-	// Open the two files
-	source, err := os.Open(sourcePath)
-	if err != nil {
-		klog.Errorf("failed to read file: %v", err)
-		return err
-	}
-	defer source.Close()
-	target, err := os.Open(targetPath)
-	if err != nil {
-		klog.Errorf("failed to read file: %v", err)
-		return err
-	}
-	defer target.Close()
-
-	// Seek to the desired offset in both files
-	_, err = source.Seek(startingOffset, 0)
-	if err != nil {
-		klog.Errorf("failed to seek file: %v", err)
-		return err
-	}
-	_, err = target.Seek(startingOffset, 0)
-	if err != nil {
-		klog.Errorf("failed to seek file: %v", err)
-		return err
-	}
-
-	// Read both files block by block and compare them
-	var blockIndex int64
-	buffer1 := make([]byte, blockSize)
-	buffer2 := make([]byte, blockSize)
-	for {
-		changedBlocks := []*csi.BlockMetadata{}
-		// Read blocks and compare them. Create the list of changed blocks metadata.
-		// Once the number of blocks reaches to maxResult, return the result and
-		// compute next batch of blocks.
-		for i := 1; i <= int(maxResult); i++ {
-			select {
-			case <-ctx.Done(): // Detect cancellation from the client
-				klog.Infof("Stream canceled by client. Exiting goroutine.")
-				return nil
-			default:
-				// Read block from source and target files
-				n1, err1 := source.Read(buffer1)
-				n2, err2 := target.Read(buffer2)
-
-				// If both files have reached EOF, exit the loop
-				if err1 == io.EOF && err2 == io.EOF {
-					klog.Infof("reached to end of the file\n")
-					return nil
-				}
-				if err1 != nil && err1 != io.EOF {
-					klog.Errorf("failed to read to buffer: %v", err)
-					return err1
-				}
-				if err2 != nil && err2 != io.EOF {
-					klog.Errorf("failed to read to buffer: %v", err)
-					return err2
-				}
-
-				// If the number of bytes read differs, the files are different
-				if n1 != n2 {
-					klog.Infof("files differ in size at block %d\n", blockIndex)
-					return nil
-				}
-
-				// Compare the two blocks and add result
-				if !bytes.Equal(buffer1[:n1], buffer2[:n2]) {
-					changedBlocks = append(changedBlocks, &csi.BlockMetadata{
-						ByteOffset: blockIndex * blockSize,
-						SizeBytes:  int64(blockSize),
-					})
-				}
-				blockIndex++
-			}
-		}
-		if len(changedBlocks) != 0 {
-			changedBlocksChan <- changedBlocks
-		}
-	}
 }
