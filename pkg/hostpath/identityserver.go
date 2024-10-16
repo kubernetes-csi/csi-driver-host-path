@@ -62,19 +62,21 @@ func (hp *hostPath) GetPluginCapabilities(ctx context.Context, req *csi.GetPlugi
 				},
 			},
 		},
-		{
-			Type: &csi.PluginCapability_Service_{
-				Service: &csi.PluginCapability_Service{
-					Type: csi.PluginCapability_Service_SNAPSHOT_METADATA_SERVICE,
-				},
-			},
-		},
 	}
 	if hp.config.EnableTopology {
 		caps = append(caps, &csi.PluginCapability{
 			Type: &csi.PluginCapability_Service_{
 				Service: &csi.PluginCapability_Service{
 					Type: csi.PluginCapability_Service_VOLUME_ACCESSIBILITY_CONSTRAINTS,
+				},
+			},
+		})
+	}
+	if hp.config.EnableSnapshotMetadata {
+		caps = append(caps, &csi.PluginCapability{
+			Type: &csi.PluginCapability_Service_{
+				Service: &csi.PluginCapability_Service{
+					Type: csi.PluginCapability_Service_SNAPSHOT_METADATA_SERVICE,
 				},
 			},
 		})
