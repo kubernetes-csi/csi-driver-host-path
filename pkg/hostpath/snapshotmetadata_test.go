@@ -28,14 +28,15 @@ import (
 
 func TestGetChangedBlockMetadata(t *testing.T) {
 	testCases := []struct {
-		name             string
-		sourceFileBlocks int
-		targetFileBlocks int
-		changedBlocks    []int
-		startingOffset   int64
-		maxResult        int32
-		expectedResponse []*csi.BlockMetadata
-		expectErr        bool
+		name              string
+		sourceFileBlocks  int
+		targetFileBlocks  int
+		changedBlocks     []int
+		blockMetadataType csi.BlockMetadataType
+		startingOffset    int64
+		maxResult         int32
+		expectedResponse  []*csi.BlockMetadata
+		expectErr         bool
 	}{
 		{
 			name:             "success case",
@@ -211,6 +212,57 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 			},
 			expectErr: false,
 		},
+		{
+			name:              "success case with variable block sizes",
+			sourceFileBlocks:  100,
+			targetFileBlocks:  100,
+			changedBlocks:     []int{3, 4, 5, 6, 7, 47, 48, 49, 51},
+			blockMetadataType: csi.BlockMetadataType_VARIABLE_LENGTH,
+			maxResult:         100,
+			expectedResponse: []*csi.BlockMetadata{
+				{
+					ByteOffset: 3 * state.BlockSizeBytes,
+					SizeBytes:  state.BlockSizeBytes * 5,
+				},
+				{
+					ByteOffset: 47 * state.BlockSizeBytes,
+					SizeBytes:  state.BlockSizeBytes * 3,
+				},
+				{
+					ByteOffset: 51 * state.BlockSizeBytes,
+					SizeBytes:  state.BlockSizeBytes,
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name:              "success case with starting offset and variable length",
+			sourceFileBlocks:  100,
+			targetFileBlocks:  100,
+			changedBlocks:     []int{2, 4, 7, 10, 13, 14, 30, 65},
+			blockMetadataType: csi.BlockMetadataType_VARIABLE_LENGTH,
+			startingOffset:    9 * state.BlockSizeBytes,
+			maxResult:         3,
+			expectedResponse: []*csi.BlockMetadata{
+				{
+					ByteOffset: 10 * state.BlockSizeBytes,
+					SizeBytes:  state.BlockSizeBytes,
+				},
+				{
+					ByteOffset: 13 * state.BlockSizeBytes,
+					SizeBytes:  state.BlockSizeBytes * 2,
+				},
+				{
+					ByteOffset: 30 * state.BlockSizeBytes,
+					SizeBytes:  state.BlockSizeBytes,
+				},
+				{
+					ByteOffset: 65 * state.BlockSizeBytes,
+					SizeBytes:  state.BlockSizeBytes,
+				},
+			},
+			expectErr: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -238,6 +290,7 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 				MaxVolumeSize:                1024 * 1024 * 1024 * 1024,
 				EnableTopology:               true,
 				EnableControllerModifyVolume: true,
+				SnapshotMetadataBlockType:    tc.blockMetadataType,
 			}
 
 			hp, err := NewHostPathDriver(cfg)
@@ -322,12 +375,13 @@ func modifyBlock(t *testing.T, file *os.File, blockNumber int, newContent []byte
 
 func TestGetAllocatedBlockMetadata(t *testing.T) {
 	testCases := []struct {
-		name           string
-		fileBlocks     int
-		startingOffset int64
-		maxResult      int32
-		expectedBlocks []int
-		expectErr      bool
+		name              string
+		fileBlocks        int
+		startingOffset    int64
+		blockMetadataType csi.BlockMetadataType
+		maxResult         int32
+		expectedBlocks    []int
+		expectErr         bool
 	}{
 		{
 			name:           "success case",
@@ -350,6 +404,22 @@ func TestGetAllocatedBlockMetadata(t *testing.T) {
 			expectedBlocks: []int{4, 5, 6, 7, 8, 9},
 			maxResult:      3,
 		},
+		{
+			name:              "success case with variable block types",
+			fileBlocks:        5,
+			blockMetadataType: csi.BlockMetadataType_VARIABLE_LENGTH,
+			maxResult:         100,
+			expectedBlocks:    []int{0},
+			expectErr:         false,
+		},
+		{
+			name:              "success case with starting offset and variable length",
+			fileBlocks:        10,
+			startingOffset:    4 * state.BlockSizeBytes,
+			blockMetadataType: csi.BlockMetadataType_VARIABLE_LENGTH,
+			expectedBlocks:    []int{4},
+			maxResult:         10,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -371,6 +441,7 @@ func TestGetAllocatedBlockMetadata(t *testing.T) {
 				MaxVolumeSize:                1024 * 1024 * 1024 * 1024,
 				EnableTopology:               true,
 				EnableControllerModifyVolume: true,
+				SnapshotMetadataBlockType:    tc.blockMetadataType,
 			}
 
 			hp, err := NewHostPathDriver(cfg)
@@ -402,6 +473,14 @@ func TestGetAllocatedBlockMetadata(t *testing.T) {
 			// Validate response content
 			if len(tc.expectedBlocks) != len(response) {
 				t.Fatalf("expected %d changed blocks metadata, got: %d", tc.fileBlocks, len(response))
+			}
+			if tc.blockMetadataType == csi.BlockMetadataType_VARIABLE_LENGTH {
+				expCB := createBlockMetadata(int64(tc.expectedBlocks[0]), state.BlockSizeBytes)
+				expCB.SizeBytes = int64(tc.fileBlocks-tc.expectedBlocks[0]) * state.BlockSizeBytes
+				if response[0].String() != expCB.String() {
+					t.Fatalf("received unexpected block metadata, expected: %s\n, got %s", expCB.String(), response[0].String())
+				}
+				return
 			}
 			for i := 0; i < len(tc.expectedBlocks); i++ {
 				expCB := createBlockMetadata(int64(tc.expectedBlocks[i]), state.BlockSizeBytes)

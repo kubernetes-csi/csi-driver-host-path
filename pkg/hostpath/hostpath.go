@@ -82,6 +82,7 @@ type Config struct {
 	EnableVolumeExpansion         bool
 	EnableControllerModifyVolume  bool
 	EnableSnapshotMetadata        bool
+	SnapshotMetadataBlockType     csi.BlockMetadataType
 	AcceptedMutableParameterNames StringArray
 	DisableControllerExpansion    bool
 	DisableNodeExpansion          bool

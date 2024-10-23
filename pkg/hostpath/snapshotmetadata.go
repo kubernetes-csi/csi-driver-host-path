@@ -120,7 +120,14 @@ func (hp *hostPath) compareBlocks(ctx context.Context, source, target *os.File, 
 						}
 						return nil
 					}
-					changedBlocks = append(changedBlocks, createBlockMetadata(blockIndex, blockSize))
+					// if VARIABLE_LENGTH type is enabled, return blocks extend instead of individual blocks.
+					blockMetadata := createBlockMetadata(blockIndex, blockSize)
+					if extendBlock(changedBlocks, csi.BlockMetadataType(hp.config.SnapshotMetadataBlockType), blockIndex, blockSize) {
+						changedBlocks[len(changedBlocks)-1].SizeBytes += blockSize
+						blockIndex++
+						continue
+					}
+					changedBlocks = append(changedBlocks, blockMetadata)
 					blockIndex++
 					continue
 				}
@@ -143,8 +150,15 @@ func (hp *hostPath) compareBlocks(ctx context.Context, source, target *os.File, 
 				// Compare the two blocks and add result.
 				// Even if one of the file reaches to end, continue to add block metadata of other file.
 				if blockChanged(sBuffer[:sourceReadBytes], tBuffer[:targetReadBytes]) {
-					// TODO: Support for VARIABLE sized block metadata
-					changedBlocks = append(changedBlocks, createBlockMetadata(blockIndex, blockSize))
+					blockMetadata := createBlockMetadata(blockIndex, blockSize)
+					// if VARIABLE_LEGTH type is enabled, check if blocks are adjacent,
+					// extend the previous block if adjacent blocks found instead of adding new entry.
+					if extendBlock(changedBlocks, csi.BlockMetadataType(hp.config.SnapshotMetadataBlockType), blockIndex, blockSize) {
+						changedBlocks[len(changedBlocks)-1].SizeBytes += blockSize
+						blockIndex++
+						continue
+					}
+					changedBlocks = append(changedBlocks, blockMetadata)
 				}
 
 				blockIndex++
@@ -180,4 +194,19 @@ func createBlockMetadata(blockIndex, blockSize int64) *csi.BlockMetadata {
 		ByteOffset: blockIndex * blockSize,
 		SizeBytes:  blockSize,
 	}
+}
+
+func extendBlock(changedBlocks []*csi.BlockMetadata, metadataType csi.BlockMetadataType, blockIndex, blockSize int64) bool {
+	blockMetadata := createBlockMetadata(blockIndex, blockSize)
+	// if VARIABLE_LEGTH type is enabled, check if blocks are adjacent,
+	// extend the previous block if adjacent blocks found instead of adding new entry.
+	if len(changedBlocks) < 1 {
+		return false
+	}
+	lastBlock := changedBlocks[len(changedBlocks)-1]
+	if blockMetadata.ByteOffset == lastBlock.ByteOffset+lastBlock.SizeBytes &&
+		metadataType == csi.BlockMetadataType_VARIABLE_LENGTH {
+		return true
+	}
+	return false
 }
