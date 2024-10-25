@@ -79,7 +79,6 @@ func (hp *hostPath) GetMetadataAllocated(req *csi.GetMetadataAllocatedRequest, s
 			return nil
 		}
 	}
-	return nil
 }
 
 func (hp *hostPath) GetMetadataDelta(req *csi.GetMetadataDeltaRequest, stream csi.SnapshotMetadata_GetMetadataDeltaServer) error {
@@ -150,5 +149,4 @@ func (hp *hostPath) GetMetadataDelta(req *csi.GetMetadataDeltaRequest, stream cs
 			return nil
 		}
 	}
-	return nil
 }
