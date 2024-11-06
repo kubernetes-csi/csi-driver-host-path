@@ -132,8 +132,6 @@ func NewHostPathDriver(cfg Config) (*hostPath, error) {
 
 func (hp *hostPath) Run() error {
 	s := NewNonBlockingGRPCServer()
-	// hp itself implements ControllerServer, NodeServer, IdentityServer, and SnapshotMetadataServer.
-	// TODO: Enable SnapshotMetadata service by default once external-snapshot-metadata alpha is released.
 	var sms csi.SnapshotMetadataServer
 	if hp.config.EnableSnapshotMetadata {
 		sms = hp

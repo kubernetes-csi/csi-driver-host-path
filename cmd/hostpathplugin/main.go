@@ -57,7 +57,6 @@ func main() {
 
 	flag.BoolVar(&cfg.EnableVolumeExpansion, "enable-volume-expansion", true, "Enables volume expansion feature.")
 	flag.BoolVar(&cfg.EnableControllerModifyVolume, "enable-controller-modify-volume", false, "Enables Controller modify volume feature.")
-	// TODO: Remove this feature flag and enable SnapshotMetadata service by default once external-snapshot-metadata alpha is released.
 	flag.BoolVar(&cfg.EnableSnapshotMetadata, "enable-snapshot-metadata", false, "Enables Snapshot Metadata service.")
 	snapshotMetadataBlockType := flag.String("snapshot-metadata-block-type", "FIXED_LENGTH", "Expected Snapshot Metadata block type in response. Allowed valid types are FIXED_LENGTH or VARIABLE_LENGTH. If not specified, FIXED_LENGTH is used by default.")
 	flag.Var(&cfg.AcceptedMutableParameterNames, "accepted-mutable-parameter-names", "Comma separated list of parameter names that can be modified on a persistent volume. This is only used when enable-controller-modify-volume is true. If unset, all parameters are mutable.")

@@ -26,6 +26,9 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// NOTE: This implementation of SnapshotMetadata service is used for demo and CI testing purpose only.
+// This should not be used in production or as an example about how to write a real driver.
+
 func (hp *hostPath) getAllocatedBlockMetadata(ctx context.Context, filePath string, startingOffset, blockSize int64, maxResult int32, allocBlocksChan chan<- []*csi.BlockMetadata) error {
 	klog.V(4).Infof("finding allocated blocks in the file: %s", filePath)
 	defer close(allocBlocksChan)
