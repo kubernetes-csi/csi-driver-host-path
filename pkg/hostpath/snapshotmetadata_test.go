@@ -18,6 +18,7 @@ package hostpath
 
 import (
 	"context"
+	"io"
 	"math"
 	"os"
 	"testing"
@@ -36,7 +37,6 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 		startingOffset    int64
 		maxResult         int32
 		expectedResponse  []*csi.BlockMetadata
-		expectErr         bool
 	}{
 		{
 			name:             "success case",
@@ -66,7 +66,6 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 					SizeBytes:  state.BlockSizeBytes,
 				},
 			},
-			expectErr: false,
 		},
 		{
 			name:             "success case with max result",
@@ -104,7 +103,6 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 					SizeBytes:  state.BlockSizeBytes,
 				},
 			},
-			expectErr: false,
 		},
 		{
 			name:             "success case with starting offset",
@@ -131,7 +129,6 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 					SizeBytes:  state.BlockSizeBytes,
 				},
 			},
-			expectErr: false,
 		},
 		{
 			name:             "sucess case empty response",
@@ -140,7 +137,6 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 			startingOffset:   9 * state.BlockSizeBytes,
 			maxResult:        3,
 			expectedResponse: []*csi.BlockMetadata{},
-			expectErr:        false,
 		},
 		{
 			name:             "sucess case different sizes",
@@ -175,7 +171,6 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 					SizeBytes:  state.BlockSizeBytes,
 				},
 			},
-			expectErr: false,
 		},
 		{
 			name:             "sucess case different sizes",
@@ -210,7 +205,6 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 					SizeBytes:  state.BlockSizeBytes,
 				},
 			},
-			expectErr: false,
 		},
 		{
 			name:              "success case with variable block sizes",
@@ -233,7 +227,6 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 					SizeBytes:  state.BlockSizeBytes,
 				},
 			},
-			expectErr: false,
 		},
 		{
 			name:              "success case with starting offset and variable length",
@@ -261,7 +254,6 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 					SizeBytes:  state.BlockSizeBytes,
 				},
 			},
-			expectErr: false,
 		},
 	}
 
@@ -282,38 +274,31 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 				modifyBlock(t, targetFile, i, []byte("changed block"))
 			}
 
-			cfg := Config{
-				StateDir:                     stateDir,
-				Endpoint:                     "unix://tmp/csi.sock",
-				DriverName:                   "hostpath.csi.k8s.io",
-				NodeID:                       "fakeNodeID",
-				MaxVolumeSize:                1024 * 1024 * 1024 * 1024,
-				EnableTopology:               true,
-				EnableControllerModifyVolume: true,
-				SnapshotMetadataBlockType:    tc.blockMetadataType,
+			br, err1 := newFileBlockReader(sourceFile.Name(), targetFile.Name(), tc.startingOffset, state.BlockSizeBytes, tc.blockMetadataType, tc.maxResult)
+			if err1 != nil {
+				t.Fatalf("expected no error, got: %v", err1)
+			}
+			if err := br.seekToStartingOffset(); err != nil {
+				t.Fatalf("expected no error, got: %v", err1)
 			}
 
-			hp, err := NewHostPathDriver(cfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			cb := make(chan []*csi.BlockMetadata, 100)
-			err1 := hp.getChangedBlockMetadata(context.Background(), sourceFile.Name(), targetFile.Name(), tc.startingOffset, state.BlockSizeBytes, tc.maxResult, cb)
-			if tc.expectErr {
-				if err1 == nil {
-					t.Fatalf("expected error, got none")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("expected no error, got: %v", err)
-			}
 			response := []*csi.BlockMetadata{}
 			responsePages := 0
-			for c := range cb {
-				responsePages++
-				response = append(response, c...)
+			ctx := context.Background()
+			for {
+				cb, cbErr := br.getChangedBlockMetadata(ctx)
+				if cbErr != nil && cbErr != io.EOF {
+					t.Fatalf("expected no error, got: %v", cbErr)
+				}
+				if len(cb) != 0 {
+					responsePages++
+					response = append(response, cb...)
+				}
+				if cbErr == io.EOF {
+					break
+				}
 			}
+
 			// Validate max result limit
 			expPages := int(math.Ceil(float64(len(tc.expectedResponse)) / float64(tc.maxResult)))
 			if responsePages != expPages {
@@ -381,21 +366,18 @@ func TestGetAllocatedBlockMetadata(t *testing.T) {
 		blockMetadataType csi.BlockMetadataType
 		maxResult         int32
 		expectedBlocks    []int
-		expectErr         bool
 	}{
 		{
 			name:           "success case",
 			fileBlocks:     5,
 			maxResult:      100,
 			expectedBlocks: []int{0, 1, 2, 3, 4},
-			expectErr:      false,
 		},
 		{
 			name:           "success case with max result",
 			fileBlocks:     10,
 			expectedBlocks: []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
 			maxResult:      3,
-			expectErr:      false,
 		},
 		{
 			name:           "success case with starting offset",
@@ -410,7 +392,6 @@ func TestGetAllocatedBlockMetadata(t *testing.T) {
 			blockMetadataType: csi.BlockMetadataType_VARIABLE_LENGTH,
 			maxResult:         100,
 			expectedBlocks:    []int{0},
-			expectErr:         false,
 		},
 		{
 			name:              "success case with starting offset and variable length",
@@ -433,38 +414,31 @@ func TestGetAllocatedBlockMetadata(t *testing.T) {
 			file := createTempFile(t, tc.fileBlocks)
 			defer file.Close()
 
-			cfg := Config{
-				StateDir:                     stateDir,
-				Endpoint:                     "unix://tmp/csi.sock",
-				DriverName:                   "hostpath.csi.k8s.io",
-				NodeID:                       "fakeNodeID",
-				MaxVolumeSize:                1024 * 1024 * 1024 * 1024,
-				EnableTopology:               true,
-				EnableControllerModifyVolume: true,
-				SnapshotMetadataBlockType:    tc.blockMetadataType,
+			br, err1 := newFileBlockReader("", file.Name(), tc.startingOffset, state.BlockSizeBytes, tc.blockMetadataType, tc.maxResult)
+			if err1 != nil {
+				t.Fatalf("expected no error, got: %v", err1)
+			}
+			if err := br.seekToStartingOffset(); err != nil {
+				t.Fatalf("expected no error, got: %v", err1)
 			}
 
-			hp, err := NewHostPathDriver(cfg)
-			if err != nil {
-				t.Fatal(err)
-			}
-			cb := make(chan []*csi.BlockMetadata, 100)
-			err1 := hp.getAllocatedBlockMetadata(context.Background(), file.Name(), tc.startingOffset, state.BlockSizeBytes, tc.maxResult, cb)
-			if tc.expectErr {
-				if err1 == nil {
-					t.Fatalf("expected error, got none")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("expected no error, got: %v", err)
-			}
 			response := []*csi.BlockMetadata{}
 			responsePages := 0
-			for c := range cb {
-				responsePages++
-				response = append(response, c...)
+			ctx := context.Background()
+			for {
+				cb, cbErr := br.getChangedBlockMetadata(ctx)
+				if cbErr != nil && cbErr != io.EOF {
+					t.Fatalf("expected no error, got: %v", cbErr)
+				}
+				if len(cb) != 0 {
+					responsePages++
+					response = append(response, cb...)
+				}
+				if cbErr == io.EOF {
+					break
+				}
 			}
+
 			// Validate max result limit
 			expPages := int(math.Ceil(float64(len(tc.expectedBlocks)) / float64(tc.maxResult)))
 			if responsePages != expPages {

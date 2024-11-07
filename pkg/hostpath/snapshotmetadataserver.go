@@ -17,7 +17,10 @@ limitations under the License.
 package hostpath
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"io"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
@@ -37,7 +40,7 @@ func (hp *hostPath) GetMetadataAllocated(req *csi.GetMetadataAllocatedRequest, s
 	// Load snapshots
 	source, err := hp.state.GetSnapshotByID(snapID)
 	if err != nil {
-		return status.Error(codes.Internal, "Cannot find the snapshot")
+		return status.Error(codes.Internal, "cannot find the snapshot")
 	}
 	if !source.ReadyToUse {
 		return status.Error(codes.Unavailable, fmt.Sprintf("snapshot %v is not yet ready to use", snapID))
@@ -48,35 +51,52 @@ func (hp *hostPath) GetMetadataAllocated(req *csi.GetMetadataAllocatedRequest, s
 		return err
 	}
 	if vol.VolAccessType != state.BlockAccess {
-		return status.Error(codes.InvalidArgument, "Source volume does not have block mode access type")
+		return status.Error(codes.InvalidArgument, "source volume does not have block mode access type")
 	}
 
-	allocatedBlocks := make(chan []*csi.BlockMetadata, 100)
-	go func() {
-		err := hp.getAllocatedBlockMetadata(ctx, hp.getSnapshotPath(snapID), req.StartingOffset, state.BlockSizeBytes, req.MaxResults, allocatedBlocks)
-		if err != nil {
-			klog.Errorf("failed to get allocated block metadata: %v", err)
-		}
-	}()
+	br, err := newFileBlockReader(
+		"",
+		hp.getSnapshotPath(snapID),
+		req.StartingOffset,
+		state.BlockSizeBytes,
+		hp.config.SnapshotMetadataBlockType,
+		req.MaxResults,
+	)
+	if err != nil {
+		klog.Errorf("failed initialize file block reader: %v", err)
+		return status.Error(codes.Internal, "failed initialize file block reader")
+	}
+	defer br.Close()
+	if err := br.seekToStartingOffset(); err != nil {
+		return status.Error(codes.OutOfRange, fmt.Sprintf("failed to seek to starting offset: %v", err.Error()))
+	}
 
+	// Read all blocks can find allocated blocks till EOF in chunks of size == maxSize
 	for {
-		select {
-		case cb, ok := <-allocatedBlocks:
-			if !ok {
-				klog.V(4).Info("channel closed, returning")
+		cb, cbErr := br.getChangedBlockMetadata(ctx)
+		if cbErr != nil {
+			if errors.Is(cbErr, context.Canceled) {
+				klog.V(4).Info("context canceled while getting allocated block metadata, returning")
 				return nil
 			}
-			resp := csi.GetMetadataAllocatedResponse{
-				BlockMetadataType:   csi.BlockMetadataType_FIXED_LENGTH,
-				VolumeCapacityBytes: vol.VolSize,
-				BlockMetadata:       cb,
+			if errors.Is(cbErr, context.DeadlineExceeded) {
+				klog.V(4).Info("context deadline exceeded while getting allocated block metadata, returning")
+				return nil
 			}
-			if err := stream.Send(&resp); err != nil {
-				return err
+			if err == io.EOF {
+				klog.V(4).Info("reached EOF while getting allocated block metadata, returning")
+				// send allocated blocks found till EOF
+				if err := sendGetMetadataAllocatedResponse(stream, vol.VolSize, cb); err != nil {
+					return err
+				}
+				return nil
 			}
-		case <-ctx.Done():
-			klog.V(4).Info("received cancellation signal, returning")
-			return nil
+			klog.Errorf("Failed to get allocated block metadata: %v", cbErr)
+			return status.Error(codes.Internal, "failed to get allocated block metadata")
+		}
+		// stream response to client
+		if err := sendGetMetadataAllocatedResponse(stream, vol.VolSize, cb); err != nil {
+			return err
 		}
 	}
 }
@@ -96,11 +116,11 @@ func (hp *hostPath) GetMetadataDelta(req *csi.GetMetadataDeltaRequest, stream cs
 	// Load snapshots
 	source, err := hp.state.GetSnapshotByID(baseSnapID)
 	if err != nil {
-		return status.Error(codes.Internal, "Cannot find the source snapshot")
+		return status.Error(codes.Internal, "cannot find the source snapshot")
 	}
 	target, err := hp.state.GetSnapshotByID(targetSnapID)
 	if err != nil {
-		return status.Error(codes.Internal, "Cannot find the target snapshot")
+		return status.Error(codes.Internal, "cannot find the target snapshot")
 	}
 
 	if !source.ReadyToUse {
@@ -111,42 +131,83 @@ func (hp *hostPath) GetMetadataDelta(req *csi.GetMetadataDeltaRequest, stream cs
 	}
 
 	if source.VolID != target.VolID {
-		return status.Error(codes.InvalidArgument, "Snapshots don't belong to the same Volume")
+		return status.Error(codes.InvalidArgument, "snapshots don't belong to the same Volume")
 	}
 	vol, err := hp.state.GetVolumeByID(source.VolID)
 	if err != nil {
 		return err
 	}
 	if vol.VolAccessType != state.BlockAccess {
-		return status.Error(codes.InvalidArgument, "Source volume does not have block mode access type")
+		return status.Error(codes.InvalidArgument, "source volume does not have block mode access type")
 	}
 
-	changedBlocks := make(chan []*csi.BlockMetadata, 100)
-	go func() {
-		err := hp.getChangedBlockMetadata(ctx, hp.getSnapshotPath(baseSnapID), hp.getSnapshotPath(targetSnapID), req.StartingOffset, state.BlockSizeBytes, req.MaxResults, changedBlocks)
-		if err != nil {
-			klog.Errorf("failed to get changed block metadata: %v", err)
-		}
-	}()
+	br, err := newFileBlockReader(
+		hp.getSnapshotPath(baseSnapID),
+		hp.getSnapshotPath(targetSnapID),
+		req.StartingOffset,
+		state.BlockSizeBytes,
+		hp.config.SnapshotMetadataBlockType,
+		req.MaxResults,
+	)
+	if err != nil {
+		klog.Errorf("failed initialize file block reader: %v", err)
+		return status.Error(codes.Internal, "failed initialize file block reader")
+	}
+	defer br.Close()
+	if err := br.seekToStartingOffset(); err != nil {
+		return status.Error(codes.OutOfRange, fmt.Sprintf("failed to seek to starting offset: %v", err.Error()))
+	}
 
+	// Read all blocks can find changed blocks till EOF in chunks of size == maxSize
 	for {
-		select {
-		case cb, ok := <-changedBlocks:
-			if !ok {
-				klog.V(4).Info("channel closed, returning")
+		cb, cbErr := br.getChangedBlockMetadata(ctx)
+		if cbErr != nil {
+			if errors.Is(cbErr, context.Canceled) {
+				klog.V(4).Info("context canceled while getting changed block metadata, returning")
 				return nil
 			}
-			resp := csi.GetMetadataDeltaResponse{
-				BlockMetadataType:   csi.BlockMetadataType_FIXED_LENGTH,
-				VolumeCapacityBytes: vol.VolSize,
-				BlockMetadata:       cb,
+			if errors.Is(cbErr, context.DeadlineExceeded) {
+				klog.V(4).Info("context deadline exceeded while getting changed block metadata, returning")
+				return nil
 			}
-			if err := stream.Send(&resp); err != nil {
-				return err
+			if err == io.EOF {
+				klog.V(4).Info("reached EOF while getting changed block metadata, returning")
+				// send changed blocks found till EOF
+				if err := sendGetMetadataDeltaResponse(stream, vol.VolSize, cb); err != nil {
+					return err
+				}
+				return nil
 			}
-		case <-ctx.Done():
-			klog.V(4).Info("received cancellation signal, returning")
-			return nil
+			klog.Errorf("failed to get changed block metadata: %v", cbErr)
+			return status.Error(codes.Internal, "failed to get changed block metadata")
+		}
+		// stream response to client
+		if err := sendGetMetadataDeltaResponse(stream, vol.VolSize, cb); err != nil {
+			return err
 		}
 	}
+}
+
+func sendGetMetadataDeltaResponse(stream csi.SnapshotMetadata_GetMetadataDeltaServer, volSize int64, cb []*csi.BlockMetadata) error {
+	if len(cb) == 0 {
+		return nil
+	}
+	resp := csi.GetMetadataDeltaResponse{
+		BlockMetadataType:   csi.BlockMetadataType_FIXED_LENGTH,
+		VolumeCapacityBytes: volSize,
+		BlockMetadata:       cb,
+	}
+	return stream.Send(&resp)
+}
+
+func sendGetMetadataAllocatedResponse(stream csi.SnapshotMetadata_GetMetadataAllocatedServer, volSize int64, cb []*csi.BlockMetadata) error {
+	if len(cb) == 0 {
+		return nil
+	}
+	resp := csi.GetMetadataAllocatedResponse{
+		BlockMetadataType:   csi.BlockMetadataType_FIXED_LENGTH,
+		VolumeCapacityBytes: volSize,
+		BlockMetadata:       cb,
+	}
+	return stream.Send(&resp)
 }

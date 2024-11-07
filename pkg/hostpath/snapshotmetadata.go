@@ -29,149 +29,165 @@ import (
 // NOTE: This implementation of SnapshotMetadata service is used for demo and CI testing purpose only.
 // This should not be used in production or as an example about how to write a real driver.
 
-func (hp *hostPath) getAllocatedBlockMetadata(ctx context.Context, filePath string, startingOffset, blockSize int64, maxResult int32, allocBlocksChan chan<- []*csi.BlockMetadata) error {
-	klog.V(4).Infof("finding allocated blocks in the file: %s", filePath)
-	defer close(allocBlocksChan)
-
-	file, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	if _, err := file.Seek(startingOffset, 0); err != nil {
-		return err
-	}
-
-	return hp.compareBlocks(ctx, nil, file, startingOffset, blockSize, maxResult, allocBlocksChan)
+type fileBlockReader struct {
+	base              *os.File
+	target            *os.File
+	offset            int64
+	blockSize         int64
+	blockMetadataType csi.BlockMetadataType
+	maxResult         int32
 }
 
-func (hp *hostPath) getChangedBlockMetadata(ctx context.Context, sourcePath, targetPath string, startingOffset, blockSize int64, maxResult int32, changedBlocksChan chan<- []*csi.BlockMetadata) error {
-	klog.V(4).Infof("finding changed blocks between two files: %s, %s", sourcePath, targetPath)
-	defer close(changedBlocksChan)
-
-	source, target, err := openFiles(sourcePath, targetPath)
+func newFileBlockReader(
+	basePath,
+	targetPath string,
+	startingOffset int64,
+	blockSize int64,
+	blockMetadataType csi.BlockMetadataType,
+	maxResult int32,
+) (*fileBlockReader, error) {
+	base, target, err := openFiles(basePath, targetPath)
 	if err != nil {
-		return err
-	}
-	defer source.Close()
-	defer target.Close()
-
-	if err := seekToOffset(source, target, startingOffset); err != nil {
-		return err
+		return nil, err
 	}
 
-	return hp.compareBlocks(ctx, source, target, startingOffset, blockSize, maxResult, changedBlocksChan)
+	return &fileBlockReader{
+		base:              base,
+		target:            target,
+		offset:            startingOffset,
+		blockSize:         blockSize,
+		blockMetadataType: blockMetadataType,
+		maxResult:         maxResult,
+	}, nil
 }
 
-func openFiles(sourcePath, targetPath string) (source, target *os.File, err error) {
-	source, err = os.Open(sourcePath)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	target, err = os.Open(targetPath)
-	if err != nil {
-		source.Close()
-		return nil, nil, err
-	}
-
-	return source, target, nil
-}
-
-func seekToOffset(source, target *os.File, startingOffset int64) error {
-	if _, err := source.Seek(startingOffset, 0); err != nil {
+func (cb *fileBlockReader) seekToStartingOffset() error {
+	if _, err := cb.target.Seek(cb.offset, io.SeekStart); err != nil {
 		return err
 	}
-	if _, err := target.Seek(startingOffset, 0); err != nil {
+	if cb.base == nil {
+		return nil
+	}
+	if _, err := cb.base.Seek(cb.offset, io.SeekStart); err != nil {
 		return err
 	}
 	return nil
 }
 
-// Compare blocks from source and target, and send changed blocks to channel.
-// If source if nil, returns blocks allocated by target.
-func (hp *hostPath) compareBlocks(ctx context.Context, source, target *os.File, startingOffset, blockSize int64, maxResult int32, changedBlocksChan chan<- []*csi.BlockMetadata) error {
-	blockIndex := startingOffset / blockSize
-	sBuffer := make([]byte, blockSize)
-	tBuffer := make([]byte, blockSize)
-	eofSourceFile, eofTargetFile := false, false
-
-	for {
-		changedBlocks := []*csi.BlockMetadata{}
-
-		// Read blocks and compare them. Create the list of changed blocks metadata.
-		// Once the number of blocks reaches to maxResult, return the result and
-		// compute next batch of blocks.
-		for int32(len(changedBlocks)) < maxResult {
-			select {
-			case <-ctx.Done():
-				klog.V(4).Infof("handling cancellation signal, closing goroutine")
-				return nil
-			default:
-				targetReadBytes, eofTarget, err := readFileBlock(target, tBuffer, eofTargetFile)
-				if err != nil {
-					return err
-				}
-				eofTargetFile = eofTarget
-
-				if source == nil {
-					// If source is nil, return blocks allocated by target file.
-					if eofTargetFile {
-						if len(changedBlocks) != 0 {
-							changedBlocksChan <- changedBlocks
-						}
-						return nil
-					}
-					// if VARIABLE_LENGTH type is enabled, return blocks extend instead of individual blocks.
-					blockMetadata := createBlockMetadata(blockIndex, blockSize)
-					if extendBlock(changedBlocks, csi.BlockMetadataType(hp.config.SnapshotMetadataBlockType), blockIndex, blockSize) {
-						changedBlocks[len(changedBlocks)-1].SizeBytes += blockSize
-						blockIndex++
-						continue
-					}
-					changedBlocks = append(changedBlocks, blockMetadata)
-					blockIndex++
-					continue
-				}
-
-				sourceReadBytes, eofSource, err := readFileBlock(source, sBuffer, eofSourceFile)
-				if err != nil {
-					return err
-				}
-				eofSourceFile = eofSource
-
-				// If both files have reached EOF, exit the loop.
-				if eofSourceFile && eofTargetFile {
-					klog.V(4).Infof("reached end of the files")
-					if len(changedBlocks) != 0 {
-						changedBlocksChan <- changedBlocks
-					}
-					return nil
-				}
-
-				// Compare the two blocks and add result.
-				// Even if one of the file reaches to end, continue to add block metadata of other file.
-				if blockChanged(sBuffer[:sourceReadBytes], tBuffer[:targetReadBytes]) {
-					blockMetadata := createBlockMetadata(blockIndex, blockSize)
-					// if VARIABLE_LEGTH type is enabled, check if blocks are adjacent,
-					// extend the previous block if adjacent blocks found instead of adding new entry.
-					if extendBlock(changedBlocks, csi.BlockMetadataType(hp.config.SnapshotMetadataBlockType), blockIndex, blockSize) {
-						changedBlocks[len(changedBlocks)-1].SizeBytes += blockSize
-						blockIndex++
-						continue
-					}
-					changedBlocks = append(changedBlocks, blockMetadata)
-				}
-
-				blockIndex++
-			}
-		}
-
-		if len(changedBlocks) > 0 {
-			changedBlocksChan <- changedBlocks
+func (cb *fileBlockReader) Close() error {
+	if cb.base != nil {
+		if err := cb.base.Close(); err != nil {
+			return err
 		}
 	}
+	if cb.target != nil {
+		if err := cb.target.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func openFiles(basePath, targetPath string) (base, target *os.File, err error) {
+	target, err = os.Open(targetPath)
+	if err != nil {
+		base.Close()
+		return nil, nil, err
+	}
+	if basePath == "" {
+		return nil, target, nil
+	}
+	base, err = os.Open(basePath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return base, target, nil
+}
+
+// getChangedBlockMetadata reads base and target files, compare block differences between them
+// and returns list of changed block metadata. It reads all the blocks till it reaches EOF or size of changed block
+// metadata list <= maxSize.
+func (cb *fileBlockReader) getChangedBlockMetadata(ctx context.Context) ([]*csi.BlockMetadata, error) {
+	if cb.base == nil {
+		klog.V(4).Infof("finding allocated blocks by file: %s", cb.target.Name())
+	} else {
+		klog.V(4).Infof("finding changed blocks between two files: %s, %s", cb.base.Name(), cb.target.Name())
+	}
+
+	blockIndex := cb.offset / cb.blockSize
+	sBuffer := make([]byte, cb.blockSize)
+	tBuffer := make([]byte, cb.blockSize)
+	eofBaseFile, eofTargetFile := false, false
+
+	changedBlocks := []*csi.BlockMetadata{}
+
+	// Read blocks and compare them. Create the list of changed blocks metadata.
+	// Once the number of blocks reaches to maxResult, return the result and
+	// compute next batch of blocks.
+	for int32(len(changedBlocks)) < cb.maxResult {
+		select {
+		case <-ctx.Done():
+			klog.V(4).Infof("handling cancellation signal, closing goroutine")
+			return nil, ctx.Err()
+		default:
+		}
+		targetReadBytes, eofTarget, err := readFileBlock(cb.target, tBuffer, eofTargetFile)
+		if err != nil {
+			return nil, err
+		}
+		eofTargetFile = eofTarget
+
+		// If base is nil, return blocks allocated by target file.
+		if cb.base == nil {
+			if eofTargetFile {
+				return changedBlocks, io.EOF
+			}
+			// if VARIABLE_LENGTH type is enabled, return blocks extend instead of individual blocks.
+			blockMetadata := createBlockMetadata(blockIndex, cb.blockSize)
+			if extendBlock(changedBlocks, csi.BlockMetadataType(cb.blockMetadataType), blockIndex, cb.blockSize) {
+				changedBlocks[len(changedBlocks)-1].SizeBytes += cb.blockSize
+				cb.offset += cb.blockSize
+				blockIndex++
+				continue
+			}
+			changedBlocks = append(changedBlocks, blockMetadata)
+			cb.offset += cb.blockSize
+			blockIndex++
+			continue
+		}
+
+		baseReadBytes, eofBase, err := readFileBlock(cb.base, sBuffer, eofBaseFile)
+		if err != nil {
+			return nil, err
+		}
+		eofBaseFile = eofBase
+
+		// If both files have reached EOF, exit the loop.
+		if eofBaseFile && eofTargetFile {
+			klog.V(4).Infof("reached end of the files")
+			return changedBlocks, io.EOF
+		}
+
+		// Compare the two blocks and add result.
+		// Even if one of the file reaches to end, continue to add block metadata of other file.
+		if blockChanged(sBuffer[:baseReadBytes], tBuffer[:targetReadBytes]) {
+			blockMetadata := createBlockMetadata(blockIndex, cb.blockSize)
+			// if VARIABLE_LEGTH type is enabled, check if blocks are adjacent,
+			// extend the previous block if adjacent blocks found instead of adding new entry.
+			if extendBlock(changedBlocks, csi.BlockMetadataType(cb.blockMetadataType), blockIndex, cb.blockSize) {
+				changedBlocks[len(changedBlocks)-1].SizeBytes += cb.blockSize
+				cb.offset += cb.blockSize
+				blockIndex++
+				continue
+			}
+			changedBlocks = append(changedBlocks, blockMetadata)
+		}
+
+		cb.offset += cb.blockSize
+		blockIndex++
+	}
+	return changedBlocks, nil
 }
 
 // readFileBlock reads blocks from a file.
@@ -188,8 +204,8 @@ func readFileBlock(file *os.File, buffer []byte, eof bool) (int, bool, error) {
 	return bytesRead, err == io.EOF, nil
 }
 
-func blockChanged(sourceBlock, targetBlock []byte) bool {
-	return !bytes.Equal(sourceBlock, targetBlock)
+func blockChanged(baseBlock, targetBlock []byte) bool {
+	return !bytes.Equal(baseBlock, targetBlock)
 }
 
 func createBlockMetadata(blockIndex, blockSize int64) *csi.BlockMetadata {
