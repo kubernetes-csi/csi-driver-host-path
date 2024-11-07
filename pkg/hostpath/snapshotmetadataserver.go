@@ -40,7 +40,7 @@ func (hp *hostPath) GetMetadataAllocated(req *csi.GetMetadataAllocatedRequest, s
 	// Load snapshots
 	source, err := hp.state.GetSnapshotByID(snapID)
 	if err != nil {
-		return status.Error(codes.Internal, "cannot find the snapshot")
+		return status.Error(codes.NotFound, "cannot find the snapshot")
 	}
 	if !source.ReadyToUse {
 		return status.Error(codes.Unavailable, fmt.Sprintf("snapshot %v is not yet ready to use", snapID))
@@ -116,11 +116,11 @@ func (hp *hostPath) GetMetadataDelta(req *csi.GetMetadataDeltaRequest, stream cs
 	// Load snapshots
 	source, err := hp.state.GetSnapshotByID(baseSnapID)
 	if err != nil {
-		return status.Error(codes.Internal, "cannot find the source snapshot")
+		return status.Error(codes.NotFound, "cannot find the source snapshot")
 	}
 	target, err := hp.state.GetSnapshotByID(targetSnapID)
 	if err != nil {
-		return status.Error(codes.Internal, "cannot find the target snapshot")
+		return status.Error(codes.NotFound, "cannot find the target snapshot")
 	}
 
 	if !source.ReadyToUse {
