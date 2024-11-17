@@ -237,7 +237,7 @@ $ kubectl exec -it my-csi-app /bin/sh
 
 Next, ssh into the Hostpath container and verify that the file shows up there:
 ```shell
-$ kubectl exec -it $(kubectl get pods --selector app=csi-hostpathplugin -o jsonpath='{.items[*].metadata.name}') -c hostpath /bin/sh
+$ kubectl exec -it $(kubectl get pods --selector app.kubernetes.io/name=csi-hostpathplugin -o jsonpath='{.items[*].metadata.name}') -c hostpath /bin/sh
 
 ```
 Then, use the following command to locate the file. If everything works OK you should get a result similar to the following:
