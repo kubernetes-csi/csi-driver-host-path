@@ -43,7 +43,6 @@ func Listen(endpoint string) (net.Listener, func(), error) {
 
 	cleanup := func() {}
 	if proto == "unix" {
-		addr = "/" + addr
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) { //nolint: vetshadow
 			return nil, nil, fmt.Errorf("%s: %q", addr, err)
 		}
