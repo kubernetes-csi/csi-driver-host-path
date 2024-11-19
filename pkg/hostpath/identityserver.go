@@ -72,6 +72,15 @@ func (hp *hostPath) GetPluginCapabilities(ctx context.Context, req *csi.GetPlugi
 			},
 		})
 	}
+	if hp.config.EnableSnapshotMetadata {
+		caps = append(caps, &csi.PluginCapability{
+			Type: &csi.PluginCapability_Service_{
+				Service: &csi.PluginCapability_Service{
+					Type: csi.PluginCapability_Service_SNAPSHOT_METADATA_SERVICE,
+				},
+			},
+		})
+	}
 
 	return &csi.GetPluginCapabilitiesResponse{Capabilities: caps}, nil
 }
