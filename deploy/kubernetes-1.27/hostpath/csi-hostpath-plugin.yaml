@@ -102,6 +102,24 @@ subjects:
   namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: snapshot-metadata-cluster-role
+  name: csi-hostpathplugin-snapshot-metadata-cluster-role
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-snapshot-metadata-runner
+subjects:
+- kind: ServiceAccount
+  name: csi-hostpathplugin-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels:
@@ -219,12 +237,15 @@ spec:
       serviceAccountName: csi-hostpathplugin-sa
       containers:
         - name: hostpath
-          image: registry.k8s.io/sig-storage/hostpathplugin:v1.15.0
+          # TODO: Revert comment once https://github.com/kubernetes-csi/csi-driver-host-path/pull/569 is merged
+          #image: registry.k8s.io/sig-storage/hostpathplugin:v1.15.0
+          image: prasadg193/hostpathplugin:amd64-linux-canary
           args:
             - "--drivername=hostpath.csi.k8s.io"
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
+            # end hostpath args
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
@@ -367,6 +388,8 @@ spec:
             - mountPath: /csi
               name: socket-dir
 
+        # end csi containers
+
       volumes:
         - hostPath:
             path: /var/lib/kubelet/plugins/csi-hostpath
@@ -394,3 +417,4 @@ spec:
             path: /dev
             type: Directory
           name: dev-dir
+        # end csi volumes

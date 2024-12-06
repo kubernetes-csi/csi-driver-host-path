@@ -46,6 +46,8 @@ default_kubelet_data_dir=/var/lib/kubelet
 # - CSI_PROVISIONER_TAG
 # - CSI_SNAPSHOTTER_REGISTRY
 # - CSI_SNAPSHOTTER_TAG
+# - CSI_SNAPSHOT_METADATA_REGISTRY
+# - CSI_SNAPSHOT_METADATA_TAG
 # - HOSTPATHPLUGIN_REGISTRY
 # - HOSTPATHPLUGIN_TAG
 #
@@ -142,12 +144,18 @@ function volume_mode_conversion () {
     [ "${VOLUME_MODE_CONVERSION_TESTS}" == "true" ]
 }
 
+function snapshot_metadata () {
+    [ "${SNAPSHOT_METADATA_TESTS}" == "true" ]
+}
+
 # In addition, the RBAC rules can be overridden separately.
 # For snapshotter 2.0+, the directory has changed.
 SNAPSHOTTER_RBAC_RELATIVE_PATH="rbac.yaml"
 if version_gt $(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter "${UPDATE_RBAC_RULES}") "v1.255.255"; then
 	SNAPSHOTTER_RBAC_RELATIVE_PATH="csi-snapshotter/rbac-csi-snapshotter.yaml"
 fi
+SNAPSHOT_METADATA_RBAC_RELATIVE_PATH="snapshot-metadata-cluster-role.yaml"
+SNAPSHOT_METADATA_SIDECAR_PATCH_RELATIVE_PATH="${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch"
 
 CSI_PROVISIONER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-provisioner.yaml" csi-provisioner false)/deploy/kubernetes/rbac.yaml"
 : ${CSI_PROVISIONER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-provisioner.yaml" csi-provisioner "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
@@ -155,11 +163,18 @@ CSI_ATTACHER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/externa
 : ${CSI_ATTACHER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-attacher/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-attacher.yaml" csi-attacher "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
 CSI_SNAPSHOTTER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter false)/deploy/kubernetes/${SNAPSHOTTER_RBAC_RELATIVE_PATH}"
 : ${CSI_SNAPSHOTTER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-snapshotter.yaml" csi-snapshotter "${UPDATE_RBAC_RULES}")/deploy/kubernetes/${SNAPSHOTTER_RBAC_RELATIVE_PATH}}
+CSI_SNAPSHOT_METADATA_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata false)/deploy/${SNAPSHOT_METADATA_RBAC_RELATIVE_PATH}"
+: ${CSI_SNAPSHOT_METADATA_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata "${UPDATE_RBAC_RULES}")/deploy/${SNAPSHOT_METADATA_RBAC_RELATIVE_PATH}}
 CSI_RESIZER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-resizer/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-resizer.yaml" csi-resizer false)/deploy/kubernetes/rbac.yaml"
 : ${CSI_RESIZER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-resizer/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-resizer.yaml" csi-resizer "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
 
 CSI_EXTERNALHEALTH_MONITOR_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-health-monitor/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-external-health-monitor-controller false)/deploy/kubernetes/external-health-monitor-controller/rbac.yaml"
 : ${CSI_EXTERNALHEALTH_MONITOR_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-health-monitor/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-external-health-monitor-controller "${UPDATE_RBAC_RULES}")/deploy/kubernetes/external-health-monitor-controller/rbac.yaml}
+
+# TODO: Replace with external-snapshot-metadata link
+CSI_SNAPSHOT_METADATA_TLS_CERT_YAML="https://raw.githubusercontent.com/PrasadG193/k8s-external-snapshot-metadata/refs/heads/add-testdata/deploy/example/csi-driver/testdata/csi-snapshot-metadata-tls-secret.yaml"
+SNAPSHOT_METADATA_SERVICE_CR_YAML="https://raw.githubusercontent.com/PrasadG193/k8s-external-snapshot-metadata/refs/heads/add-testdata/deploy/example/csi-driver/testdata/snapshotmetadataservice.yaml"
+CSI_SNAPSHOT_METADATA_SERVICE_YAML="https://raw.githubusercontent.com/PrasadG193/k8s-external-snapshot-metadata/refs/heads/add-testdata/deploy/example/csi-driver/testdata/csi-snapshot-metadata-service.yaml"
 
 INSTALL_CRD=${INSTALL_CRD:-"false"}
 
@@ -176,7 +191,7 @@ run () {
 
 # rbac rules
 echo "applying RBAC rules"
-for component in CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER CSI_RESIZER CSI_EXTERNALHEALTH_MONITOR; do
+for component in CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER CSI_RESIZER CSI_EXTERNALHEALTH_MONITOR CSI_SNAPSHOT_METADATA; do
     eval current="\${${component}_RBAC}"
     eval original="\${${component}_RBAC_YAML}"
     if [ "$current" != "$original" ]; then
@@ -210,12 +225,41 @@ EOF
     run kubectl apply --kustomize "${TEMP_DIR}"
 done
 
+# deploy snapshot-metadata service components
+if snapshot_metadata; then
+    echo "applying snapshot metadata components"
+    for component in ${CSI_SNAPSHOT_METADATA_TLS_CERT_YAML} ${SNAPSHOT_METADATA_SERVICE_CR_YAML} ${CSI_SNAPSHOT_METADATA_SERVICE_YAML}; do
+      run curl "${component}" --output "${TEMP_DIR}"/snap-metadata-comp.yaml --silent --location
+      cat <<- EOF > "${TEMP_DIR}"/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:
+  app.kubernetes.io/instance: hostpath.csi.k8s.io
+  app.kubernetes.io/part-of: csi-driver-host-path
+
+resources:
+- ./snap-metadata-comp.yaml
+EOF
+
+      run kubectl apply --kustomize "${TEMP_DIR}"
+    done
+fi
+
 # deploy hostpath plugin and registrar sidecar
 echo "deploying hostpath components"
 for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
     echo "   $i"
     if volume_mode_conversion; then
       sed -i -e 's/# end csi-provisioner args/- \"--prevent-volume-mode-conversion=true\"\n            # end csi-provisioner args/' $i
+    fi
+
+    # Add external-snapshot-metadata sidecar to the driver, mount TLS certs,
+    # and enable snapshot-metadata service
+    if snapshot_metadata; then
+      sed -i -e "/# end csi containers/r ${SNAPSHOT_METADATA_SIDECAR_PATCH_RELATIVE_PATH}" $i
+      sed -i -e 's/# end csi volumes/- name: csi-snapshot-metadata-server-certs\n          secret:\n            secretName: csi-snapshot-metadata-certs\n        # end csi volumes/' $i
+      sed -i -e 's/# end hostpath args/- \"--enable-snapshot-metadata\"\n            # end hostpath args/' $i
     fi
     modified="$(cat "$i" | sed -e "s;${default_kubelet_data_dir}/;${KUBELET_DATA_DIR}/;" | while IFS= read -r line; do
         nocomments="$(echo "$line" | sed -e 's/ *#.*$//')"

@@ -1,0 +1,23 @@
+        - name: csi-snapshot-metadata
+          # TODO: Replace main tag with actual released tag once external-snapshot-metadata is released
+          image: gcr.io/k8s-staging-sig-storage/csi-snapshot-metadata:main
+          imagePullPolicy: "Always"
+          command:
+          args:
+          - "--csi-address=/csi/csi.sock"
+          - "--tls-cert=/tmp/certificates/tls.crt"
+          - "--tls-key=/tmp/certificates/tls.key"
+          readinessProbe:
+            exec:
+              command:
+              - "/bin/grpc_health_probe"
+              - "-addr=:50051"
+              - "-tls"
+              - "-tls-no-verify"
+            initialDelaySeconds: 5
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - name: csi-snapshot-metadata-server-certs
+              mountPath: /tmp/certificates
+              readOnly: true
