@@ -86,7 +86,7 @@ func (hp *hostPath) GetMetadataAllocated(req *csi.GetMetadataAllocatedRequest, s
 			if errors.Is(cbErr, io.EOF) {
 				klog.V(4).Info("reached EOF while getting allocated block metadata, returning")
 				// send allocated blocks found till EOF
-				if err := sendGetMetadataAllocatedResponse(stream, vol.VolSize, cb); err != nil {
+				if err := sendGetMetadataAllocatedResponse(stream, vol.VolSize, hp.config.SnapshotMetadataBlockType, cb); err != nil {
 					return err
 				}
 				return nil
@@ -95,7 +95,7 @@ func (hp *hostPath) GetMetadataAllocated(req *csi.GetMetadataAllocatedRequest, s
 			return status.Error(codes.Internal, "failed to get allocated block metadata")
 		}
 		// stream response to client
-		if err := sendGetMetadataAllocatedResponse(stream, vol.VolSize, cb); err != nil {
+		if err := sendGetMetadataAllocatedResponse(stream, vol.VolSize, hp.config.SnapshotMetadataBlockType, cb); err != nil {
 			return err
 		}
 	}
@@ -173,7 +173,7 @@ func (hp *hostPath) GetMetadataDelta(req *csi.GetMetadataDeltaRequest, stream cs
 			if errors.Is(cbErr, io.EOF) {
 				klog.V(4).Info("reached EOF while getting changed block metadata, returning")
 				// send changed blocks found till EOF
-				if err := sendGetMetadataDeltaResponse(stream, vol.VolSize, cb); err != nil {
+				if err := sendGetMetadataDeltaResponse(stream, vol.VolSize, hp.config.SnapshotMetadataBlockType, cb); err != nil {
 					return err
 				}
 				return nil
@@ -182,30 +182,40 @@ func (hp *hostPath) GetMetadataDelta(req *csi.GetMetadataDeltaRequest, stream cs
 			return status.Error(codes.Internal, "failed to get changed block metadata")
 		}
 		// stream response to client
-		if err := sendGetMetadataDeltaResponse(stream, vol.VolSize, cb); err != nil {
+		if err := sendGetMetadataDeltaResponse(stream, vol.VolSize, hp.config.SnapshotMetadataBlockType, cb); err != nil {
 			return err
 		}
 	}
 }
 
-func sendGetMetadataDeltaResponse(stream csi.SnapshotMetadata_GetMetadataDeltaServer, volSize int64, cb []*csi.BlockMetadata) error {
+func sendGetMetadataDeltaResponse(
+	stream csi.SnapshotMetadata_GetMetadataDeltaServer,
+	volSize int64,
+	blockMetadataType csi.BlockMetadataType,
+	cb []*csi.BlockMetadata,
+) error {
 	if len(cb) == 0 {
 		return nil
 	}
 	resp := csi.GetMetadataDeltaResponse{
-		BlockMetadataType:   csi.BlockMetadataType_FIXED_LENGTH,
+		BlockMetadataType:   blockMetadataType,
 		VolumeCapacityBytes: volSize,
 		BlockMetadata:       cb,
 	}
 	return stream.Send(&resp)
 }
 
-func sendGetMetadataAllocatedResponse(stream csi.SnapshotMetadata_GetMetadataAllocatedServer, volSize int64, cb []*csi.BlockMetadata) error {
+func sendGetMetadataAllocatedResponse(
+	stream csi.SnapshotMetadata_GetMetadataAllocatedServer,
+	volSize int64,
+	blockMetadataType csi.BlockMetadataType,
+	cb []*csi.BlockMetadata,
+) error {
 	if len(cb) == 0 {
 		return nil
 	}
 	resp := csi.GetMetadataAllocatedResponse{
-		BlockMetadataType:   csi.BlockMetadataType_FIXED_LENGTH,
+		BlockMetadataType:   blockMetadataType,
 		VolumeCapacityBytes: volSize,
 		BlockMetadata:       cb,
 	}
