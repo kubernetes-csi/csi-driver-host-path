@@ -83,7 +83,7 @@ func (hp *hostPath) GetMetadataAllocated(req *csi.GetMetadataAllocatedRequest, s
 				klog.V(4).Info("context deadline exceeded while getting allocated block metadata, returning")
 				return nil
 			}
-			if err == io.EOF {
+			if errors.Is(cbErr, io.EOF) {
 				klog.V(4).Info("reached EOF while getting allocated block metadata, returning")
 				// send allocated blocks found till EOF
 				if err := sendGetMetadataAllocatedResponse(stream, vol.VolSize, cb); err != nil {
@@ -170,7 +170,7 @@ func (hp *hostPath) GetMetadataDelta(req *csi.GetMetadataDeltaRequest, stream cs
 				klog.V(4).Info("context deadline exceeded while getting changed block metadata, returning")
 				return nil
 			}
-			if err == io.EOF {
+			if errors.Is(cbErr, io.EOF) {
 				klog.V(4).Info("reached EOF while getting changed block metadata, returning")
 				// send changed blocks found till EOF
 				if err := sendGetMetadataDeltaResponse(stream, vol.VolSize, cb); err != nil {
