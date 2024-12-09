@@ -34,6 +34,9 @@ type AccessType int
 const (
 	MountAccess AccessType = iota
 	BlockAccess
+
+	// BlockSizeBytes represents the default block size.
+	BlockSizeBytes = 4096
 )
 
 type Volume struct {
