@@ -171,10 +171,9 @@ CSI_RESIZER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external
 CSI_EXTERNALHEALTH_MONITOR_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-health-monitor/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-external-health-monitor-controller false)/deploy/kubernetes/external-health-monitor-controller/rbac.yaml"
 : ${CSI_EXTERNALHEALTH_MONITOR_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-health-monitor/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-external-health-monitor-controller "${UPDATE_RBAC_RULES}")/deploy/kubernetes/external-health-monitor-controller/rbac.yaml}
 
-# TODO: Replace with external-snapshot-metadata link once https://github.com/kubernetes-csi/external-snapshot-metadata/pull/84 is merged
-CSI_SNAPSHOT_METADATA_TLS_CERT_YAML="https://raw.githubusercontent.com/PrasadG193/k8s-external-snapshot-metadata/refs/heads/add-testdata/deploy/example/csi-driver/testdata/csi-snapshot-metadata-tls-secret.yaml"
-SNAPSHOT_METADATA_SERVICE_CR_YAML="https://raw.githubusercontent.com/PrasadG193/k8s-external-snapshot-metadata/refs/heads/add-testdata/deploy/example/csi-driver/testdata/snapshotmetadataservice.yaml"
-CSI_SNAPSHOT_METADATA_SERVICE_YAML="https://raw.githubusercontent.com/PrasadG193/k8s-external-snapshot-metadata/refs/heads/add-testdata/deploy/example/csi-driver/testdata/csi-snapshot-metadata-service.yaml"
+CSI_SNAPSHOT_METADATA_TLS_CERT_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata false)/deploy/example/csi-driver/testdata/csi-snapshot-metadata-tls-secret.yaml"
+SNAPSHOT_METADATA_SERVICE_CR_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata false)/deploy/example/csi-driver/testdata/snapshotmetadataservice.yaml"
+CSI_SNAPSHOT_METADATA_SERVICE_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata false)/deploy/example/csi-driver/testdata/csi-snapshot-metadata-service.yaml"
 
 INSTALL_CRD=${INSTALL_CRD:-"false"}
 
