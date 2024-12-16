@@ -91,7 +91,6 @@ func (cb *fileBlockReader) Close() error {
 func openFiles(basePath, targetPath string) (base, target *os.File, err error) {
 	target, err = os.Open(targetPath)
 	if err != nil {
-		base.Close()
 		return nil, nil, err
 	}
 	if basePath == "" {
@@ -99,6 +98,7 @@ func openFiles(basePath, targetPath string) (base, target *os.File, err error) {
 	}
 	base, err = os.Open(basePath)
 	if err != nil {
+		target.Close()
 		return nil, nil, err
 	}
 
