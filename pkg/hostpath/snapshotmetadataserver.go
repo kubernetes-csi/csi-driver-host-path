@@ -29,6 +29,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const defaultMaxResults = 256
+
 func (hp *hostPath) GetMetadataAllocated(req *csi.GetMetadataAllocatedRequest, stream csi.SnapshotMetadata_GetMetadataAllocatedServer) error {
 	ctx := stream.Context()
 	// Check arguments
@@ -54,13 +56,18 @@ func (hp *hostPath) GetMetadataAllocated(req *csi.GetMetadataAllocatedRequest, s
 		return status.Error(codes.InvalidArgument, "source volume does not have block mode access type")
 	}
 
+	maxResults := req.MaxResults
+	if maxResults == 0 {
+		maxResults = defaultMaxResults
+	}
+
 	br, err := newFileBlockReader(
 		"",
 		hp.getSnapshotPath(snapID),
 		req.StartingOffset,
 		state.BlockSizeBytes,
 		hp.config.SnapshotMetadataBlockType,
-		req.MaxResults,
+		maxResults,
 	)
 	if err != nil {
 		klog.Errorf("failed initialize file block reader: %v", err)
@@ -141,13 +148,18 @@ func (hp *hostPath) GetMetadataDelta(req *csi.GetMetadataDeltaRequest, stream cs
 		return status.Error(codes.InvalidArgument, "source volume does not have block mode access type")
 	}
 
+	maxResults := req.MaxResults
+	if maxResults == 0 {
+		maxResults = defaultMaxResults
+	}
+
 	br, err := newFileBlockReader(
 		hp.getSnapshotPath(baseSnapID),
 		hp.getSnapshotPath(targetSnapID),
 		req.StartingOffset,
 		state.BlockSizeBytes,
 		hp.config.SnapshotMetadataBlockType,
-		req.MaxResults,
+		maxResults,
 	)
 	if err != nil {
 		klog.Errorf("failed initialize file block reader: %v", err)
