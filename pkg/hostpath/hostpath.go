@@ -54,6 +54,7 @@ type hostPath struct {
 	csi.UnimplementedControllerServer
 	csi.UnimplementedNodeServer
 	csi.UnimplementedGroupControllerServer
+	csi.UnimplementedSnapshotMetadataServer
 	config Config
 
 	// gRPC calls involving any of the fields below must be serialized
@@ -80,6 +81,8 @@ type Config struct {
 	EnableTopology                bool
 	EnableVolumeExpansion         bool
 	EnableControllerModifyVolume  bool
+	EnableSnapshotMetadata        bool
+	SnapshotMetadataBlockType     csi.BlockMetadataType
 	AcceptedMutableParameterNames StringArray
 	DisableControllerExpansion    bool
 	DisableNodeExpansion          bool
@@ -129,8 +132,11 @@ func NewHostPathDriver(cfg Config) (*hostPath, error) {
 
 func (hp *hostPath) Run() error {
 	s := NewNonBlockingGRPCServer()
-	// hp itself implements ControllerServer, NodeServer, and IdentityServer.
-	s.Start(hp.config.Endpoint, hp, hp, hp, hp)
+	var sms csi.SnapshotMetadataServer
+	if hp.config.EnableSnapshotMetadata {
+		sms = hp
+	}
+	s.Start(hp.config.Endpoint, hp, hp, hp, hp, sms)
 	s.Wait()
 
 	return nil

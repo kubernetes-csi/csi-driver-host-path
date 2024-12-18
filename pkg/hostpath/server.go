@@ -40,11 +40,11 @@ type nonBlockingGRPCServer struct {
 	cleanup func()
 }
 
-func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, gcs csi.GroupControllerServer) {
+func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, gcs csi.GroupControllerServer, sms csi.SnapshotMetadataServer) {
 
 	s.wg.Add(1)
 
-	go s.serve(endpoint, ids, cs, ns, gcs)
+	go s.serve(endpoint, ids, cs, ns, gcs, sms)
 
 	return
 }
@@ -63,7 +63,7 @@ func (s *nonBlockingGRPCServer) ForceStop() {
 	s.cleanup()
 }
 
-func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, gcs csi.GroupControllerServer) {
+func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, gcs csi.GroupControllerServer, sms csi.SnapshotMetadataServer) {
 	listener, cleanup, err := endpoint.Listen(ep)
 	if err != nil {
 		klog.Fatalf("Failed to listen: %v", err)
@@ -87,6 +87,9 @@ func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.
 	}
 	if gcs != nil {
 		csi.RegisterGroupControllerServer(server, gcs)
+	}
+	if sms != nil {
+		csi.RegisterSnapshotMetadataServer(server, sms)
 	}
 
 	klog.Infof("Listening for connections on address: %#v", listener.Addr())
