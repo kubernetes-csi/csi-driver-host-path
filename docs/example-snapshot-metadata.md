@@ -22,7 +22,7 @@ Follow the steps below to deploy CSI Hostpath driver with SnapshotMetadata servi
   $ SNAPSHOT_METADATA_TESTS=true ./deploy/kubernetes-1.27/deploy.sh
   ```
 
-### Sample SnapshotMetadata client
+### Setup SnapshotMetadata client
 
 The `SnapshotMetadata` service implements gRPC APIs. A gRPC client can query these APIs to retrieve metadata about the allocated blocks of a CSI VolumeSnapshot or the changed blocks between any two CSI VolumeSnapshot objects.
 
@@ -56,37 +56,11 @@ Follow the following steps to setup client with all the required permissions:
    $ kubectl create clusterrolebinding csi-client-cluster-role-binding --clusterrole=external-snapshot-metadata-client-runner --serviceaccount=csi-client:csi-client-sa
    ```
 
-2. Deploy sample client pod
-
-    Create a pod in which we'll be installing and running the client
+2. Deploy sample client pod which contains [snapshot-metadata-lister](https://github.com/kubernetes-csi/external-snapshot-metadata) tool which can be used as a client to call SnapshotMetadata APIs
 
     ```
-    $ kubectl apply -f - <<EOF
-    apiVersion: v1
-    kind: Pod
-    metadata:
-      name: csi-client
-      namespace: csi-client
-    spec:
-      containers:
-      - name: golang
-        image: golang:1.23.4
-        command: ["tail", "-f", "/dev/null"]
-      serviceAccountName: csi-client-sa
-    EOF
+    $ kubectl create -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/main/examples/snapshot-metadata-lister/deploy/snapshot-medata-lister-pod.yaml -n csi-client
     ```
-
-3. Install SnapshotMetadata client in the pod
-
-    Exec into the pod, clone the client repo and build the client from source
-
-    ```
-    $ kubectl exec -ti -n csi-client csi-client -- bash
-
-    ## Install snapshot-metadata-lister
-    root@csi-client:/go# go install github.com/kubernetes-csi/external-snapshot-metadata/examples/snapshot-metadata-lister@latest
-    ```
-
 
 This client performs following actions:
 1. Find Driver name for the snapshot.
@@ -176,7 +150,7 @@ This client performs following actions:
 5. Now, inside `csi-client` pod which is created in previous steps, use `snapshot-metadata-lister` tool query allocated blocks metadata
 
     ```
-    $ kubectl exec -n csi-client csi-client -- snapshot-metadata-lister -n default -s raw-pvc-snap-1
+    $ kubectl exec -n csi-client csi-client -c run-client -- /tools/snapshot-metadata-lister -n default -s raw-pvc-snap-1
 
     Record#   VolCapBytes  BlockMetadataType   ByteOffset     SizeBytes   
     ------- -------------- ----------------- -------------- --------------
@@ -256,7 +230,7 @@ This client performs following actions:
 3. Using `external-snapshot-metadata-client` which uses `GetMetadataDelta` gRPC to allocated blocks metadata
 
     ```
-    $ kubectl exec -n csi-client csi-client -- snapshot-metadata-lister -n default -s raw-pvc-snap-1 -p raw-pvc-snap-2
+    $ kubectl exec -n csi-client csi-client -c run-client -- /tools/snapshot-metadata-lister -n default -s raw-pvc-snap-1 -p raw-pvc-snap-2
 
 
     Record#   VolCapBytes  BlockMetadataType   ByteOffset     SizeBytes
