@@ -190,7 +190,11 @@ run () {
 
 # rbac rules
 echo "applying RBAC rules"
-for component in CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER CSI_RESIZER CSI_EXTERNALHEALTH_MONITOR CSI_SNAPSHOT_METADATA; do
+components=(CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER CSI_RESIZER CSI_EXTERNALHEALTH_MONITOR)
+if snapshot_metadata; then
+    components+=(CSI_SNAPSHOT_METADATA)
+fi
+for component in "${components[@]}"; do
     eval current="\${${component}_RBAC}"
     eval original="\${${component}_RBAC_YAML}"
     if [ "$current" != "$original" ]; then
