@@ -1,7 +1,7 @@
         - name: csi-snapshot-metadata
           # TODO: Replace main tag with actual released tag once external-snapshot-metadata is released
           image: gcr.io/k8s-staging-sig-storage/csi-snapshot-metadata:canary
-          imagePullPolicy: "Always"
+          imagePullPolicy: "IfNotPresent"
           command:
           args:
           - "--csi-address=/csi/csi.sock"

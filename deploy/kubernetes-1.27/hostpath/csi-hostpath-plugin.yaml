@@ -237,9 +237,8 @@ spec:
       serviceAccountName: csi-hostpathplugin-sa
       containers:
         - name: hostpath
-          # TODO: Revert comment once https://github.com/kubernetes-csi/csi-driver-host-path/pull/569 is merged
-          #image: registry.k8s.io/sig-storage/hostpathplugin:v1.15.0
-          image: prasadg193/hostpathplugin:amd64-linux-canary
+          # TODO: Set release tag after new release is made with SnapshotMetadata support
+          image: gcr.io/k8s-staging-sig-storage/hostpathplugin:canary
           args:
             - "--drivername=hostpath.csi.k8s.io"
             - "--v=5"
