@@ -59,7 +59,7 @@ Follow the following steps to setup client with all the required permissions:
 2. Deploy sample client pod which contains [snapshot-metadata-lister](https://github.com/kubernetes-csi/external-snapshot-metadata) tool which can be used as a client to call SnapshotMetadata APIs
 
     ```
-    $ kubectl create -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/main/examples/snapshot-metadata-lister/deploy/snapshot-medata-lister-pod.yaml -n csi-client
+    $ kubectl create -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/main/examples/snapshot-metadata-lister/deploy/snapshot-metadata-lister-pod.yaml -n csi-client
     ```
 
 This client performs following actions:
