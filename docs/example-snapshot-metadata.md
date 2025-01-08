@@ -142,9 +142,9 @@ This client performs following actions:
     Wait for snapshot to be ready
 
     ```
-    $ kg vs snapshot-1
-    NAME         READYTOUSE   SOURCEPVC   SOURCESNAPSHOTCONTENT   RESTORESIZE   SNAPSHOTCLASS            SNAPSHOTCONTENT                                    CREATIONTIME   AGE
-    snapshot-1   true         pvc-raw                             10Mi          csi-hostpath-snapclass   snapcontent-70b40b27-80d4-448b-bd9a-a87079c1a248   28s            29s
+    $ kubectl get vs raw-pvc-snap-1
+    NAME             READYTOUSE   SOURCEPVC   SOURCESNAPSHOTCONTENT   RESTORESIZE   SNAPSHOTCLASS            SNAPSHOTCONTENT                                    CREATIONTIME   AGE
+    raw-pvc-snap-1   true         pvc-raw                             10Mi          csi-hostpath-snapclass   snapcontent-e17ba543-b8be-4a8e-9b0f-d708d664a0ee   99s            100s
     ```
 
 5. Now, inside `csi-client` pod which is created in previous steps, use `snapshot-metadata-lister` tool query allocated blocks metadata
