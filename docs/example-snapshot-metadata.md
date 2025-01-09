@@ -223,7 +223,7 @@ This client performs following actions:
     ```
     $ kubectl get vs
     NAME             READYTOUSE   SOURCEPVC   SOURCESNAPSHOTCONTENT   RESTORESIZE   SNAPSHOTCLASS            SNAPSHOTCONTENT                                    CREATIONTIME   AGE
-    raw-pvc-snap-1   true         pvc-raw                             10Mi          csi-hostpath-snapclass   snapcontent-ef10f725-4261-4e80-af37-906708796700   7m40s          7m40s
+    raw-pvc-snap-1   true         pvc-raw                             10Mi          csi-hostpath-snapclass   snapcontent-e17ba543-b8be-4a8e-9b0f-d708d664a0ee   7m40s          7m40s
     raw-pvc-snap-2   true         pvc-raw                             10Mi          csi-hostpath-snapclass   snapcontent-188562cb-03b3-4b70-b12d-28900527bca8   23s            23s
     ```
 
