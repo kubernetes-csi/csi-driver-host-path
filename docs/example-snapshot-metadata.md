@@ -19,7 +19,7 @@ Follow the steps below to deploy CSI Hostpath driver with SnapshotMetadata servi
   b. Execute deploy script to setup hostpath plugin driver with external-snapshot-metadata change
 
   ```
-  $ SNAPSHOT_METADATA_TESTS=true ./deploy/kubernetes-1.27/deploy.sh
+  $ SNAPSHOT_METADATA_TESTS=true HOSTPATHPLUGIN_REGISTRY=gcr.io/k8s-staging-sig-storage HOSTPATHPLUGIN_TAG=canary ./deploy/kubernetes-1.27/deploy.sh
   ```
 
 ### Setup SnapshotMetadata client
