@@ -102,6 +102,24 @@ subjects:
   namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: hostpath.csi.k8s.io
+    app.kubernetes.io/part-of: csi-driver-host-path
+    app.kubernetes.io/name: csi-hostpathplugin
+    app.kubernetes.io/component: snapshot-metadata-cluster-role
+  name: csi-hostpathplugin-snapshot-metadata-cluster-role
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-snapshot-metadata-runner
+subjects:
+- kind: ServiceAccount
+  name: csi-hostpathplugin-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels:
@@ -225,6 +243,7 @@ spec:
             - "--v=5"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--nodeid=$(KUBE_NODE_NAME)"
+            # end hostpath args
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
@@ -367,6 +386,8 @@ spec:
             - mountPath: /csi
               name: socket-dir
 
+        # end csi containers
+
       volumes:
         - hostPath:
             path: /var/lib/kubelet/plugins/csi-hostpath
@@ -394,3 +415,4 @@ spec:
             path: /dev
             type: Directory
           name: dev-dir
+        # end csi volumes
