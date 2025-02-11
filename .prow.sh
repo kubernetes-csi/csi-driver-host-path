@@ -26,6 +26,13 @@ CSI_PROW_HOSTPATH_DRIVER_NAME="hostpath.csi.k8s.io"
 
 CSI_PROW_TESTS_SANITY="sanity"
 
+# We need to hardcode e2e version for resizer for now, because
+# we need fixes from latest release-1.31 branch for all e2es to pass.
+#
+# See: https://github.com/kubernetes-csi/csi-driver-host-path/pull/581#issuecomment-2634529098
+# See: https://github.com/kubernetes-csi/external-resizer/blob/20072c0fdf8baaf919ef95d6e918538ba9d84eaf/.prow.sh
+export CSI_PROW_E2E_VERSION="release-1.31"
+
 . release-tools/prow.sh
 
 main
