@@ -97,12 +97,23 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 		requestedAccessType = state.MountAccess
 	}
 
+	capacity := int64(req.GetCapacityRange().GetRequiredBytes())
+	limit := int64(req.GetCapacityRange().GetLimitBytes())
+	if capacity < 0 || limit < 0 {
+		return nil, status.Error(codes.InvalidArgument, "cannot have negative capacity")
+	}
+	if limit > 0 && capacity > limit {
+		return nil, status.Error(codes.InvalidArgument, "capacity cannot exceed limit")
+	}
+	if capacity == 0 && limit > 0 {
+		capacity = limit
+	}
+
 	// Lock before acting on global state. A production-quality
 	// driver might use more fine-grained locking.
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
-	capacity := int64(req.GetCapacityRange().GetRequiredBytes())
 	topologies := []*csi.Topology{}
 	if hp.config.EnableTopology {
 		topologies = append(topologies, &csi.Topology{Segments: map[string]string{TopologyKeyNode: hp.config.NodeID}})
@@ -114,7 +125,7 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 		// Since err is nil, it means the volume with the same name already exists
 		// need to check if the size of existing volume is the same as in new
 		// request
-		if exVol.VolSize < capacity {
+		if exVol.VolSize < capacity || (limit > 0 && exVol.VolSize > limit) {
 			return nil, status.Errorf(codes.AlreadyExists, "Volume with the same name: %s but with different size already exist", req.GetName())
 		}
 		if req.GetVolumeContentSource() != nil {
@@ -146,6 +157,8 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 
 	volumeID := uuid.NewUUID().String()
 	kind := req.GetParameters()[storageKind]
+	// This code does not check whether hp.createVolume rounds capacity up;
+	// a more robust driver would ensure any rounding does not exceed limit.
 	vol, err := hp.createVolume(volumeID, req.GetName(), capacity, requestedAccessType, false /* ephemeral */, kind)
 	if err != nil {
 		return nil, err
@@ -182,7 +195,7 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:           volumeID,
-			CapacityBytes:      req.GetCapacityRange().GetRequiredBytes(),
+			CapacityBytes:      capacity,
 			VolumeContext:      req.GetParameters(),
 			ContentSource:      req.GetVolumeContentSource(),
 			AccessibleTopology: topologies,
