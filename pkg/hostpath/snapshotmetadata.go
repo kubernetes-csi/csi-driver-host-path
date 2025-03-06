@@ -118,6 +118,7 @@ func (cb *fileBlockReader) getChangedBlockMetadata(ctx context.Context) ([]*csi.
 	blockIndex := cb.offset / cb.blockSize
 	sBuffer := make([]byte, cb.blockSize)
 	tBuffer := make([]byte, cb.blockSize)
+	zeroBlock := make([]byte, cb.blockSize)
 	eofBaseFile, eofTargetFile := false, false
 
 	changedBlocks := []*csi.BlockMetadata{}
@@ -143,15 +144,19 @@ func (cb *fileBlockReader) getChangedBlockMetadata(ctx context.Context) ([]*csi.
 			if eofTargetFile {
 				return changedBlocks, io.EOF
 			}
-			// if VARIABLE_LENGTH type is enabled, return blocks extend instead of individual blocks.
-			blockMetadata := createBlockMetadata(blockIndex, cb.blockSize)
-			if extendBlock(changedBlocks, csi.BlockMetadataType(cb.blockMetadataType), blockIndex, cb.blockSize) {
-				changedBlocks[len(changedBlocks)-1].SizeBytes += cb.blockSize
-				cb.offset += cb.blockSize
-				blockIndex++
-				continue
+			// return only allocated blocks.
+			if blockChanged(zeroBlock, tBuffer[:targetReadBytes]) {
+				// if VARIABLE_LENGTH type is enabled, return blocks extend instead of individual blocks.
+				blockMetadata := createBlockMetadata(blockIndex, cb.blockSize)
+				if extendBlock(changedBlocks, csi.BlockMetadataType(cb.blockMetadataType), blockIndex, cb.blockSize) {
+					changedBlocks[len(changedBlocks)-1].SizeBytes += cb.blockSize
+					cb.offset += cb.blockSize
+					blockIndex++
+					continue
+				}
+				changedBlocks = append(changedBlocks, blockMetadata)
 			}
-			changedBlocks = append(changedBlocks, blockMetadata)
+
 			cb.offset += cb.blockSize
 			blockIndex++
 			continue
