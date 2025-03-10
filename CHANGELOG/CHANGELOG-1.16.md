@@ -1,3 +1,32 @@
+# Release notes for v1.16.1
+
+# Changelog since v1.16.0
+
+## Changes by Kind
+
+### Feature
+
+- Set a random MaxVolumesPerNode if config.AttachLimit == -1. ([#587](https://github.com/kubernetes-csi/csi-driver-host-path/pull/587), [@torredil](https://github.com/torredil))
+
+### Bug or Regression
+
+- Fixed: Considered only non-zero blocks for GetMetadataAllocated. ([#579](https://github.com/kubernetes-csi/csi-driver-host-path/pull/579), [@iPraveenParihar](https://github.com/iPraveenParihar))
+
+### Uncategorized
+
+- Add better validation of the CapacityRange parameter to CreateVolume. ([#577](https://github.com/kubernetes-csi/csi-driver-host-path/pull/577), [@ebblake](https://github.com/ebblake))
+
+## Dependencies
+
+### Added
+_Nothing has changed._
+
+### Changed
+_Nothing has changed._
+
+### Removed
+_Nothing has changed._
+
 # Release notes for v1.16.0
 
 # Changelog since v1.15.0
