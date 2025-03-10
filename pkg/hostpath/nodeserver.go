@@ -18,6 +18,7 @@ package hostpath
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 
@@ -363,6 +364,11 @@ func (hp *hostPath) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest
 
 	if hp.config.AttachLimit > 0 {
 		resp.MaxVolumesPerNode = hp.config.AttachLimit
+	}
+
+	// if attach limit is -1, set a random MaxVolumesPerNode between 1 and 10
+	if hp.config.AttachLimit == -1 {
+		resp.MaxVolumesPerNode = int64(rand.Intn(10) + 1)
 	}
 
 	return resp, nil
