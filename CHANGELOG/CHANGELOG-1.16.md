@@ -1,3 +1,30 @@
+# Release notes for v1.16.1
+
+# Changelog since v1.16.0
+
+## Changes by Kind
+
+### Bug or Regression
+
+- The `ignoreFailedRead` VolumeSnapshotClass parameter is now honored by using the GNU implementation of `tar`. ([#590](https://github.com/kubernetes-csi/csi-driver-host-path/pull/590), [@leonardoce](https://github.com/leonardoce))
+
+### Uncategorized
+
+- Set a random MaxVolumesPerNode if config.AttachLimit == -1.
+  Fixed: Considered only non-zero blocks for GetMetadataAllocated.
+  Add better validation of the CapacityRange parameter to CreateVolume. ([#591](https://github.com/kubernetes-csi/csi-driver-host-path/pull/591), [@torredil](https://github.com/torredil))
+
+## Dependencies
+
+### Added
+_Nothing has changed._
+
+### Changed
+_Nothing has changed._
+
+### Removed
+_Nothing has changed._
+
 # Release notes for v1.16.0
 
 # Changelog since v1.15.0
