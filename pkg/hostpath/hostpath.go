@@ -88,6 +88,7 @@ type Config struct {
 	DisableNodeExpansion          bool
 	MaxVolumeExpansionSizeNode    int64
 	CheckVolumeLifecycle          bool
+	EnableListSnapshots           bool
 }
 
 var (
