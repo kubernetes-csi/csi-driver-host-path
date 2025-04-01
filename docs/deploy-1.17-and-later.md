@@ -48,9 +48,8 @@ deployment.apps/snapshot-controller created
 ```
 
 ## Deployment
-The easiest way to test the Hostpath driver is to run the `deploy.sh` script for the Kubernetes version used by
-the cluster as shown below for Kubernetes 1.17. This creates the deployment that is maintained specifically for that
-release of Kubernetes. However, other deployments may also work.
+The simplest way to test the HostPath driver is by running the deploy.sh script corresponding to your cluster's Kubernetes version. 
+For example, to deploy on Kubernetes 1.32.2, use the following command:
 
 ```
 # deploy hostpath driver
@@ -58,7 +57,8 @@ $ deploy/kubernetes-latest/deploy.sh
 ```
 
 You should see an output similar to the following printed on the terminal showing the application of rbac rules and the
-result of deploying the hostpath driver, external provisioner, external attacher and snapshotter components. Note that the following output is from Kubernetes 1.17:
+result of deploying the hostpath driver, external provisioner, external attacher and snapshotter components. 
+Note that the following output is from Kubernetes 1.32.2:
 
 ```shell
 csi-driver-host-path %  deploy/kubernetes-latest/deploy.sh
@@ -293,4 +293,52 @@ Status:
   Attached:  true
 Events:      <none>
 ```
-
+## 
+The simplest way to Destroy the HostPath driver is by running the destroy.sh script.
+For example, to destroy on Kubernetes 1.32.2, use the following command:
+```shell
+csi-driver-host-path % deploy/kubernetes-latest/destroy.sh
+pod "csi-hostpath-socat-0" deleted
+pod "csi-hostpathplugin-0" deleted
+service "hostpath-service" deleted
+statefulset.apps "csi-hostpath-socat" deleted
+statefulset.apps "csi-hostpathplugin" deleted
+role.rbac.authorization.k8s.io "external-attacher-cfg" deleted
+role.rbac.authorization.k8s.io "external-health-monitor-controller-cfg" deleted
+role.rbac.authorization.k8s.io "external-provisioner-cfg" deleted
+role.rbac.authorization.k8s.io "external-resizer-cfg" deleted
+role.rbac.authorization.k8s.io "external-snapshotter-leaderelection" deleted
+clusterrole.rbac.authorization.k8s.io "external-attacher-runner" deleted
+clusterrole.rbac.authorization.k8s.io "external-health-monitor-controller-runner" deleted
+clusterrole.rbac.authorization.k8s.io "external-provisioner-runner" deleted
+clusterrole.rbac.authorization.k8s.io "external-resizer-runner" deleted
+clusterrole.rbac.authorization.k8s.io "external-snapshotter-runner" deleted
+rolebinding.rbac.authorization.k8s.io "csi-attacher-role-cfg" deleted
+rolebinding.rbac.authorization.k8s.io "csi-external-health-monitor-controller-role-cfg" deleted
+rolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-attacher-role" deleted
+rolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-health-monitor-controller-role" deleted
+rolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-provisioner-role" deleted
+rolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-resizer-role" deleted
+rolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-snapshotter-role" deleted
+rolebinding.rbac.authorization.k8s.io "csi-provisioner-role-cfg" deleted
+rolebinding.rbac.authorization.k8s.io "csi-resizer-role-cfg" deleted
+rolebinding.rbac.authorization.k8s.io "external-snapshotter-leaderelection" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-attacher-role" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-external-health-monitor-controller-role" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-attacher-cluster-role" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-health-monitor-controller-cluster-role" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-provisioner-cluster-role" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-resizer-cluster-role" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-snapshot-metadata-cluster-role" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-hostpathplugin-snapshotter-cluster-role" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-provisioner-role" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-resizer-role" deleted
+clusterrolebinding.rbac.authorization.k8s.io "csi-snapshotter-role" deleted
+serviceaccount "csi-attacher" deleted
+serviceaccount "csi-external-health-monitor-controller" deleted
+serviceaccount "csi-hostpathplugin-sa" deleted
+serviceaccount "csi-provisioner" deleted
+serviceaccount "csi-resizer" deleted
+serviceaccount "csi-snapshotter" deleted
+csidriver.storage.k8s.io "hostpath.csi.k8s.io" deleted
+```
