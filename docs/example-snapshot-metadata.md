@@ -21,7 +21,7 @@ This document outlines the steps to test this feature on a Kubernetes cluster us
 
 ### Deploy the CSI hostpath driver with a Kubernetes SnapshotMetadata service
 
-Setting up the CSI hostpath driver with a Kubernetes SnapshotMetadata service requires provisioning TLS certificates, creating TLS secrets, a SnapshotMetadata custom resource, patching up csi-hostpathplugin deployments, etc..
+Setting up the CSI hostpath driver with a Kubernetes SnapshotMetadata service requires provisioning TLS certificates, creating TLS secrets, a SnapshotMetadata custom resource, patching the csi-hostpathplugin deployments, etc.
 These steps are automated in the `deploy.sh` script used to deploy CSI Hostpath driver into the current namespace when invoked with the
 appropriate environment variable.
 
