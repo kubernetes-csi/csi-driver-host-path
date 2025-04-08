@@ -27,7 +27,7 @@ appropriate environment variable.
 
 Follow the steps below to deploy the CSI hostpath driver with a Kubernetes SnapshotMetadata service:
 
-1. Create the `SnapshotMetadata` CRD using the definition in the 
+1. Create the `SnapshotMetadataService` CRD using the definition in the 
    [external-snapshot-metadata](https://github.com/kubernetes-csi/external-snapshot-metadata/tree/main/examples/snapshot-metadata-lister) repository.
    ```
     kubectl create -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/main/client/config/crd/cbt.storage.k8s.io_snapshotmetadataservices.yaml
