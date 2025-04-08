@@ -21,17 +21,18 @@ This document outlines the steps to test this feature on a Kubernetes cluster us
 
 ### Deploy the CSI hostpath driver with a Kubernetes SnapshotMetadata service
 
-Setting up the CSI hostpath driver with a Kubernetes SnapshotMetadata service requires provisioning TLS certificates, creating TLS secrets, a SnapshotMetadata custom resource, patching the csi-hostpathplugin deployments, etc.
+Setting up the CSI hostpath driver with a Kubernetes SnapshotMetadata service requires provisioning TLS certificates, creating TLS secrets, a `SnapshotMetadataService` custom resource, patching the csi-hostpathplugin deployments, etc.
 These steps are automated in the `deploy.sh` script used to deploy CSI Hostpath driver into the current namespace when invoked with the
 appropriate environment variable.
 
 Follow the steps below to deploy the CSI hostpath driver with a Kubernetes SnapshotMetadata service:
 
-1. Create the `SnapshotMetadataService` CRD using the definition in the 
-   [external-snapshot-metadata](https://github.com/kubernetes-csi/external-snapshot-metadata/tree/main/examples/snapshot-metadata-lister) repository.
+1. Install the `SnapshotMetadataService` CRD using the definition in the 
+   [external-snapshot-metadata](https://github.com/kubernetes-csi/external-snapshot-metadata/blob/main/client/config/crd/cbt.storage.k8s.io_snapshotmetadataservices.yaml) repository.
    ```
-    kubectl create -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/main/client/config/crd/cbt.storage.k8s.io_snapshotmetadataservices.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/main/client/config/crd/cbt.storage.k8s.io_snapshotmetadataservices.yaml
    ```
+   The deploy script will create an instance of this CR.
 
 2. Execute the deploy script to setup the hostpath plugin driver with the Kubernetes SnapshotMetadata service:
    ```
