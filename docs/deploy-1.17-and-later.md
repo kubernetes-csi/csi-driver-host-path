@@ -49,7 +49,7 @@ deployment.apps/snapshot-controller created
 
 ## Deployment
 The simplest way to test the HostPath driver is by running the deploy.sh script corresponding to your cluster's Kubernetes version. 
-For example, to deploy on Kubernetes 1.32.2, use the following command:
+For example, to deploy on the latest Kubernetes, use the following command:
 
 ```
 # deploy hostpath driver
@@ -243,7 +243,7 @@ Events:
 ```
 
 ## Confirm Hostpath driver works
-The Hostpath driver is configured to create new volumes under `/csi-data-dir` inside the hostpath container that is specified in the plugin StatefulSet found [here](../deploy/kubernetes-1.22-test/hostpath/csi-hostpath-plugin.yaml).  
+The Hostpath driver is configured to create new volumes under `/csi-data-dir` inside the hostpath container that is specified in the plugin StatefulSet found [here](../deploy/kubernetes-1.30-test/hostpath/csi-hostpath-plugin.yaml).  
 This path persist as long as the StatefulSet pod is up and running.
 
 A file written in a properly mounted Hostpath volume inside an application should show up inside the Hostpath container.  
