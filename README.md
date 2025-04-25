@@ -45,7 +45,6 @@ If you want to update the image versions used in these manifests, you can do so 
 ```shell
 hack/bump-image-versions.sh
 ```
-
 ## Community, discussion, contribution, and support
 
 Learn how to engage with the Kubernetes community on the [community page](http://kubernetes.io/community/).
