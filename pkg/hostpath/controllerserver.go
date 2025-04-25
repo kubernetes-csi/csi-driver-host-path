@@ -812,7 +812,7 @@ func (hp *hostPath) ControllerExpandVolume(ctx context.Context, req *csi.Control
 
 	return &csi.ControllerExpandVolumeResponse{
 		CapacityBytes:         exVol.VolSize,
-		NodeExpansionRequired: true,
+		NodeExpansionRequired: !hp.config.DisableNodeExpansion,
 	}, nil
 }
 
