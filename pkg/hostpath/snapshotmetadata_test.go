@@ -139,7 +139,7 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 			expectedResponse: []*csi.BlockMetadata{},
 		},
 		{
-			name:             "sucess case different sizes",
+			name:             "success case different sizes",
 			sourceFileBlocks: 95,
 			targetFileBlocks: 100,
 			changedBlocks:    []int{70, 97},
@@ -173,7 +173,7 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:             "e case different sizes",
+			name:             "success case different sizes",
 			sourceFileBlocks: 100,
 			targetFileBlocks: 95,
 			changedBlocks:    []int{70, 97},
