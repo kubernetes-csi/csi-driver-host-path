@@ -131,7 +131,7 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:             "sucess case empty response",
+			name:             "success case empty response",
 			sourceFileBlocks: 100,
 			targetFileBlocks: 100,
 			startingOffset:   9 * state.BlockSizeBytes,
@@ -173,7 +173,7 @@ func TestGetChangedBlockMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:             "sucess case different sizes",
+			name:             "e case different sizes",
 			sourceFileBlocks: 100,
 			targetFileBlocks: 95,
 			changedBlocks:    []int{70, 97},
