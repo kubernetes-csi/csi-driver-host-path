@@ -1,0 +1,1 @@
+../util/chart-releaser.sh
