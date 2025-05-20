@@ -63,35 +63,35 @@ Note that the following output is from Kubernetes 1.32.2:
 ```shell
 csi-driver-host-path %  deploy/kubernetes-latest/deploy.sh
 applying RBAC rules
-curl https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/v5.2.0/deploy/kubernetes/rbac.yaml --output /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9/rbac.yaml --silent --location
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-provisioner/v5.2.0/deploy/kubernetes/rbac.yaml --output /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9/rbac.yaml --silent --location
 kubectl apply --kustomize /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9
 serviceaccount/csi-provisioner created
 role.rbac.authorization.k8s.io/external-provisioner-cfg created
 clusterrole.rbac.authorization.k8s.io/external-provisioner-runner created
 rolebinding.rbac.authorization.k8s.io/csi-provisioner-role-cfg created
 clusterrolebinding.rbac.authorization.k8s.io/csi-provisioner-role created
-curl https://raw.githubusercontent.com/kubernetes-csi/external-attacher/v4.8.0/deploy/kubernetes/rbac.yaml --output /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9/rbac.yaml --silent --location
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-attacher/v4.8.0/deploy/kubernetes/rbac.yaml --output /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9/rbac.yaml --silent --location
 kubectl apply --kustomize /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9
 serviceaccount/csi-attacher created
 role.rbac.authorization.k8s.io/external-attacher-cfg created
 clusterrole.rbac.authorization.k8s.io/external-attacher-runner created
 rolebinding.rbac.authorization.k8s.io/csi-attacher-role-cfg created
 clusterrolebinding.rbac.authorization.k8s.io/csi-attacher-role created
-curl https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v8.2.0/deploy/kubernetes/csi-snapshotter/rbac-csi-snapshotter.yaml --output /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9/rbac.yaml --silent --location
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v8.2.0/deploy/kubernetes/csi-snapshotter/rbac-csi-snapshotter.yaml --output /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9/rbac.yaml --silent --location
 kubectl apply --kustomize /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9
 serviceaccount/csi-snapshotter created
 role.rbac.authorization.k8s.io/external-snapshotter-leaderelection created
 clusterrole.rbac.authorization.k8s.io/external-snapshotter-runner created
 rolebinding.rbac.authorization.k8s.io/external-snapshotter-leaderelection created
 clusterrolebinding.rbac.authorization.k8s.io/csi-snapshotter-role created
-curl https://raw.githubusercontent.com/kubernetes-csi/external-resizer/v1.13.1/deploy/kubernetes/rbac.yaml --output /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9/rbac.yaml --silent --location
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-resizer/v1.13.1/deploy/kubernetes/rbac.yaml --output /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9/rbac.yaml --silent --location
 kubectl apply --kustomize /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9
 serviceaccount/csi-resizer created
 role.rbac.authorization.k8s.io/external-resizer-cfg created
 clusterrole.rbac.authorization.k8s.io/external-resizer-runner created
 rolebinding.rbac.authorization.k8s.io/csi-resizer-role-cfg created
 clusterrolebinding.rbac.authorization.k8s.io/csi-resizer-role created
-curl https://raw.githubusercontent.com/kubernetes-csi/external-health-monitor/v0.14.0/deploy/kubernetes/external-health-monitor-controller/rbac.yaml --output /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9/rbac.yaml --silent --location
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-health-monitor/v0.14.0/deploy/kubernetes/external-health-monitor-controller/rbac.yaml --output /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9/rbac.yaml --silent --location
 kubectl apply --kustomize /var/folders/42/l7fg3dk55xn7jm24ld4bpkyw0000gn/T/tmp.ZKWrXmZPJ9
 serviceaccount/csi-external-health-monitor-controller created
 role.rbac.authorization.k8s.io/external-health-monitor-controller-cfg created
