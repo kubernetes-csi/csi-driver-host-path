@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.3
 
 require (
-	github.com/container-storage-interface/spec v1.11.0
+	github.com/container-storage-interface/spec v1.12.0
 	github.com/kubernetes-csi/csi-lib-utils v0.22.0
 	github.com/pborman/uuid v1.2.1
 	github.com/stretchr/testify v1.10.0
