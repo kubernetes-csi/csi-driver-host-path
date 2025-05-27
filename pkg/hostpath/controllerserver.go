@@ -773,6 +773,39 @@ func (hp *hostPath) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsReq
 	}, nil
 }
 
+func (hp *hostPath) GetSnapshot(ctx context.Context, req *csi.GetSnapshotRequest) (*csi.GetSnapshotResponse, error) {
+	if err := hp.validateControllerServiceRequest(csi.ControllerServiceCapability_RPC_GET_SNAPSHOT); err != nil {
+		klog.V(3).Infof("invalid get snapshot req: %v", req)
+		return nil, err
+	}
+
+	// Lock before acting on global state. A production-quality
+	// driver might use more fine-grained locking.
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	// case 1: SnapshotId is not empty, return snapshots that match the snapshot id,
+	// none if not found.
+	if len(req.GetSnapshotId()) == 0 {
+	}
+
+	snapshotID := req.SnapshotId
+	snapshot, err := hp.state.GetSnapshotByID(snapshotID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "Snapshot with ID %q not found: %v", snapshotID, err)
+	}
+
+	return &csi.GetSnapshotResponse{
+		Snapshot: &csi.Snapshot{
+			SnapshotId:     snapshot.Id,
+			SourceVolumeId: snapshot.VolID,
+			CreationTime:   snapshot.CreationTime,
+			SizeBytes:      snapshot.SizeBytes,
+			ReadyToUse:     snapshot.ReadyToUse,
+		},
+	}, nil
+}
+
 func (hp *hostPath) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
 	if !hp.config.EnableVolumeExpansion {
 		return nil, status.Error(codes.Unimplemented, "ControllerExpandVolume is not supported")
@@ -877,6 +910,8 @@ func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceC
 			csi.ControllerServiceCapability_RPC_GET_VOLUME,
 			csi.ControllerServiceCapability_RPC_GET_CAPACITY,
 			csi.ControllerServiceCapability_RPC_CREATE_DELETE_SNAPSHOT,
+			csi.ControllerServiceCapability_RPC_LIST_SNAPSHOTS,
+			csi.ControllerServiceCapability_RPC_GET_SNAPSHOT,
 			csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
 			csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
 			csi.ControllerServiceCapability_RPC_VOLUME_CONDITION,
