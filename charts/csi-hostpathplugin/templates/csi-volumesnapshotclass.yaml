@@ -1,0 +1,8 @@
+{{- if .Values.volumeSnapshotClass.create -}}
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: {{ .Values.volumeSnapshotClass.name }}
+deletionPolicy: Delete
+driver: hostpath.csi.k8s.io
+{{- end -}}
