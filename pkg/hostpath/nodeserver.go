@@ -228,6 +228,11 @@ func (hp *hostPath) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpubl
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
+	err := hp.state.SafeReloadData()
+	if err != nil {
+		return nil, err
+	}
+
 	vol, err := hp.state.GetVolumeByID(volumeID)
 	if err != nil {
 		return nil, err
@@ -338,6 +343,11 @@ func (hp *hostPath) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageV
 	// driver might use more fine-grained locking.
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
+
+	err := hp.state.SafeReloadData()
+	if err != nil {
+		return nil, err
+	}
 
 	vol, err := hp.state.GetVolumeByID(req.VolumeId)
 	if err != nil {
