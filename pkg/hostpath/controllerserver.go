@@ -117,6 +117,9 @@ func (hp *hostPath) CreateVolume(ctx context.Context, req *csi.CreateVolumeReque
 	topologies := []*csi.Topology{}
 	if hp.config.EnableTopology {
 		topologies = append(topologies, &csi.Topology{Segments: map[string]string{TopologyKeyNode: hp.config.NodeID}})
+		if hp.config.SecondaryNodeID != "" {
+			topologies = append(topologies, &csi.Topology{Segments: map[string]string{TopologyKeyNode: hp.config.SecondaryNodeID}})
+		}
 	}
 
 	// Need to check for already existing volume name, and if found
@@ -301,7 +304,7 @@ func (hp *hostPath) ControllerPublishVolume(ctx context.Context, req *csi.Contro
 		return nil, status.Error(codes.InvalidArgument, "Volume Capabilities cannot be empty")
 	}
 
-	if req.NodeId != hp.config.NodeID {
+	if req.NodeId != hp.config.NodeID && req.NodeId != hp.config.SecondaryNodeID {
 		return nil, status.Errorf(codes.NotFound, "Not matching Node ID %s to hostpath Node ID %s", req.NodeId, hp.config.NodeID)
 	}
 
@@ -357,6 +360,11 @@ func (hp *hostPath) ControllerUnpublishVolume(ctx context.Context, req *csi.Cont
 
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
+
+	err := hp.state.SafeReloadData()
+	if err != nil {
+		return nil, err
+	}
 
 	vol, err := hp.state.GetVolumeByID(req.VolumeId)
 	if err != nil {

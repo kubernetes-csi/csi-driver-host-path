@@ -65,10 +65,12 @@ type hostPath struct {
 }
 
 type Config struct {
-	DriverName                    string
-	Endpoint                      string
-	ProxyEndpoint                 string
-	NodeID                        string
+	DriverName    string
+	Endpoint      string
+	ProxyEndpoint string
+	NodeID        string
+	// SecondaryNodeID can be used to deploy hostpath with more than one topology
+	SecondaryNodeID               string
 	VendorVersion                 string
 	StateDir                      string
 	MaxVolumesPerNode             int64
