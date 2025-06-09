@@ -64,6 +64,11 @@ func (hp *hostPath) NodePublishVolume(ctx context.Context, req *csi.NodePublishV
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
+	err := hp.state.SafeReloadData()
+	if err != nil {
+		return nil, err
+	}
+
 	mounter := mount.New("")
 
 	// if ephemeral is specified, create volume here to avoid errors
@@ -223,6 +228,11 @@ func (hp *hostPath) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpubl
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
+	err := hp.state.SafeReloadData()
+	if err != nil {
+		return nil, err
+	}
+
 	vol, err := hp.state.GetVolumeByID(volumeID)
 	if err != nil {
 		return nil, err
@@ -286,6 +296,11 @@ func (hp *hostPath) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolum
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
+	err := hp.state.SafeReloadData()
+	if err != nil {
+		return nil, err
+	}
+
 	vol, err := hp.state.GetVolumeByID(req.VolumeId)
 	if err != nil {
 		return nil, err
@@ -328,6 +343,11 @@ func (hp *hostPath) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageV
 	// driver might use more fine-grained locking.
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
+
+	err := hp.state.SafeReloadData()
+	if err != nil {
+		return nil, err
+	}
 
 	vol, err := hp.state.GetVolumeByID(req.VolumeId)
 	if err != nil {
