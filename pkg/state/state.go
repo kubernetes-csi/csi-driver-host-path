@@ -85,6 +85,11 @@ type GroupSnapshot struct {
 // access and change state. All error messages contain gRPC
 // status codes and can be returned without wrapping.
 type State interface {
+	// SafeReloadData reloads the volume information safely
+	// from underlying state file. If there are any errors
+	// reading old data, then existing state is restored
+	SafeReloadData() error
+
 	// GetVolumeByID retrieves a volume by its unique ID or returns
 	// an error including that ID when not found.
 	GetVolumeByID(volID string) (Volume, error)
@@ -198,6 +203,29 @@ func (s *state) restore() error {
 		return status.Errorf(codes.Internal, "error reading state file: %v", err)
 	}
 	if err := json.Unmarshal(data, &s.resources); err != nil {
+		return status.Errorf(codes.Internal, "error encoding volumes and snapshots from state file %q: %v", s.statefilePath, err)
+	}
+	return nil
+}
+
+func (s *state) SafeReloadData() error {
+	data, err := os.ReadFile(s.statefilePath)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		// Nothing to do.
+		return nil
+	case err != nil:
+		return status.Errorf(codes.Internal, "error reading state file: %v", err)
+	}
+
+	oldVolumes := s.Volumes
+	oldSnapshots := s.Snapshots
+
+	s.Volumes = nil
+	s.Snapshots = nil
+	if err := json.Unmarshal(data, &s.resources); err != nil {
+		s.Volumes = oldVolumes
+		s.Snapshots = oldSnapshots
 		return status.Errorf(codes.Internal, "error encoding volumes and snapshots from state file %q: %v", s.statefilePath, err)
 	}
 	return nil
