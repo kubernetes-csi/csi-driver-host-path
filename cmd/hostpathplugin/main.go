@@ -30,6 +30,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/csi-driver-host-path/internal/proxy"
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/hostpath"
+	"github.com/kubernetes-csi/csi-lib-utils/standardflags"
 )
 
 var (
@@ -70,6 +71,11 @@ func main() {
 	// The proxy-endpoint option is intended to used by the Kubernetes E2E test suite
 	// for proxying incoming calls to the embedded mock CSI driver.
 	proxyEndpoint := flag.String("proxy-endpoint", "", "Instead of running the CSI driver code, just proxy connections from csiEndpoint to the given listening socket.")
+
+	standardflags.AddAutomaxprocs(func(format string, args ...any) {
+		// wrapping fmt.Printf and ignoring its return values
+		fmt.Printf(format, args...)
+	})
 
 	klog.InitFlags(nil)
 	flag.Parse()
