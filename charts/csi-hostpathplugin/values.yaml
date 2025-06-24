@@ -1,0 +1,55 @@
+---
+csiHostpathplugin:
+  replicaCount: 1
+  hostpath:
+    image:
+      repository: registry.k8s.io/sig-storage/hostpathplugin
+      pullPolicy: IfNotPresent
+      tag: v1.17.0
+  csiExternalHealthMonitorController:
+    image:
+      repository: registry.k8s.io/sig-storage/csi-external-health-monitor-controller
+      pullPolicy: IfNotPresent
+      tag: v0.14.0
+  nodeDriverRegistrar:
+    image:
+      repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+      pullPolicy: IfNotPresent
+      tag: v2.13.0
+  livenessProbe:
+    image:
+      repository: registry.k8s.io/sig-storage/livenessprobe
+      pullPolicy: IfNotPresent
+      tag: v2.15.0
+  csiAttacher:
+    image:
+      repository: registry.k8s.io/sig-storage/csi-attacher
+      pullPolicy: IfNotPresent
+      tag: v4.8.0
+  csiProvisioner:
+    image:
+      repository: registry.k8s.io/sig-storage/csi-provisioner
+      pullPolicy: IfNotPresent
+      tag: v5.2.0
+  csiResizer:
+    image:
+      repository: registry.k8s.io/sig-storage/csi-resizer
+      pullPolicy: IfNotPresent
+      tag: v1.13.1
+  csiSnapshotter:
+    image:
+      repository: registry.k8s.io/sig-storage/csi-snapshotter
+      pullPolicy: IfNotPresent
+      tag: v8.2.0
+  volumes:
+    csiDataDir:
+      path: /var/lib/csi-hostpath-data
+storageClass:
+  create: false
+  name: csi-hostpath-sc
+volumeSnapshotClass:
+  create: false
+  name: csi-hostpath-snapclass
+volumeGroupSnapshotClass:
+  create: false
+  name: csi-hostpath-groupsnapclass
