@@ -137,7 +137,7 @@ If this is not the case then substitute the explicit use of `-n default` with th
     spec:
       restartPolicy: Always
       containers:
-        - image: gcr.io/google_containers/busybox
+        - image: registry.k8s/google_containers/busybox
           command: ["/bin/sh", "-c"]
           args: [ "tail -f /dev/null" ]
           name: busybox
