@@ -6,6 +6,8 @@ StorageClass:
   FromName: true
 SnapshotClass:
   FromName: true
+VolumeAttributeClass:
+  FromName: true
 DriverInfo:
   Name: hostpath.csi.k8s.io
   SupportedSizeRange:
