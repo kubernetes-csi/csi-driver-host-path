@@ -43,7 +43,7 @@ func main() {
 		VendorVersion: version,
 	}
 
-	flag.StringVar(&cfg.Endpoint, "endpoint", "unix://tmp/csi.sock", "CSI endpoint")
+	flag.StringVar(&cfg.Endpoint, "endpoint", "unix:///tmp/csi.sock", "CSI endpoint")
 	flag.StringVar(&cfg.DriverName, "drivername", "hostpath.csi.k8s.io", "name of the driver")
 	flag.StringVar(&cfg.StateDir, "statedir", "/csi-data-dir", "directory for storing state information across driver restarts, volumes and snapshots")
 	flag.StringVar(&cfg.NodeID, "nodeid", "", "node id")
@@ -131,9 +131,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := driver.Run(); err != nil {
+	// Wait for signal
+	stopCh := make(chan os.Signal, 1)
+	sigs := []os.Signal{
+		syscall.SIGTERM,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+	}
+	signal.Notify(stopCh, sigs...)
+
+	if err := driver.Run(stopCh); err != nil {
 		fmt.Printf("Failed to run driver: %s", err.Error())
 		os.Exit(1)
-
 	}
 }
