@@ -253,18 +253,23 @@ fi
 echo "deploying hostpath components"
 for i in $(ls ${BASE_DIR}/hostpath/*.yaml | sort); do
     echo "   $i"
+
+    # Copy original file to temp directory to avoid modifying git-tracked files
+    temp_yaml="${TEMP_DIR}/$(basename "$i")"
+    cp "$i" "$temp_yaml"
+
     if volume_mode_conversion; then
-      sed -i -e 's/# end csi-provisioner args/- \"--prevent-volume-mode-conversion=true\"\n            # end csi-provisioner args/' $i
+      sed -i -e 's/# end csi-provisioner args/- \"--prevent-volume-mode-conversion=true\"\n            # end csi-provisioner args/' "$temp_yaml"
     fi
 
     # Add external-snapshot-metadata sidecar to the driver, mount TLS certs,
     # and enable snapshot-metadata service
     if snapshot_metadata; then
-      sed -i -e "/# end csi containers/r ${SNAPSHOT_METADATA_SIDECAR_PATCH_RELATIVE_PATH}" $i
-      sed -i -e 's/# end csi volumes/- name: csi-snapshot-metadata-server-certs\n          secret:\n            secretName: csi-snapshot-metadata-certs\n        # end csi volumes/' $i
-      sed -i -e 's/# end hostpath args/- \"--enable-snapshot-metadata\"\n            # end hostpath args/' $i
+      sed -i -e "/# end csi containers/r ${SNAPSHOT_METADATA_SIDECAR_PATCH_RELATIVE_PATH}" "$temp_yaml"
+      sed -i -e 's/# end csi volumes/- name: csi-snapshot-metadata-server-certs\n          secret:\n            secretName: csi-snapshot-metadata-certs\n        # end csi volumes/' "$temp_yaml"
+      sed -i -e 's/# end hostpath args/- \"--enable-snapshot-metadata\"\n            # end hostpath args/' "$temp_yaml"
     fi
-    modified="$(cat "$i" | sed -e "s;${default_kubelet_data_dir}/;${KUBELET_DATA_DIR}/;" | while IFS= read -r line; do
+    modified="$(cat "$temp_yaml" | sed -e "s;${default_kubelet_data_dir}/;${KUBELET_DATA_DIR}/;" | while IFS= read -r line; do
         nocomments="$(echo "$line" | sed -e 's/ *#.*$//')"
         if echo "$nocomments" | grep -q '^[[:space:]]*image:[[:space:]]*'; then
             # Split 'image: quay.io/k8scsi/csi-attacher:v1.0.1'
