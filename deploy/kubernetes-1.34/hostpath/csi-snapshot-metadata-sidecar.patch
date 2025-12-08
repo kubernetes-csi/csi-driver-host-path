@@ -1,0 +1,22 @@
+        - name: csi-snapshot-metadata
+          image: registry.k8s.io/sig-storage/csi-snapshot-metadata:v0.1.0
+          imagePullPolicy: "IfNotPresent"
+          command:
+          args:
+          - "--csi-address=/csi/csi.sock"
+          - "--tls-cert=/tmp/certificates/tls.crt"
+          - "--tls-key=/tmp/certificates/tls.key"
+          readinessProbe:
+            exec:
+              command:
+              - "/bin/grpc_health_probe"
+              - "-addr=:50051"
+              - "-tls"
+              - "-tls-no-verify"
+            initialDelaySeconds: 5
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - name: csi-snapshot-metadata-server-certs
+              mountPath: /tmp/certificates
+              readOnly: true
