@@ -7,12 +7,9 @@
           - "--tls-cert=/tmp/certificates/tls.crt"
           - "--tls-key=/tmp/certificates/tls.key"
           readinessProbe:
-            exec:
-              command:
-              - "/bin/grpc_health_probe"
-              - "-addr=:50051"
-              - "-tls"
-              - "-tls-no-verify"
+            httpGet:
+              path: /health
+              port: 8080
             initialDelaySeconds: 5
           volumeMounts:
             - mountPath: /csi
