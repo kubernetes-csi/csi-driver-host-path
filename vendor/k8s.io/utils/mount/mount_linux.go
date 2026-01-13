@@ -29,6 +29,7 @@ import (
 	"syscall"
 
 	"k8s.io/klog/v2"
+
 	utilexec "k8s.io/utils/exec"
 	utilio "k8s.io/utils/io"
 )
@@ -113,6 +114,9 @@ func (mounter *Mounter) doMount(mounterPath string, mountCmd string, source stri
 		mountCmd = mounterPath
 	}
 
+	// If systemd-run is available, run mount in a transient scope.
+	// Otherwise, assume kubelet is not running as a systemd service and
+	// use the pre-populated mount command and arguments.
 	if mounter.withSystemd {
 		// Try to run mount via systemd-run --scope. This will escape the
 		// service where kubelet runs and any fuse daemons will be started in a
@@ -137,10 +141,6 @@ func (mounter *Mounter) doMount(mounterPath string, mountCmd string, source stri
 		// systemd-mount is not used because it's too new for older distros
 		// (CentOS 7, Debian Jessie).
 		mountCmd, mountArgs, mountArgsLogStr = AddSystemdScopeSensitive("systemd-run", target, mountCmd, mountArgs, mountArgsLogStr)
-	} else {
-		// No systemd-run on the host (or we failed to check it), assume kubelet
-		// does not run as a systemd service.
-		// No code here, mountCmd and mountArgs are already populated.
 	}
 
 	// Logging with sensitive mount options removed.
@@ -371,7 +371,7 @@ func (mounter *SafeFormatAndMount) formatAndMountSensitive(source string, target
 			sensitiveOptionsLog := sanitizedOptionsForLogging(options, sensitiveOptions)
 			detailedErr := fmt.Sprintf("format of disk %q failed: type:(%q) target:(%q) options:(%q) errcode:(%v) output:(%v) ", source, fstype, target, sensitiveOptionsLog, err, string(output))
 			klog.Error(detailedErr)
-			return NewMountError(FormatFailed, detailedErr)
+			return NewMountError(FormatFailed, "%s", detailedErr)
 		}
 
 		klog.Infof("Disk successfully formatted (mkfs): %s - %s %s", fstype, source, target)
@@ -394,7 +394,7 @@ func (mounter *SafeFormatAndMount) formatAndMountSensitive(source string, target
 	// Mount the disk
 	klog.V(4).Infof("Attempting to mount disk %s in %s format at %s", source, fstype, target)
 	if err := mounter.MountSensitive(source, target, fstype, options, sensitiveOptions); err != nil {
-		return NewMountError(mountErrorValue, err.Error())
+		return NewMountError(mountErrorValue, "%s", err.Error())
 	}
 
 	return nil
