@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/container-storage-interface/spec v1.12.0
-	github.com/kubernetes-csi/csi-lib-utils v0.23.1
+	github.com/kubernetes-csi/csi-lib-utils v0.23.2
 	github.com/pborman/uuid v1.2.1
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/net v0.49.0
