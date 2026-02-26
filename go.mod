@@ -7,7 +7,7 @@ require (
 	github.com/kubernetes-csi/csi-lib-utils v0.23.1
 	github.com/pborman/uuid v1.2.1
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/net v0.49.0
+	golang.org/x/net v0.51.0
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
 	k8s.io/apimachinery v0.35.0
@@ -37,8 +37,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
-	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/text v0.33.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260112192933-99fd39fd28a9 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
