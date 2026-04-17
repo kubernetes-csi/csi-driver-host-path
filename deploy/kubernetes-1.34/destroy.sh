@@ -1,0 +1,1 @@
+../util/destroy-hostpath.sh

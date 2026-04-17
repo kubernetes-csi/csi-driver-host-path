@@ -31,7 +31,7 @@ CSI_PROW_TESTS_SANITY="sanity"
 #
 # See: https://github.com/kubernetes-csi/csi-driver-host-path/pull/581#issuecomment-2634529098
 # See: https://github.com/kubernetes-csi/external-resizer/blob/20072c0fdf8baaf919ef95d6e918538ba9d84eaf/.prow.sh
-export CSI_PROW_E2E_VERSION="release-1.31"
+export CSI_PROW_E2E_VERSION="release-1.34"
 
 . release-tools/prow.sh
 
