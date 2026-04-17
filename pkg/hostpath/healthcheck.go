@@ -83,7 +83,7 @@ func checkMountPointExist(volumePath string) (bool, error) {
 		return false, fmt.Errorf("findmnt not found: %w", err)
 	}
 
-	out, err := exec.Command(cmdPath, "--json").CombinedOutput()
+	out, err := exec.Command(cmdPath, "--json", "--target", volumePath).CombinedOutput()
 	if err != nil {
 		klog.V(3).Infof("failed to execute command: %+v", cmdPath)
 		return false, err
@@ -98,29 +98,10 @@ func checkMountPointExist(volumePath string) (bool, error) {
 		return false, fmt.Errorf("failed to parse the mount infos: %+v", err)
 	}
 
-	mountInfosOfPod := MountPointInfo{}
 	for _, mountInfo := range mountInfos {
-		if mountInfo.Target == podVolumeTargetPath {
-			mountInfosOfPod = mountInfo
-			break
+		if mountInfo.Target == volumePath || strings.Contains(mountInfo.Source, volumePath) {
+			return true, nil
 		}
-	}
-
-	for _, mountInfo := range mountInfosOfPod.ContainerFileSystem {
-		if !strings.Contains(mountInfo.Source, volumePath) {
-			continue
-		}
-
-		_, err = os.Stat(mountInfo.Target)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return false, nil
-			}
-
-			return false, err
-		}
-
-		return true, nil
 	}
 
 	return false, nil
