@@ -1,6 +1,6 @@
 module github.com/kubernetes-csi/csi-driver-host-path
 
-go 1.25.5
+go 1.26.0
 
 require (
 	github.com/container-storage-interface/spec v1.12.0
@@ -9,11 +9,11 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/net v0.49.0
 	google.golang.org/grpc v1.78.0
-	google.golang.org/protobuf v1.36.11
-	k8s.io/apimachinery v0.35.0
-	k8s.io/klog/v2 v2.130.1
+	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
+	k8s.io/apimachinery v0.36.0
+	k8s.io/klog/v2 v2.140.0
 	k8s.io/kubernetes v1.35.0
-	k8s.io/utils v0.0.0-20260108192941-914a6e750570
+	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 )
 
 require (
