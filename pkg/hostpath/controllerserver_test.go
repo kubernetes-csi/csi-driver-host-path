@@ -8,6 +8,8 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestCreateVolume(t *testing.T) {
@@ -170,6 +172,70 @@ func TestCreateVolume(t *testing.T) {
 				resp.Volume.VolumeId = ""
 			}
 			assert.Equal(t, tc.resp, resp)
+		})
+	}
+}
+
+func TestDeleteSnapshot(t *testing.T) {
+	testCases := []struct {
+		name      string
+		snapshots []state.Snapshot
+		reqID     string
+		wantCode  codes.Code
+	}{
+		{
+			name:     "delete non-existent snapshot succeeds",
+			reqID:    "non-existent",
+			wantCode: codes.OK,
+		},
+		{
+			name: "delete snapshot without group succeeds",
+			snapshots: []state.Snapshot{
+				{Id: "snap-1", Name: "snap-1-name"},
+			},
+			reqID:    "snap-1",
+			wantCode: codes.OK,
+		},
+		{
+			name: "delete snapshot belonging to group fails",
+			snapshots: []state.Snapshot{
+				{Id: "snap-2", Name: "snap-2-name", GroupSnapshotID: "group-1"},
+			},
+			reqID:    "snap-2",
+			wantCode: codes.InvalidArgument,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			stateDir, err := os.MkdirTemp(os.TempDir(), "csi-data-dir")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(stateDir)
+
+			cfg := Config{
+				StateDir:   stateDir,
+				Endpoint:   "unix://tmp/csi.sock",
+				DriverName: "hostpath.csi.k8s.io",
+				NodeID:     "fakeNodeID",
+			}
+			hp, err := NewHostPathDriver(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, snap := range tc.snapshots {
+				if err := hp.state.UpdateSnapshot(snap); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			_, err = hp.DeleteSnapshot(context.TODO(), &csi.DeleteSnapshotRequest{
+				SnapshotId: tc.reqID,
+			})
+
+			gotCode := status.Code(err)
+			assert.Equal(t, tc.wantCode, gotCode, "unexpected status code: %v", err)
 		})
 	}
 }
