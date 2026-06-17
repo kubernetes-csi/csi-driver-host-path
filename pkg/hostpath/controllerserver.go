@@ -894,6 +894,29 @@ func (hp *hostPath) validateVolumeMutableParameters(params map[string]string) er
 	return nil
 }
 
+func (hp *hostPath) ControllerGetVolumeHealth(ctx context.Context, req *csi.ControllerGetVolumeHealthRequest) (*csi.ControllerGetVolumeHealthResponse, error) {
+	if len(req.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	if _, err := hp.state.GetVolumeByID(req.GetVolumeId()); err != nil {
+		return nil, status.Errorf(codes.NotFound, "volume %q not found: %v", req.GetVolumeId(), err)
+	}
+
+	return &csi.ControllerGetVolumeHealthResponse{
+		VolumeHealth: &csi.VolumeHealth{
+			VolumeId: req.GetVolumeId(),
+		},
+	}, nil
+}
+
+func (hp *hostPath) ControllerListVolumeHealth(ctx context.Context, req *csi.ControllerListVolumeHealthRequest) (*csi.ControllerListVolumeHealthResponse, error) {
+	return &csi.ControllerListVolumeHealthResponse{}, nil
+}
+
 func (hp *hostPath) validateControllerServiceRequest(c csi.ControllerServiceCapability_RPC_Type) error {
 	if c == csi.ControllerServiceCapability_RPC_UNKNOWN {
 		return nil
@@ -921,6 +944,8 @@ func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceC
 			csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
 			csi.ControllerServiceCapability_RPC_VOLUME_CONDITION,
 			csi.ControllerServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
+			csi.ControllerServiceCapability_RPC_GET_VOLUME_HEALTH,
+			csi.ControllerServiceCapability_RPC_LIST_VOLUME_HEALTH,
 		}
 		if hp.config.EnableVolumeExpansion && !hp.config.DisableControllerExpansion {
 			cl = append(cl, csi.ControllerServiceCapability_RPC_EXPAND_VOLUME)

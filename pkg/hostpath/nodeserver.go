@@ -404,6 +404,20 @@ func (hp *hostPath) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCap
 				},
 			},
 		},
+		{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: csi.NodeServiceCapability_RPC_GET_VOLUME_HEALTH,
+				},
+			},
+		},
+		{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: csi.NodeServiceCapability_RPC_STORAGE_HEALTH,
+				},
+			},
+		},
 	}
 	if hp.config.EnableVolumeExpansion && !hp.config.DisableNodeExpansion {
 		caps = append(caps, &csi.NodeServiceCapability{
@@ -467,6 +481,29 @@ func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolum
 			Message:  msg,
 		},
 	}, nil
+}
+
+func (hp *hostPath) NodeGetVolumeHealth(ctx context.Context, req *csi.NodeGetVolumeHealthRequest) (*csi.NodeGetVolumeHealthResponse, error) {
+	if len(req.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	if _, err := hp.state.GetVolumeByID(req.GetVolumeId()); err != nil {
+		return nil, status.Errorf(codes.NotFound, "volume %q not found: %v", req.GetVolumeId(), err)
+	}
+
+	return &csi.NodeGetVolumeHealthResponse{
+		VolumeHealth: &csi.VolumeHealth{
+			VolumeId: req.GetVolumeId(),
+		},
+	}, nil
+}
+
+func (hp *hostPath) NodeGetStorageHealth(ctx context.Context, req *csi.NodeGetStorageHealthRequest) (*csi.NodeGetStorageHealthResponse, error) {
+	return &csi.NodeGetStorageHealthResponse{}, nil
 }
 
 // NodeExpandVolume is only implemented so the driver can be used for e2e testing.
