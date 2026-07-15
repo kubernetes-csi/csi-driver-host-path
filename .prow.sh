@@ -25,8 +25,6 @@ CSI_PROW_GINKO_PARALLEL="-p -nodes 40" # default was 7
 CSI_PROW_HOSTPATH_DRIVER_NAME="hostpath.csi.k8s.io"
 
 CSI_PROW_TESTS_SANITY="sanity"
-# TODO(nixpanic): remove when csi-release-tools PR#314 is merged
-CSI_PROW_SANITY_VERSION="v5.5.0"
 
 . release-tools/prow.sh
 
