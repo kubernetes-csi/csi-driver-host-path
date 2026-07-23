@@ -110,8 +110,8 @@ k8s.io/controller-manager v0.36.1 h1:d1ifPnAe3FFSnnvcDQiM93bGroFT1lF72GEBKsl+cbg
 k8s.io/controller-manager v0.36.1/go.mod h1:jeJUuFlgbgohGJWrm59Wdlgo3WqxssWXgD2sU6HG/Vo=
 k8s.io/klog/v2 v2.140.0 h1:Tf+J3AH7xnUzZyVVXhTgGhEKnFqye14aadWv7bzXdzc=
 k8s.io/klog/v2 v2.140.0/go.mod h1:o+/RWfJ6PwpnFn7OyAG3QnO47BFsymfEfrz6XyYSSp0=
-k8s.io/kubernetes v1.36.1 h1:Mt7NKigaZ2KmOmCLhX81lGlH9JU5wjXnYhXnxAun9XA=
-k8s.io/kubernetes v1.36.1/go.mod h1:MLdeJ3qw2CWH9BFml5GvptxQVQckz54fJOZ/WuixpFE=
+k8s.io/kubernetes v1.36.3 h1:qDQdoMiluAE2Eab6Fa52YV+WjiGz9mZFFoagEA6cI+o=
+k8s.io/kubernetes v1.36.3/go.mod h1:6oChkQeI7Yf6lV9lFpSdRzODdbY/ECp/4zUeBk8ONaw=
 k8s.io/mount-utils v0.36.1 h1:NWDFsdv+jfqPfa/LisnbEn1QyPNYjMNkmfEORXhyvZA=
 k8s.io/mount-utils v0.36.1/go.mod h1:+I47UOG6FiUGVSy7VanjU/mQXLShMo3M7xBpGLzCub8=
 k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 h1:AZYQSJemyQB5eRxqcPky+/7EdBj0xi3g0ZcxxJ7vbWU=
