@@ -36,24 +36,6 @@ metadata:
     app.kubernetes.io/instance: hostpath.csi.k8s.io
     app.kubernetes.io/part-of: csi-driver-host-path
     app.kubernetes.io/name: csi-hostpathplugin
-    app.kubernetes.io/component: health-monitor-controller-cluster-role
-  name: csi-hostpathplugin-health-monitor-controller-cluster-role
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: external-health-monitor-controller-runner
-subjects:
-- kind: ServiceAccount
-  name: csi-hostpathplugin-sa
-  namespace: default
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    app.kubernetes.io/instance: hostpath.csi.k8s.io
-    app.kubernetes.io/part-of: csi-driver-host-path
-    app.kubernetes.io/name: csi-hostpathplugin
     app.kubernetes.io/component: provisioner-cluster-role
   name: csi-hostpathplugin-provisioner-cluster-role
 roleRef:
@@ -132,23 +114,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: external-attacher-cfg
-subjects:
-- kind: ServiceAccount
-  name: csi-hostpathplugin-sa
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  labels:
-    app.kubernetes.io/instance: hostpath.csi.k8s.io
-    app.kubernetes.io/part-of: csi-driver-host-path
-    app.kubernetes.io/name: csi-hostpathplugin
-    app.kubernetes.io/component: health-monitor-controller-role
-  name: csi-hostpathplugin-health-monitor-controller-role
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: external-health-monitor-controller-cfg
 subjects:
 - kind: ServiceAccount
   name: csi-hostpathplugin-sa
@@ -279,20 +244,6 @@ spec:
               name: csi-data-dir
             - mountPath: /dev
               name: dev-dir
-
-        - name: csi-external-health-monitor-controller
-          image: registry.k8s.io/sig-storage/csi-external-health-monitor-controller:v0.18.0
-          args:
-            - "--v=5"
-            - "--csi-address=$(ADDRESS)"
-            - "--leader-election"
-          env:
-            - name: ADDRESS
-              value: /csi/csi.sock
-          imagePullPolicy: "IfNotPresent"
-          volumeMounts:
-            - name: socket-dir
-              mountPath: /csi
 
         - name: node-driver-registrar
           image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0
