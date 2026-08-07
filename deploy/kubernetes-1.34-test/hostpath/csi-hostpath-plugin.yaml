@@ -28,7 +28,6 @@ spec:
         app.kubernetes.io/name: csi-hostpathplugin
         app.kubernetes.io/component: plugin
     spec:
-      serviceAccountName: csi-external-health-monitor-controller
       containers:
         - name: hostpath
           image: registry.k8s.io/sig-storage/hostpathplugin:v1.17.1
@@ -81,20 +80,6 @@ spec:
           args:
           - --csi-address=/csi/csi.sock
           - --health-port=9898
-
-        - name: csi-external-health-monitor-controller
-          image: registry.k8s.io/sig-storage/csi-external-health-monitor-controller:v0.18.0
-          args:
-            - "--v=5"
-            - "--csi-address=$(ADDRESS)"
-            - "--leader-election"
-          env:
-            - name: ADDRESS
-              value: /csi/csi.sock
-          imagePullPolicy: "IfNotPresent"
-          volumeMounts:
-            - name: socket-dir
-              mountPath: /csi
 
         - name: node-driver-registrar
           image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0

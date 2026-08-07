@@ -268,6 +268,11 @@ func (hp *hostPath) deleteVolume(volID string) error {
 	if err := hp.state.DeleteVolume(volID); err != nil {
 		return err
 	}
+	// Remove any leftover health markers (all scopes) so stale markers do
+	// not accumulate for re-created volume IDs.
+	if err := ClearAllVolumeHealthMarkers(hp.config.StateDir, volID); err != nil {
+		klog.Errorf("failed to remove health markers for volume %s: %v", volID, err)
+	}
 	klog.V(4).Infof("deleted hostpath volume: %s = %+v", volID, vol)
 	return nil
 }

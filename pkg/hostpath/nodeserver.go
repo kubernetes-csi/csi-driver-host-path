@@ -17,6 +17,7 @@ limitations under the License.
 package hostpath
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -24,7 +25,6 @@ import (
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/csi-driver-host-path/pkg/state"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
@@ -386,13 +386,6 @@ func (hp *hostPath) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCap
 		{
 			Type: &csi.NodeServiceCapability_Rpc{
 				Rpc: &csi.NodeServiceCapability_RPC{
-					Type: csi.NodeServiceCapability_RPC_VOLUME_CONDITION,
-				},
-			},
-		},
-		{
-			Type: &csi.NodeServiceCapability_Rpc{
-				Rpc: &csi.NodeServiceCapability_RPC{
 					Type: csi.NodeServiceCapability_RPC_GET_VOLUME_STATS,
 				},
 			},
@@ -401,6 +394,20 @@ func (hp *hostPath) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCap
 			Type: &csi.NodeServiceCapability_Rpc{
 				Rpc: &csi.NodeServiceCapability_RPC{
 					Type: csi.NodeServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
+				},
+			},
+		},
+		{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: csi.NodeServiceCapability_RPC_GET_VOLUME_HEALTH,
+				},
+			},
+		},
+		{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: csi.NodeServiceCapability_RPC_GET_STORAGE_HEALTH,
 				},
 			},
 		},
@@ -431,8 +438,7 @@ func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolum
 	hp.mutex.Lock()
 	defer hp.mutex.Unlock()
 
-	volume, err := hp.state.GetVolumeByID(in.GetVolumeId())
-	if err != nil {
+	if _, err := hp.state.GetVolumeByID(in.GetVolumeId()); err != nil {
 		return nil, err
 	}
 
@@ -440,8 +446,6 @@ func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolum
 		return nil, status.Errorf(codes.NotFound, "Could not get file information from %s: %+v", in.GetVolumePath(), err)
 	}
 
-	healthy, msg := hp.doHealthCheckInNodeSide(in.GetVolumeId())
-	klog.V(3).Infof("Healthy state: %+v Volume: %+v", volume.VolName, healthy)
 	available, capacity, used, inodes, inodesFree, inodesUsed, err := getPVStats(in.GetVolumePath())
 	if err != nil {
 		return nil, fmt.Errorf("get volume stats failed: %w", err)
@@ -462,10 +466,32 @@ func (hp *hostPath) NodeGetVolumeStats(ctx context.Context, in *csi.NodeGetVolum
 				Unit:      csi.VolumeUsage_INODES,
 			},
 		},
-		VolumeCondition: &csi.VolumeCondition{
-			Abnormal: !healthy,
-			Message:  msg,
+	}, nil
+}
+
+func (hp *hostPath) NodeGetVolumeHealth(ctx context.Context, req *csi.NodeGetVolumeHealthRequest) (*csi.NodeGetVolumeHealthResponse, error) {
+	if len(req.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	if _, err := hp.state.GetVolumeByID(req.GetVolumeId()); err != nil {
+		return nil, status.Errorf(codes.NotFound, "volume %q not found: %v", req.GetVolumeId(), err)
+	}
+
+	return &csi.NodeGetVolumeHealthResponse{
+		VolumeHealth: &csi.VolumeHealth{
+			VolumeId:       req.GetVolumeId(),
+			HealthStatuses: hp.getVolumeHealthEntries(req.GetVolumeId(), ScopeNode),
 		},
+	}, nil
+}
+
+func (hp *hostPath) NodeGetStorageHealth(ctx context.Context, req *csi.NodeGetStorageHealthRequest) (*csi.NodeGetStorageHealthResponse, error) {
+	return &csi.NodeGetStorageHealthResponse{
+		BackendHealth: hp.getStorageBackendHealth(),
 	}, nil
 }
 

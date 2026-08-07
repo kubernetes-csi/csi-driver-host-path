@@ -23,8 +23,9 @@ import (
 	"sort"
 	"strconv"
 
+	"context"
+
 	"github.com/pborman/uuid"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -456,8 +457,6 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 
 	for index := startIdx - 1; index < volumesLength && index < maxLength; index++ {
 		hpVolume = volumes[index]
-		healthy, msg := hp.doHealthCheckInControllerSide(hpVolume.VolID)
-		klog.V(3).Infof("Healthy state: %s Volume: %t", hpVolume.VolName, healthy)
 		volumeRes.Entries = append(volumeRes.Entries, &csi.ListVolumesResponse_Entry{
 			Volume: &csi.Volume{
 				VolumeId:      hpVolume.VolID,
@@ -465,10 +464,6 @@ func (hp *hostPath) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest
 			},
 			Status: &csi.ListVolumesResponse_VolumeStatus{
 				PublishedNodeIds: []string{hpVolume.NodeID},
-				VolumeCondition: &csi.VolumeCondition{
-					Abnormal: !healthy,
-					Message:  msg,
-				},
 			},
 		})
 	}
@@ -485,22 +480,9 @@ func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.Controller
 
 	volume, err := hp.state.GetVolumeByID(req.GetVolumeId())
 	if err != nil {
-		// ControllerGetVolume should report abnormal volume condition if volume is not found
-		return &csi.ControllerGetVolumeResponse{
-			Volume: &csi.Volume{
-				VolumeId: req.GetVolumeId(),
-			},
-			Status: &csi.ControllerGetVolumeResponse_VolumeStatus{
-				VolumeCondition: &csi.VolumeCondition{
-					Abnormal: true,
-					Message:  err.Error(),
-				},
-			},
-		}, nil
+		return nil, status.Errorf(codes.NotFound, "volume %q not found: %v", req.GetVolumeId(), err)
 	}
 
-	healthy, msg := hp.doHealthCheckInControllerSide(req.GetVolumeId())
-	klog.V(3).Infof("Healthy state: %s Volume: %t", volume.VolName, healthy)
 	return &csi.ControllerGetVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volume.VolID,
@@ -508,10 +490,6 @@ func (hp *hostPath) ControllerGetVolume(ctx context.Context, req *csi.Controller
 		},
 		Status: &csi.ControllerGetVolumeResponse_VolumeStatus{
 			PublishedNodeIds: []string{volume.NodeID},
-			VolumeCondition: &csi.VolumeCondition{
-				Abnormal: !healthy,
-				Message:  msg,
-			},
 		},
 	}, nil
 }
@@ -894,6 +872,87 @@ func (hp *hostPath) validateVolumeMutableParameters(params map[string]string) er
 	return nil
 }
 
+func (hp *hostPath) ControllerGetVolumeHealth(ctx context.Context, req *csi.ControllerGetVolumeHealthRequest) (*csi.ControllerGetVolumeHealthResponse, error) {
+	if len(req.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	if _, err := hp.state.GetVolumeByID(req.GetVolumeId()); err != nil {
+		return nil, status.Errorf(codes.NotFound, "volume %q not found: %v", req.GetVolumeId(), err)
+	}
+
+	return &csi.ControllerGetVolumeHealthResponse{
+		VolumeHealth: &csi.VolumeHealth{
+			VolumeId:       req.GetVolumeId(),
+			HealthStatuses: hp.getVolumeHealthEntries(req.GetVolumeId(), ScopeController),
+		},
+	}, nil
+}
+
+func (hp *hostPath) ControllerListVolumeHealth(ctx context.Context, req *csi.ControllerListVolumeHealthRequest) (*csi.ControllerListVolumeHealthResponse, error) {
+	hp.mutex.Lock()
+	defer hp.mutex.Unlock()
+
+	markers, err := ListVolumeHealthMarkers(hp.config.StateDir)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to list volume health markers: %v", err)
+	}
+
+	// Keep only markers for volumes that still exist in state so stale
+	// markers (e.g. left after a crash) are not reported. For the
+	// controller side, a volume is unhealthy if it has a controller-scoped
+	// marker or a generic "both" marker.
+	volIDs := make([]string, 0, len(markers))
+	for volID, m := range markers {
+		if _, err := hp.state.GetVolumeByID(volID); err == nil && m.EffectiveForController() != nil {
+			volIDs = append(volIDs, volID)
+		}
+	}
+	sort.Strings(volIDs)
+
+	// Pagination mirrors ListVolumes: StartingToken is a 1-based integer
+	// offset, MaxEntries bounds the page size. See ListVolumes at line ~442.
+	startIdx := int64(1)
+	if req.GetStartingToken() != "" {
+		s, err := strconv.ParseInt(req.GetStartingToken(), 10, 64)
+		if err != nil || s < 1 {
+			return nil, status.Error(codes.Aborted, "The type of startingToken should be a positive integer")
+		}
+		startIdx = s
+	}
+
+	total := int64(len(volIDs))
+	maxLength := int64(req.GetMaxEntries())
+	if maxLength > total || maxLength <= 0 {
+		maxLength = total
+	}
+
+	endIdx := startIdx - 1 + maxLength
+	if endIdx > total {
+		endIdx = total
+	}
+
+	entries := make([]*csi.VolumeHealth, 0, endIdx-(startIdx-1))
+	for i := startIdx - 1; i < endIdx; i++ {
+		volID := volIDs[i]
+		entries = append(entries, &csi.VolumeHealth{
+			VolumeId:       volID,
+			HealthStatuses: hp.getVolumeHealthEntries(volID, ScopeController),
+		})
+	}
+
+	resp := &csi.ControllerListVolumeHealthResponse{
+		Entries: entries,
+	}
+	if endIdx < total {
+		resp.NextToken = strconv.FormatInt(endIdx+1, 10)
+	}
+	return resp, nil
+}
+
 func (hp *hostPath) validateControllerServiceRequest(c csi.ControllerServiceCapability_RPC_Type) error {
 	if c == csi.ControllerServiceCapability_RPC_UNKNOWN {
 		return nil
@@ -919,8 +978,9 @@ func (hp *hostPath) getControllerServiceCapabilities() []*csi.ControllerServiceC
 			csi.ControllerServiceCapability_RPC_GET_SNAPSHOT,
 			csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
 			csi.ControllerServiceCapability_RPC_CLONE_VOLUME,
-			csi.ControllerServiceCapability_RPC_VOLUME_CONDITION,
 			csi.ControllerServiceCapability_RPC_SINGLE_NODE_MULTI_WRITER,
+			csi.ControllerServiceCapability_RPC_GET_VOLUME_HEALTH,
+			csi.ControllerServiceCapability_RPC_LIST_VOLUME_HEALTH,
 		}
 		if hp.config.EnableVolumeExpansion && !hp.config.DisableControllerExpansion {
 			cl = append(cl, csi.ControllerServiceCapability_RPC_EXPAND_VOLUME)

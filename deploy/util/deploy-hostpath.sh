@@ -168,9 +168,6 @@ CSI_SNAPSHOT_METADATA_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-cs
 CSI_RESIZER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-resizer/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-resizer.yaml" csi-resizer false)/deploy/kubernetes/rbac.yaml"
 : ${CSI_RESIZER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-resizer/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-resizer.yaml" csi-resizer "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
 
-CSI_EXTERNALHEALTH_MONITOR_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-health-monitor/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-external-health-monitor-controller false)/deploy/kubernetes/external-health-monitor-controller/rbac.yaml"
-: ${CSI_EXTERNALHEALTH_MONITOR_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-health-monitor/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-external-health-monitor-controller "${UPDATE_RBAC_RULES}")/deploy/kubernetes/external-health-monitor-controller/rbac.yaml}
-
 CSI_SNAPSHOT_METADATA_TLS_CERT_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata false)/deploy/example/csi-driver/testdata/csi-snapshot-metadata-tls-secret.yaml"
 SNAPSHOT_METADATA_SERVICE_CR_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata false)/deploy/example/csi-driver/testdata/snapshotmetadataservice.yaml"
 CSI_SNAPSHOT_METADATA_SERVICE_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata false)/deploy/example/csi-driver/testdata/csi-snapshot-metadata-service.yaml"
@@ -190,7 +187,7 @@ run () {
 
 # rbac rules
 echo "applying RBAC rules"
-components=(CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER CSI_RESIZER CSI_EXTERNALHEALTH_MONITOR)
+components=(CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER CSI_RESIZER)
 if snapshot_metadata; then
     components+=(CSI_SNAPSHOT_METADATA)
 fi
