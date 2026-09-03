@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	utilexec "k8s.io/utils/exec"
@@ -110,7 +111,7 @@ func (mountError MountError) Error() string {
 	return mountError.Message
 }
 
-func NewMountError(mountErrorValue MountErrorType, format string, args ...interface{}) error {
+func NewMountError(mountErrorValue MountErrorType, format string, args ...any) error {
 	mountError := MountError{
 		Type:    mountErrorValue,
 		Message: fmt.Sprintf(format, args...),
@@ -311,17 +312,7 @@ func MakeBindOptsSensitive(options []string, sensitiveOptions []string) (bool, [
 }
 
 func checkForNetDev(options []string, sensitiveOptions []string) bool {
-	for _, option := range options {
-		if option == "_netdev" {
-			return true
-		}
-	}
-	for _, sensitiveOption := range sensitiveOptions {
-		if sensitiveOption == "_netdev" {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(options, "_netdev") || slices.Contains(sensitiveOptions, "_netdev")
 }
 
 // PathWithinBase checks if give path is within given base directory.
