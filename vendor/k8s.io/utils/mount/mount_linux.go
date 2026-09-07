@@ -1,5 +1,4 @@
 //go:build linux
-// +build linux
 
 /*
 Copyright 2014 The Kubernetes Authors.
@@ -24,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -317,22 +317,7 @@ func (mounter *SafeFormatAndMount) checkAndRepairFilesystem(source string) error
 
 // formatAndMount uses unix utils to format and mount the given disk
 func (mounter *SafeFormatAndMount) formatAndMountSensitive(source string, target string, fstype string, options []string, sensitiveOptions []string) error {
-	readOnly := false
-	for _, option := range options {
-		if option == "ro" {
-			readOnly = true
-			break
-		}
-	}
-	if !readOnly {
-		// Check sensitiveOptions for ro
-		for _, option := range sensitiveOptions {
-			if option == "ro" {
-				readOnly = true
-				break
-			}
-		}
-	}
+	readOnly := slices.Contains(options, "ro") || slices.Contains(sensitiveOptions, "ro")
 
 	options = append(options, "defaults")
 	mountErrorValue := UnknownMountError
@@ -424,8 +409,7 @@ func (mounter *SafeFormatAndMount) GetDiskFormat(disk string) (string, error) {
 
 	var fstype, pttype string
 
-	lines := strings.Split(output, "\n")
-	for _, l := range lines {
+	for l := range strings.SplitSeq(output, "\n") {
 		if len(l) <= 0 {
 			// Ignore empty line.
 			continue
@@ -464,8 +448,7 @@ func ListProcMounts(mountFilePath string) ([]MountPoint, error) {
 
 func parseProcMounts(content []byte) ([]MountPoint, error) {
 	out := []MountPoint{}
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
+	for line := range strings.SplitSeq(string(content), "\n") {
 		if line == "" {
 			// the last split() item is empty string following the last \n
 			continue

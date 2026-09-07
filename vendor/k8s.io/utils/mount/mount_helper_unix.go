@@ -1,5 +1,4 @@
 //go:build !windows
-// +build !windows
 
 /*
 Copyright 2019 The Kubernetes Authors.
@@ -93,7 +92,7 @@ func ParseMountInfo(filename string) ([]MountInfo, error) {
 	contentStr := string(content)
 	infos := []MountInfo{}
 
-	for _, line := range strings.Split(contentStr, "\n") {
+	for line := range strings.SplitSeq(contentStr, "\n") {
 		if line == "" {
 			// the last split() item is empty string following the last \n
 			continue
