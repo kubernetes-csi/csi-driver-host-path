@@ -148,6 +148,13 @@ function snapshot_metadata () {
     [ "${SNAPSHOT_METADATA_TESTS}" == "true" ]
 }
 
+# The external-health-monitor-controller sidecar is only part of the
+# deployments for Kubernetes >= 1.37. Apply its RBAC rules only when the
+# deployment contains it.
+function external_health_monitor () {
+    grep -q "image:.*csi-external-health-monitor-controller" "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml"
+}
+
 # In addition, the RBAC rules can be overridden separately.
 # For snapshotter 2.0+, the directory has changed.
 SNAPSHOTTER_RBAC_RELATIVE_PATH="rbac.yaml"
@@ -167,6 +174,9 @@ CSI_SNAPSHOT_METADATA_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-cs
 : ${CSI_SNAPSHOT_METADATA_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata "${UPDATE_RBAC_RULES}")/deploy/${SNAPSHOT_METADATA_RBAC_RELATIVE_PATH}}
 CSI_RESIZER_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-resizer/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-resizer.yaml" csi-resizer false)/deploy/kubernetes/rbac.yaml"
 : ${CSI_RESIZER_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-resizer/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-resizer.yaml" csi-resizer "${UPDATE_RBAC_RULES}")/deploy/kubernetes/rbac.yaml}
+
+CSI_EXTERNALHEALTH_MONITOR_RBAC_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-health-monitor/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-external-health-monitor-controller false)/deploy/kubernetes/external-health-monitor-controller/rbac.yaml"
+: ${CSI_EXTERNALHEALTH_MONITOR_RBAC:=https://raw.githubusercontent.com/kubernetes-csi/external-health-monitor/$(rbac_version "${BASE_DIR}/hostpath/csi-hostpath-plugin.yaml" csi-external-health-monitor-controller "${UPDATE_RBAC_RULES}")/deploy/kubernetes/external-health-monitor-controller/rbac.yaml}
 
 CSI_SNAPSHOT_METADATA_TLS_CERT_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata false)/deploy/example/csi-driver/testdata/csi-snapshot-metadata-tls-secret.yaml"
 SNAPSHOT_METADATA_SERVICE_CR_YAML="https://raw.githubusercontent.com/kubernetes-csi/external-snapshot-metadata/$(rbac_version "${BASE_DIR}/hostpath/csi-snapshot-metadata-sidecar.patch" csi-snapshot-metadata false)/deploy/example/csi-driver/testdata/snapshotmetadataservice.yaml"
@@ -190,6 +200,9 @@ echo "applying RBAC rules"
 components=(CSI_PROVISIONER CSI_ATTACHER CSI_SNAPSHOTTER CSI_RESIZER)
 if snapshot_metadata; then
     components+=(CSI_SNAPSHOT_METADATA)
+fi
+if external_health_monitor; then
+    components+=(CSI_EXTERNALHEALTH_MONITOR)
 fi
 for component in "${components[@]}"; do
     eval current="\${${component}_RBAC}"
