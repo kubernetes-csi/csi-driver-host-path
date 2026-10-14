@@ -1,4 +1,4 @@
-The deployment for Kubernetes 1.34 uses the CSI snapshotter sidecar
+The deployment for Kubernetes 1.35 uses the CSI snapshotter sidecar
 4.x and thus is incompatible with Kubernetes clusters where older
 snapshotter CRDs are installed.
 

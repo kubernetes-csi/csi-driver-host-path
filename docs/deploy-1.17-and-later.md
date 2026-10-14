@@ -238,7 +238,7 @@ Events:
 ```
 
 ## Confirm Hostpath driver works
-The Hostpath driver is configured to create new volumes under `/csi-data-dir` inside the hostpath container that is specified in the plugin StatefulSet found [here](../deploy/kubernetes-1.35-test/hostpath/csi-hostpath-plugin.yaml).  
+The Hostpath driver is configured to create new volumes under `/csi-data-dir` inside the hostpath container that is specified in the plugin StatefulSet found [here](../deploy/kubernetes-1.36-test/hostpath/csi-hostpath-plugin.yaml).  
 This path persist as long as the StatefulSet pod is up and running.
 
 A file written in a properly mounted Hostpath volume inside an application should show up inside the Hostpath container.  
