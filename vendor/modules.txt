@@ -7,7 +7,7 @@ github.com/blang/semver/v4
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/container-storage-interface/spec v1.13.0
+# github.com/container-storage-interface/spec v1.14.0
 ## explicit; go 1.25.0
 github.com/container-storage-interface/spec/lib/go/csi
 # github.com/fxamacker/cbor/v2 v2.9.3
